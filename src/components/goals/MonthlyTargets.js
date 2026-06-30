@@ -125,7 +125,7 @@ export default function MonthlyTargets({ entries, salary, customGoals = [], user
     },
     {
       label:  "Save & Invest (20%)",
-      tip:    "Higher is better here — a breach means you saved less than the target, not more. Actuals include balance-group deposits, pension accruals, paid life-assurance premiums, and maturity-instrument purchases this month.",
+      tip:    "For savings, a breach means you saved LESS than the target (the opposite of Needs and Wants). It counts anything you put into investments, pension, or life assurance this month.",
       target: saveTarget,
       actual: actualSavings,
       pct:    savePct,
@@ -146,7 +146,7 @@ export default function MonthlyTargets({ entries, salary, customGoals = [], user
         >
           <span>🎉</span>
           <span className="text-sm font-medium" style={{ color: "var(--green)", fontFamily: "var(--font-sans)" }}>
-            Save &amp; Invest target met this month — great work{userName ? `, ${userName}` : ""}!
+            Save &amp; Invest target met this month. Great work{userName ? `, ${userName}` : ""}!
           </span>
         </div>
       )}
@@ -160,7 +160,7 @@ export default function MonthlyTargets({ entries, salary, customGoals = [], user
           style={{ color: "var(--teal)", fontFamily: "var(--font-sans)" }}
         >
           This month's targets
-          <InfoTooltip text="The 50/30/20 rule: 50% of salary for Needs, 30% for Wants, 20% for Save & Invest. Any custom savings goal's required monthly amount is pulled out of Wants and added to Save & Invest automatically — that's what the reallocation note below means." />
+          <InfoTooltip text="The 50/30/20 rule splits your salary: half for necessities (Needs), 30% for discretionary spending (Wants), and 20% for saving and investing. When you add a custom savings goal, the amount it needs each month is automatically moved from your Wants budget into Save & Invest." />
         </p>
 
         {rows.map((row) => (
@@ -191,7 +191,7 @@ export default function MonthlyTargets({ entries, salary, customGoals = [], user
         ))}
 
         <p className="text-xs" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", opacity: 0.7 }}>
-          * Feasibility is checked independently per goal against your 20% baseline ({formatNaira(baseSave, { compact: true })}), not stacked — known simplification.
+          * Each goal is checked independently against your 20% baseline ({formatNaira(baseSave, { compact: true })}). Multiple goals are not stacked together in this check.
         </p>
       </div>
     </div>

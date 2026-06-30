@@ -89,7 +89,7 @@ export default function LiquidityPanel({ balance, avgMonthlyEssential, months, s
         style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}
       >
         Cash & Liquidity
-        <InfoTooltip text="Liquidity coverage = cash now ÷ your average monthly essential spend (last up to 3 months with essential spend). It's a standard benchmark: under 1 month is critically thin, 1–3 is below the safety line, 3–6 is the healthy range, over 6 is very liquid." />
+        <InfoTooltip text="How many months you could cover essential bills (rent, food, transport, etc.) using your current cash balance. Under 1 month is a red flag. 3 to 6 months is the healthy target most financial advisors recommend." />
       </p>
 
       {/* Three-stat row */}
@@ -121,7 +121,7 @@ export default function LiquidityPanel({ balance, avgMonthlyEssential, months, s
         style={{ color, fontFamily: "var(--font-sans)" }}
       >
         {label}
-        {months !== null && ` — ${months.toFixed(1)} months of essential spend covered.`}
+        {months !== null && `: ${months.toFixed(1)} months of essential spend covered.`}
       </p>
 
       {/* 30-day sparkline */}

@@ -55,7 +55,7 @@ export default function EmergencyFundPanel({
         style={{ color: "var(--blue-accent)", fontFamily: "var(--font-sans)" }}
       >
         Emergency Fund
-        <InfoTooltip text="A separate, dedicated cash cushion — kept apart from your regular cash balance and from the Save & Invest target. The default target is 6 × this calendar month's essential spend, recalculated fresh every month, unless you set a manual override below." />
+        <InfoTooltip text="This is your safety net: a separate pot of cash for genuine emergencies like a job loss or medical bill. It's tracked independently from your regular cash balance. The default target is 6 times what you spent on essentials this month (e.g. if you spent ₦150k on rent, food, and transport, the target becomes ₦900k)." />
       </p>
 
       {met && (
@@ -103,8 +103,8 @@ export default function EmergencyFundPanel({
         <p className="text-xs" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>
           {pct.toFixed(1)}% funded
           {target > 0
-            ? ` — target = ${overrideTarget ? "manual override" : "6 × this month's essential spend"}`
-            : " — log essential spend this month to auto-set the target"}
+            ? `. Target: ${overrideTarget ? "manual override" : "6x this month's essential spend"}`
+            : ". Log essential spend this month and the target will auto-calculate"}
         </p>
       </div>
 
@@ -244,7 +244,7 @@ export default function EmergencyFundPanel({
         </div>
       ) : (
         <p className="text-sm" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>
-          No lodgements yet — log your first deposit above.
+          No lodgements yet. Log your first deposit above.
         </p>
       )}
 

@@ -64,7 +64,7 @@ export default function SalarySetup({ salary, paydayDay = 22, onSave }) {
             style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}
           >
             Payday (day of month)
-            <InfoTooltip text="If this date lands on a Saturday or Sunday, your countdown is pulled back to the nearest weekday before it — mirroring standard Nigerian payroll behavior. So a payday of e.g. the 1st can sometimes show a date in the last days of the prior month." />
+            <InfoTooltip text="If your payday falls on a weekend, the countdown shows the Friday before it instead. This mirrors standard Nigerian payroll. So a payday of the 1st might show as the last Friday of the previous month." />
           </label>
           <input
             type="number"

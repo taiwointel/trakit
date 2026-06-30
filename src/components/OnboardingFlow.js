@@ -154,7 +154,7 @@ export default function OnboardingFlow({ userName }) {
   async function handleSave() {
     const clean = key.replace(/[^\x20-\x7E]/g, "").trim();
     if (!clean) { setStatus("Please paste your Groq API key above."); return; }
-    if (!clean.startsWith("gsk_")) { setStatus("Groq keys start with gsk_ — double-check you copied the right thing."); return; }
+    if (!clean.startsWith("gsk_")) { setStatus("Groq keys start with gsk_. Double-check you copied the right thing."); return; }
     setSaving(true);
     setStatus("Saving…");
     try {
@@ -197,7 +197,7 @@ export default function OnboardingFlow({ userName }) {
               You&apos;re all set, {name}!
             </h2>
             <p className="mt-2" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", lineHeight: 1.7, maxWidth: 320, margin: "0.5rem auto 0" }}>
-              Coach RBC is ready and already knows your numbers. Ask her anything — she&apos;s built for this.
+              Coach RBC is ready and already knows your numbers. Ask her anything. She&apos;s built for this.
             </p>
           </div>
           <button
@@ -235,7 +235,7 @@ export default function OnboardingFlow({ userName }) {
           icon={<IconGroq />}
           stepLabel={`Step 1 of ${TOTAL}`}
           title={`Hey ${name}, one quick setup 👋`}
-          body="Trakit7 uses Groq — a free AI service — to power Coach RBC, your personal finance coach. You'll need a free API key. It takes about 2 minutes and costs nothing."
+          body="Trakit7 uses Groq (a free AI service) to power Coach RBC, your personal finance coach. You'll need a free API key. It takes about 2 minutes and costs nothing."
           onNext={() => setStep(1)}
           nextLabel="Let's get the key →"
         />
@@ -246,7 +246,7 @@ export default function OnboardingFlow({ userName }) {
           icon={<IconBrowser />}
           stepLabel={`Step 2 of ${TOTAL}`}
           title="Open the Groq console"
-          body='In a new tab, go to console.groq.com and create a free account. Sign up with email or Google — no credit card needed.'
+          body='In a new tab, go to console.groq.com and create a free account. Sign up with email or Google. No credit card needed.'
           extra={
             <div
               className="flex items-center justify-between px-4 py-3 rounded-xl"
@@ -297,14 +297,14 @@ export default function OnboardingFlow({ userName }) {
           icon={<IconKey />}
           stepLabel={`Step 4 of ${TOTAL}`}
           title="Create a new API key"
-          body={`Click the "+ Create API Key" button. Give it any name — like "Trakit7". The key will appear once. Copy it now — you won't see it again after closing the dialog.`}
+          body={`Click the "+ Create API Key" button. Give it any name, like "Trakit7". The key will appear once. Copy it now. You won't see it again after closing the dialog.`}
           extra={
             <div
               className="px-4 py-3 rounded-xl"
               style={{ background: "rgba(184,57,43,0.1)", border: "1px solid rgba(184,57,43,0.3)" }}
             >
               <p style={{ color: "var(--red)", fontFamily: "var(--font-sans)", fontSize: "0.85rem", lineHeight: 1.6 }}>
-                ⚠️ Copy the key immediately — Groq only shows it once. If you miss it, just delete and create a new one.
+                ⚠️ Copy the key immediately. Groq only shows it once. If you miss it, just delete and create a new one.
               </p>
             </div>
           }
@@ -322,13 +322,13 @@ export default function OnboardingFlow({ userName }) {
             <IconClipboard />
             <span className="text-xs font-semibold uppercase tracking-widest px-3 py-1 rounded-full"
               style={{ background: "rgba(169,133,79,0.15)", color: "var(--gold)", fontFamily: "var(--font-sans)" }}>
-              Step 5 of {TOTAL} — Final step!
+              Step 5 of {TOTAL}: Final step!
             </span>
             <h2 style={{ color: "var(--ink-text)", fontFamily: "var(--font-serif)", fontSize: "1.35rem", fontWeight: 700, lineHeight: 1.3 }}>
               Paste your key below
             </h2>
             <p style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", fontSize: "0.9rem", lineHeight: 1.7 }}>
-              Your key starts with <span style={{ fontFamily: "var(--font-mono)", color: "var(--gold)" }}>gsk_</span>. Paste it here — it&apos;s saved securely and never exposed in the browser.
+              Your key starts with <span style={{ fontFamily: "var(--font-mono)", color: "var(--gold)" }}>gsk_</span>. Paste it here. It&apos;s saved securely and never exposed in the browser.
             </p>
           </div>
 

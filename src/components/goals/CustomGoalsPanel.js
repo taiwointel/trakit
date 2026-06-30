@@ -44,7 +44,7 @@ export default function CustomGoalsPanel({ goals, salary, onAdd, onUpdateSaved, 
           style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}
         >
           Custom savings goals
-          <InfoTooltip text="Each goal needs target − saved-so-far, spread over the months remaining. That required-per-month is checked against your 20% Save & Invest capacity independently per goal — it doesn't account for multiple goals stacking, so 'On track' on several goals at once can still be tight in total." />
+          <InfoTooltip text="Each goal shows how much you need to save per month to hit it on time. 'On track' means that amount fits within your 20% savings budget. Note: if you have several goals, they are checked one by one, not added together, so meeting each individually does not guarantee you can fund all of them at once." />
         </p>
         <button
           onClick={() => setShowForm((v) => !v)}
@@ -135,7 +135,7 @@ export default function CustomGoalsPanel({ goals, salary, onAdd, onUpdateSaved, 
 
       {goals.length === 0 && !showForm && (
         <p className="text-sm" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>
-          No goals yet — add one above to see your personalised 50/30/20 reallocation.
+          No goals yet. Add one above to see how it adjusts your 50/30/20 budget.
         </p>
       )}
 
@@ -205,7 +205,7 @@ function GoalCard({ goal, salary, onUpdateSaved, onDelete }) {
             fontFamily: "var(--font-sans)",
           }}
         >
-          {feasible ? "On track" : "Tight — needs a cut"}
+          {feasible ? "On track" : "Tight"}
         </span>
       </div>
 
@@ -239,7 +239,7 @@ function GoalCard({ goal, salary, onUpdateSaved, onDelete }) {
       <div className="flex items-center gap-2 flex-wrap">
         <span className="text-xs flex items-center gap-1.5" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>
           Required/month:
-          <InfoTooltip text="(Target − saved so far) ÷ months remaining until the target date." />
+          <InfoTooltip text="How much you need to save each month from today to reach the target on time. Calculated as: (target amount minus what you have saved so far) divided by months remaining." />
         </span>
         <span
           className="text-sm font-semibold"
@@ -249,7 +249,7 @@ function GoalCard({ goal, salary, onUpdateSaved, onDelete }) {
         </span>
         {!feasible && salary && (
           <span className="text-xs" style={{ color: "var(--amber)", fontFamily: "var(--font-sans)" }}>
-            — exceeds 20% capacity ({formatNaira(salary * 0.20, { compact: true })})
+            (exceeds 20% savings budget of {formatNaira(salary * 0.20, { compact: true })})
           </span>
         )}
       </div>

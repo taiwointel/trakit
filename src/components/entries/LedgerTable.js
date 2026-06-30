@@ -10,7 +10,7 @@ const NATURES        = ["Fixed", "Variable", "—"];
 function ConfidenceDot({ status, confidence }) {
   if (status === "pending") return <span className="text-xs" style={{ color: "var(--ink-text-dim)" }}>…</span>;
   if (status === "fallback") return (
-    <span title="Keyword fallback — check category" style={{
+    <span title="Auto-categorised by keyword. Check and confirm category." style={{
       display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: "var(--amber)", flexShrink: 0,
     }} />
   );
@@ -92,7 +92,7 @@ export default function LedgerTable({ entries, onUpdate, onDelete }) {
   if (entries.length === 0) {
     return (
       <div className="px-4 py-8 text-center text-sm" style={{ color: "var(--paper-text-dim)", fontFamily: "var(--font-sans)" }}>
-        No entries yet — add one above.
+        No entries yet. Add one above.
       </div>
     );
   }

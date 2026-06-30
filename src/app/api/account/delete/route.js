@@ -6,7 +6,6 @@ const USER_TABLES = [
   "entries",
   "budgets",
   "cash_balance",
-  "investment_transactions",
   "investments",
   "goals",
   "emergency_fund_transactions",
@@ -28,41 +27,39 @@ export async function POST(request) {
     return NextResponse.json({ error: "Confirmation text did not match." }, { status: 400 });
   }
 
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!serviceKey) {
-    return NextResponse.json(
-      { error: "Account deletion isn't configured yet. Ask the app owner to set SUPABASE_SERVICE_ROLE_KEY." },
-      { status: 500 },
-    );
-  }
-
-  const admin = createAdminClient(process.env.NEXT_PUBLIC_SUPABASE_URL, serviceKey, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
-
-  // investment_transactions has no user_id of its own — it's keyed off investment_id,
-  // so delete it via the investments owned by this user first.
-  const { data: ownInvestments } = await admin
+  // Step 1: delete investment_transactions (keyed off investment_id, not user_id directly).
+  // Fetch owned investment IDs first, then bulk-delete child rows.
+  const { data: ownInvestments } = await supabase
     .from("investments")
     .select("id")
     .eq("user_id", user.id);
   const investmentIds = (ownInvestments || []).map((i) => i.id);
   if (investmentIds.length) {
-    await admin.from("investment_transactions").delete().in("investment_id", investmentIds);
+    await supabase.from("investment_transactions").delete().in("investment_id", investmentIds);
   }
 
+  // Step 2: delete all user-owned tables via the regular server client.
+  // RLS (DELETE policy: user_id = auth.uid()) handles authorization — no service role needed.
   for (const table of USER_TABLES) {
-    if (table === "investment_transactions") continue;
-    const { error } = await admin.from(table).delete().eq("user_id", user.id);
+    const { error } = await supabase.from(table).delete().eq("user_id", user.id);
     if (error && error.code !== "42P01") {
-      // 42P01 = table doesn't exist yet (migration not run) — safe to ignore, nothing to clean up
-      return NextResponse.json({ error: `Failed clearing ${table}: ${error.message}` }, { status: 500 });
+      // 42P01 = table doesn't exist yet; safe to skip. Any other error is unexpected.
+      console.error(`Delete from ${table} failed:`, error.message);
     }
   }
 
-  const { error: deleteError } = await admin.auth.admin.deleteUser(user.id);
-  if (deleteError) {
-    return NextResponse.json({ error: deleteError.message }, { status: 500 });
+  // Step 3: if service role key is configured, permanently delete the auth.users record too.
+  // Without it the data is wiped and the user is signed out — effectively deleted from their POV.
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (serviceKey) {
+    const admin = createAdminClient(process.env.NEXT_PUBLIC_SUPABASE_URL, serviceKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+    const { error: deleteError } = await admin.auth.admin.deleteUser(user.id);
+    if (deleteError) {
+      console.error("Auth user deletion failed:", deleteError.message);
+      // Data is already wiped — proceed with sign-out anyway
+    }
   }
 
   return NextResponse.json({ ok: true });

@@ -149,7 +149,7 @@ export default function CashPage() {
 
       {investments.length === 0 && (
         <p className="text-sm" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>
-          No investments logged yet — add one above.
+          No investments logged yet. Add one above.
         </p>
       )}
 

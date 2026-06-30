@@ -181,7 +181,7 @@ export default function AppLayout({ children }) {
       </header>
 
       {/* Page content */}
-      <main className="flex-1 overflow-y-auto pb-16 md:pb-0">
+      <main className="flex-1 overflow-y-auto pb-16 md:pb-0 flex flex-col">
         {children}
       </main>
 

@@ -16,7 +16,7 @@ import { maturityCalc, balanceNetValue }     from "@/lib/investments";
 const SUGGESTED_PROMPTS = [
   "How am I tracking against the 50/30/20 rule this month?",
   "What are my biggest discretionary expenses and where can I cut?",
-  "How healthy is my emergency fund — what does it actually cover?",
+  "How healthy is my emergency fund? What does it actually cover?",
   "What's the best way to invest ₦500k safely in Nigeria right now?",
 ];
 
@@ -214,8 +214,8 @@ export default function ChatPage() {
   const firstName = name ? name.split(" ")[0] : null;
 
   return (
-    <div className="flex flex-col" style={{ height: "100%" }}>
-      <div className="max-w-3xl mx-auto w-full flex flex-col" style={{ height: "100%" }}>
+    <div className="flex flex-col flex-1 min-h-0">
+      <div className="max-w-3xl mx-auto w-full flex flex-col flex-1 min-h-0">
 
         {/* ── Header ── */}
         <div
@@ -248,7 +248,7 @@ export default function ChatPage() {
                 className="text-xs mt-0.5"
                 style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}
               >
-                Your personal finance coach — knows your numbers
+                Your personal finance coach
               </p>
             </div>
           </div>
@@ -298,7 +298,7 @@ export default function ChatPage() {
                   className="text-sm mt-2 max-w-xs mx-auto leading-relaxed"
                   style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}
                 >
-                  I already have full visibility into your finances — spending, savings, investments, and goals. Ask me anything.
+                  I already know your spending, savings, investments, and goals. Ask me anything.
                 </p>
               </div>
 

@@ -18,25 +18,25 @@
   --rule-paper:     rgba(21, 25, 31, 0.13);
 
   /* Accent + semantic */
-  --gold:           #A9854F;
-  --gold-deep:      #C8862E;
-  --green:          #2F7A56;
-  --green-soft:     rgba(47, 122, 86, 0.15);
-  --amber:          #C8862E;
-  --amber-soft:     rgba(200, 134, 46, 0.18);
-  --red:            #B8392B;
-  --red-soft:       rgba(184, 57, 43, 0.15);
-  --blue-accent:    #5B8FA8;
+  --gold:           #D4A030;
+  --gold-deep:      #E8920A;
+  --green:          #25B56A;
+  --green-soft:     rgba(37, 181, 106, 0.15);
+  --amber:          #E8920A;
+  --amber-soft:     rgba(232, 146, 10, 0.18);
+  --red:            #E84030;
+  --red-soft:       rgba(232, 64, 48, 0.15);
+  --blue-accent:    #4AAEE0;
 
-  /* Vivid secondary accents — used to break the gold-monotone look across panels */
-  --violet:         #8A6FA8;
-  --violet-soft:    rgba(138, 111, 168, 0.18);
-  --teal:           #2F9C8F;
-  --teal-soft:      rgba(47, 156, 143, 0.16);
-  --rose:           #C8537A;
-  --rose-soft:      rgba(200, 83, 122, 0.16);
-  --sky:            #4F9FD6;
-  --sky-soft:       rgba(79, 159, 214, 0.16);
+  /* Vivid secondary accents */
+  --violet:         #9B72D6;
+  --violet-soft:    rgba(155, 114, 214, 0.18);
+  --teal:           #1BBFAE;
+  --teal-soft:      rgba(27, 191, 174, 0.16);
+  --rose:           #F04A80;
+  --rose-soft:      rgba(240, 74, 128, 0.16);
+  --sky:            #3BB5E8;
+  --sky-soft:       rgba(59, 181, 232, 0.16);
 }
 
 @theme inline {
@@ -69,9 +69,10 @@ body {
 
 body {
   background:
-    radial-gradient(ellipse 900px 500px at 8% -10%, rgba(200,134,46,0.16), transparent 60%),
-    radial-gradient(ellipse 800px 480px at 100% 0%, rgba(138,111,168,0.13), transparent 55%),
-    radial-gradient(ellipse 700px 600px at 50% 100%, rgba(47,156,143,0.08), transparent 60%),
+    radial-gradient(ellipse 1100px 620px at 5% -8%,  rgba(232,146,10,0.24),  transparent 58%),
+    radial-gradient(ellipse 900px 550px  at 98% 2%,  rgba(155,114,214,0.20), transparent 54%),
+    radial-gradient(ellipse 800px 700px  at 50% 105%,rgba(27,191,174,0.14),  transparent 60%),
+    radial-gradient(ellipse 600px 400px  at 70% 45%, rgba(240,74,128,0.08),  transparent 52%),
     var(--ink);
   background-attachment: fixed;
   color: var(--ink-text);
@@ -116,6 +117,15 @@ select {
 .slide-in {
   animation: fadeSlideUp 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
+
+/* Card glass surface — subtle gradient lift on the dark ink panels */
+.card-surface {
+  background: linear-gradient(145deg, #1E2530 0%, #1A2028 100%);
+}
+
+/* Glowing ring for key metric values */
+.glow-gold { text-shadow: 0 0 18px rgba(212,160,48,0.5); }
+.glow-green { text-shadow: 0 0 18px rgba(37,181,106,0.45); }
 
 /* Hide scrollbar while preserving scroll behaviour */
 .hide-scrollbar {

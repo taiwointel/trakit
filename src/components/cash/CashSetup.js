@@ -32,7 +32,7 @@ export default function CashSetup({ anchor, onSave }) {
         style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}
       >
         Cash balance
-        <InfoTooltip text="There's no stored running balance — every day's balance is computed fresh from this anchor point plus every ledger entry from that date forward. Re-anchoring just moves the reference point; it never edits or deletes past entries." />
+        <InfoTooltip text="Your balance is calculated live from a single starting point (the anchor) plus all your entries after it. You are not storing a running total; the app recomputes it every time. Re-anchoring just moves that starting point and never changes your past entries." />
       </p>
 
       {hasAnchor && (
@@ -103,7 +103,7 @@ export default function CashSetup({ anchor, onSave }) {
 
       {hasAnchor && (
         <p className="text-xs" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", opacity: 0.7 }}>
-          Re-anchoring moves the reference point only — it never rewrites your ledger entries.
+          Re-anchoring just moves the starting point. Your past entries are not changed.
         </p>
       )}
     </div>
