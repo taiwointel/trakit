@@ -261,8 +261,8 @@ export default function OnboardingFlow({ userName }) {
         <StepCard
           icon={<IconSidebar />}
           stepLabel={`Step 3 of ${TOTAL}`}
-          title='Click "API Keys" in the sidebar'
-          body='Once you\'re logged in, look at the left sidebar. Click "API Keys". You\'ll land on a page that manages your keys.'
+          title={`Click "API Keys" in the sidebar`}
+          body={`Once you're logged in, look at the left sidebar. Click "API Keys". You'll land on a page that manages your keys.`}
           extra={
             <div
               className="px-4 py-3 rounded-xl"
@@ -282,8 +282,8 @@ export default function OnboardingFlow({ userName }) {
         <StepCard
           icon={<IconKey />}
           stepLabel={`Step 4 of ${TOTAL}`}
-          title='Create a new API key'
-          body='Click the "+ Create API Key" button. Give it any name — like "Trackit". The key will appear once. Copy it now — you won\'t see it again after closing the dialog.'
+          title="Create a new API key"
+          body={`Click the "+ Create API Key" button. Give it any name — like "Trackit". The key will appear once. Copy it now — you won't see it again after closing the dialog.`}
           extra={
             <div
               className="px-4 py-3 rounded-xl"
