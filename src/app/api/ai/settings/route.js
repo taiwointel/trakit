@@ -8,11 +8,14 @@ export async function GET() {
 
   const { data } = await supabase
     .from("user_ai_settings")
-    .select("provider")
+    .select("provider, groq_key_encrypted")
     .eq("user_id", user.id)
     .maybeSingle();
 
-  return NextResponse.json({ provider: data?.provider ?? "gemini" });
+  return NextResponse.json({
+    provider: "groq",
+    hasKey: !!(data?.groq_key_encrypted),
+  });
 }
 
 export async function POST(request) {

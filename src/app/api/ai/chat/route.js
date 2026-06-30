@@ -32,7 +32,7 @@ export async function POST(request) {
 
     if (settings?.provider === "groq" && settings.groq_key_encrypted) {
       const groqSystem = systemPrompt + (webSearch
-        ? "\n\nNOTE: Taiwo has asked for live web research but this model does not support real-time web search. Clearly acknowledge this limitation, then answer from your training knowledge and remind Taiwo that rates and product details may have changed — she should verify directly with the provider."
+        ? `\n\nNOTE: ${name || "the user"} has asked for live web research but this model does not support real-time web search. Clearly acknowledge this limitation, then answer from your training knowledge and remind ${name || "them"} that rates and product details may have changed — they should verify directly with the provider.`
         : "");
 
       const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -54,7 +54,7 @@ export async function POST(request) {
 
     } else if (settings?.provider === "claude" && settings.claude_key_encrypted) {
       const claudeSystem = systemPrompt + (webSearch
-        ? "\n\nWhen you use web search, always name your source explicitly and remind Taiwo that rates change — she should verify directly with the provider before acting. Never present yourself as executing a financial decision, only informing one."
+        ? `\n\nWhen you use web search, always name your source explicitly and remind ${name || "the user"} that rates change — they should verify directly with the provider before acting. Never present yourself as executing a financial decision, only informing one.`
         : "");
 
       const claudeHeaders = {
@@ -91,7 +91,7 @@ export async function POST(request) {
       if (!key) throw new Error("No AI key configured. Open Settings and add one.");
 
       const geminiSystem = systemPrompt + (webSearch
-        ? "\n\nWhen you use Google Search, always name your source explicitly and remind Taiwo that rates change — she should verify directly with the provider before acting. Never present yourself as executing a financial decision, only informing one."
+        ? `\n\nWhen you use Google Search, always name your source explicitly and remind ${name || "the user"} that rates change — they should verify directly with the provider before acting. Never present yourself as executing a financial decision, only informing one.`
         : "");
 
       const geminiContents = messages.map((m) => ({

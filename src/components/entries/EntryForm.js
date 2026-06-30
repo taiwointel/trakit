@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import { formatAmountInput, parseAmount, todayISO } from "@/lib/format";
 
 export default function EntryForm({ entries, onAdd }) {
@@ -10,12 +10,13 @@ export default function EntryForm({ entries, onAdd }) {
   const [to,     setTo]     = useState("");
   const [flow,   setFlow]   = useState("out");
   const [busy,   setBusy]   = useState(false);
+  const [showSuggest, setShowSuggest] = useState(false);
+  const toRef = useRef(null);
 
-  // Separate autocomplete pools for "to" vs "from"
   const outNames = [...new Set(entries.filter((e) => e.flow === "out" && e.beneficiary).map((e) => e.beneficiary))];
   const inNames  = [...new Set(entries.filter((e) => e.flow === "in"  && e.beneficiary).map((e) => e.beneficiary))];
-  const suggestions = (flow === "out" ? outNames : inNames).filter((n) =>
-    to && n.toLowerCase().includes(to.toLowerCase()),
+  const suggestions = (flow === "out" ? outNames : inNames).filter(
+    (n) => to && n.toLowerCase().includes(to.toLowerCase()),
   );
 
   async function handleSubmit(e) {
@@ -23,142 +24,177 @@ export default function EntryForm({ entries, onAdd }) {
     const parsed = parseAmount(amount);
     if (!desc.trim() || parsed <= 0) return;
     setBusy(true);
-    await onAdd({
-      date,
-      desc:        desc.trim(),
-      amount:      parsed,
-      flow,
-      beneficiary: to.trim() || null,
-    });
+    await onAdd({ date, desc: desc.trim(), amount: parsed, flow, beneficiary: to.trim() || null });
     setDesc("");
     setAmount("");
     setTo("");
     setBusy(false);
   }
 
+  const isOut = flow === "out";
+
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="grid gap-2 p-4"
-      style={{ gridTemplateColumns: "auto 1fr auto auto auto auto" }}
-    >
-      {/* Date */}
-      <input
-        type="date"
-        value={date}
-        onChange={(e) => setDate(e.target.value)}
-        className="px-2 py-2 rounded text-sm outline-none"
-        style={{
-          background:  "var(--ink-3)",
-          border:      "1px solid var(--rule)",
-          color:       "var(--ink-text)",
-          fontFamily:  "var(--font-mono)",
-        }}
-      />
+    <form onSubmit={handleSubmit}>
+      <div
+        className="px-4 pt-4 pb-3 flex flex-col gap-3"
+        style={{ background: "var(--ink-2)" }}
+      >
+        {/* Row 1: Description full width */}
+        <div className="relative">
+          <input
+            type="text"
+            value={desc}
+            onChange={(e) => setDesc(e.target.value)}
+            placeholder="What was this for? (e.g. Fuel at Oando)"
+            required
+            className="w-full px-4 py-2.5 rounded-xl text-sm outline-none transition-colors"
+            style={{
+              background: "var(--ink-3)",
+              border:     "1px solid var(--rule)",
+              color:      "var(--ink-text)",
+              fontFamily: "var(--font-sans)",
+            }}
+          />
+        </div>
 
-      {/* Description */}
-      <input
-        type="text"
-        value={desc}
-        onChange={(e) => setDesc(e.target.value)}
-        placeholder="Description"
-        className="px-3 py-2 rounded text-sm outline-none"
-        style={{
-          background: "var(--ink-3)",
-          border:     "1px solid var(--rule)",
-          color:      "var(--ink-text)",
-          fontFamily: "var(--font-sans)",
-        }}
-      />
+        {/* Row 2: Amount + Flow toggle */}
+        <div className="flex gap-2">
+          {/* Amount */}
+          <div className="relative flex-1">
+            <span
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold pointer-events-none"
+              style={{ color: isOut ? "var(--red)" : "var(--green)", fontFamily: "var(--font-mono)" }}
+            >
+              ₦
+            </span>
+            <input
+              type="text"
+              inputMode="decimal"
+              value={amount}
+              onChange={(e) => setAmount(formatAmountInput(e.target.value))}
+              placeholder="0.00"
+              className="w-full pl-8 pr-3 py-2.5 rounded-xl text-sm outline-none"
+              style={{
+                background: "var(--ink-3)",
+                border:     `1px solid ${isOut ? "rgba(184,57,43,0.35)" : "rgba(47,122,86,0.35)"}`,
+                color:      isOut ? "var(--red)" : "var(--green)",
+                fontFamily: "var(--font-mono)",
+                fontWeight: 600,
+              }}
+            />
+          </div>
 
-      {/* Amount */}
-      <input
-        type="text"
-        inputMode="decimal"
-        value={amount}
-        onChange={(e) => setAmount(formatAmountInput(e.target.value))}
-        placeholder="₦ Amount"
-        className="px-3 py-2 rounded text-sm outline-none w-36"
-        style={{
-          background: "var(--ink-3)",
-          border:     "1px solid var(--rule)",
-          color:      "var(--ink-text)",
-          fontFamily: "var(--font-mono)",
-        }}
-      />
+          {/* Flow toggle — pill buttons */}
+          <div
+            className="flex rounded-xl overflow-hidden shrink-0"
+            style={{ border: "1px solid var(--rule)", background: "var(--ink-3)" }}
+          >
+            <button
+              type="button"
+              onClick={() => setFlow("out")}
+              className="px-3 py-2.5 text-xs font-semibold transition-all"
+              style={{
+                background: isOut  ? "var(--red)" : "transparent",
+                color:      isOut  ? "#fff"       : "var(--ink-text-dim)",
+                fontFamily: "var(--font-sans)",
+              }}
+            >
+              Out ↑
+            </button>
+            <button
+              type="button"
+              onClick={() => setFlow("in")}
+              className="px-3 py-2.5 text-xs font-semibold transition-all"
+              style={{
+                background: !isOut ? "var(--green)" : "transparent",
+                color:      !isOut ? "#fff"         : "var(--ink-text-dim)",
+                fontFamily: "var(--font-sans)",
+              }}
+            >
+              In ↓
+            </button>
+          </div>
+        </div>
 
-      {/* To / From */}
-      <div className="relative">
-        <input
-          type="text"
-          value={to}
-          onChange={(e) => setTo(e.target.value)}
-          placeholder={flow === "out" ? "To (optional)" : "From (optional)"}
-          className="px-3 py-2 rounded text-sm outline-none w-36"
-          style={{
-            background: "var(--ink-3)",
-            border:     "1px solid var(--rule)",
-            color:      "var(--ink-text)",
-            fontFamily: "var(--font-sans)",
-          }}
-          autoComplete="off"
-        />
-        {suggestions.length > 0 && (
-          <ul
-            className="absolute top-full left-0 mt-1 rounded shadow-lg z-10 overflow-hidden"
+        {/* Row 3: Date + To/From + Submit */}
+        <div className="flex gap-2 items-center">
+          {/* Date */}
+          <input
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            className="px-3 py-2.5 rounded-xl text-xs outline-none shrink-0"
             style={{
               background:  "var(--ink-3)",
               border:      "1px solid var(--rule)",
-              minWidth:    "100%",
+              color:       "var(--ink-text-dim)",
+              fontFamily:  "var(--font-mono)",
+              colorScheme: "dark",
+            }}
+          />
+
+          {/* To / From with autocomplete */}
+          <div className="relative flex-1">
+            <input
+              ref={toRef}
+              type="text"
+              value={to}
+              onChange={(e) => { setTo(e.target.value); setShowSuggest(true); }}
+              onBlur={() => setTimeout(() => setShowSuggest(false), 150)}
+              onFocus={() => setShowSuggest(true)}
+              placeholder={isOut ? "To (optional)" : "From (optional)"}
+              autoComplete="off"
+              className="w-full px-3 py-2.5 rounded-xl text-sm outline-none"
+              style={{
+                background: "var(--ink-3)",
+                border:     "1px solid var(--rule)",
+                color:      "var(--ink-text)",
+                fontFamily: "var(--font-sans)",
+              }}
+            />
+            {showSuggest && suggestions.length > 0 && (
+              <ul
+                className="absolute top-full left-0 mt-1 rounded-xl shadow-xl z-20 overflow-hidden w-full"
+                style={{ background: "var(--ink-3)", border: "1px solid var(--rule)" }}
+              >
+                {suggestions.slice(0, 5).map((s) => (
+                  <li key={s}>
+                    <button
+                      type="button"
+                      onClick={() => { setTo(s); setShowSuggest(false); }}
+                      className="w-full text-left px-4 py-2 text-sm hover:bg-opacity-80"
+                      style={{
+                        color:      "var(--ink-text)",
+                        fontFamily: "var(--font-sans)",
+                        background: "transparent",
+                      }}
+                    >
+                      {s}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          {/* Submit */}
+          <button
+            type="submit"
+            disabled={busy || !desc.trim() || !amount}
+            className="shrink-0 px-5 py-2.5 rounded-xl text-sm font-bold transition-all"
+            style={{
+              background: busy || !desc.trim() || !amount
+                ? "var(--ink-3)"
+                : "linear-gradient(135deg, var(--gold-deep), var(--gold))",
+              color:      busy || !desc.trim() || !amount ? "var(--ink-text-dim)" : "#fff",
+              fontFamily: "var(--font-sans)",
+              border:     "1px solid " + (busy || !desc.trim() || !amount ? "var(--rule)" : "transparent"),
             }}
           >
-            {suggestions.slice(0, 5).map((s) => (
-              <li key={s}>
-                <button
-                  type="button"
-                  onClick={() => setTo(s)}
-                  className="w-full text-left px-3 py-1.5 text-sm"
-                  style={{ color: "var(--ink-text)", fontFamily: "var(--font-sans)" }}
-                >
-                  {s}
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
+            {busy ? "…" : "+ Add"}
+          </button>
+        </div>
       </div>
-
-      {/* Flow select */}
-      <select
-        value={flow}
-        onChange={(e) => setFlow(e.target.value)}
-        className="px-2 py-2 rounded text-sm outline-none"
-        style={{
-          background: "var(--ink-3)",
-          border:     "1px solid var(--rule)",
-          color:      flow === "out" ? "var(--red)" : "var(--green)",
-          fontFamily: "var(--font-sans)",
-          cursor:     "pointer",
-        }}
-      >
-        <option value="out">Money out</option>
-        <option value="in">Money in</option>
-      </select>
-
-      {/* Submit */}
-      <button
-        type="submit"
-        disabled={busy}
-        className="px-4 py-2 rounded text-sm font-semibold transition-opacity"
-        style={{
-          background: "var(--gold)",
-          color:      "#fff",
-          opacity:    busy ? 0.6 : 1,
-          fontFamily: "var(--font-sans)",
-        }}
-      >
-        {busy ? "…" : "Add"}
-      </button>
     </form>
   );
 }

@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import SettingsDrawer from "@/components/SettingsDrawer";
+import OnboardingFlow from "@/components/OnboardingFlow";
+import { useUser } from "@/hooks/useUser";
 
 const TABS = [
   {
@@ -58,9 +60,47 @@ const TABS = [
   },
 ];
 
+/* ── Trackit SVG logo mark ── */
+function TrackitLogo() {
+  return (
+    <div className="flex items-center gap-2.5 select-none shrink-0">
+      <svg width="30" height="30" viewBox="0 0 30 30" fill="none">
+        <defs>
+          <linearGradient id="tl-grad" x1="0" y1="0" x2="30" y2="30">
+            <stop stopColor="#C8862E"/>
+            <stop offset="1" stopColor="#A9854F"/>
+          </linearGradient>
+        </defs>
+        <rect width="30" height="30" rx="8" fill="url(#tl-grad)"/>
+        {/* Track: upward path */}
+        <path d="M8 22 L12 16 L17 19 L22 10" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+        {/* Dot at peak */}
+        <circle cx="22" cy="10" r="2.5" fill="white"/>
+        {/* Base line */}
+        <path d="M7 24 H23" stroke="white" strokeWidth="1.5" strokeLinecap="round" opacity="0.5"/>
+      </svg>
+      <div className="flex flex-col leading-none">
+        <span
+          className="text-base font-bold leading-tight"
+          style={{ color: "var(--ink-text)", fontFamily: "var(--font-serif)", letterSpacing: -0.5 }}
+        >
+          Trackit
+        </span>
+        <span
+          className="text-[9px] font-semibold uppercase tracking-widest leading-tight hidden sm:block"
+          style={{ color: "var(--gold)", fontFamily: "var(--font-sans)" }}
+        >
+          Expense Tracker
+        </span>
+      </div>
+    </div>
+  );
+}
+
 export default function AppLayout({ children }) {
   const pathname = usePathname();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const { name } = useUser();
 
   useEffect(() => {
     function onKey(e) {
@@ -70,39 +110,33 @@ export default function AppLayout({ children }) {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  const activeTab = TABS.find((t) => t.href === pathname);
+
   return (
     <div className="flex flex-col h-full min-h-screen" style={{ background: "var(--ink)" }}>
+
       {/* ── Topbar ─────────────────────────────────────────── */}
       <header
-        className="flex items-center gap-3 px-4 py-3 border-b shrink-0"
-        style={{ borderColor: "var(--rule)", background: "var(--ink-2)" }}
+        className="flex items-center gap-3 px-4 py-2.5 border-b shrink-0"
+        style={{
+          borderColor: "var(--rule)",
+          background: "linear-gradient(to bottom, var(--ink-2) 0%, rgba(29,35,44,0.95) 100%)",
+          backdropFilter: "blur(8px)",
+        }}
       >
         {/* Brand */}
-        <div className="flex flex-col leading-none select-none shrink-0">
-          <span
-            className="text-base font-bold leading-tight"
-            style={{ color: "var(--ink-text)", fontFamily: "var(--font-serif)", letterSpacing: -0.4 }}
-          >
-            Trackit
-          </span>
-          <span
-            className="text-[9px] font-medium uppercase tracking-widest leading-tight"
-            style={{ color: "var(--gold)", fontFamily: "var(--font-sans)" }}
-          >
-            Daily Expense Tracker
-          </span>
-        </div>
+        <TrackitLogo />
 
-        {/* Desktop tabs — hidden on mobile */}
+        {/* Desktop tabs */}
         <nav className="hidden md:flex flex-1 overflow-x-auto hide-scrollbar">
-          <div className="flex gap-1 min-w-max mx-auto">
+          <div className="flex gap-0.5 min-w-max mx-auto">
             {TABS.map((tab) => {
               const active = pathname === tab.href;
               return (
                 <Link
                   key={tab.href}
                   href={tab.href}
-                  className="px-3 py-1.5 rounded text-sm font-medium whitespace-nowrap transition-colors border-b-2"
+                  className="px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-all border-b-2"
                   style={{
                     background:  active ? "var(--ink-3)" : "transparent",
                     color:       active ? "var(--ink-text)" : "var(--ink-text-dim)",
@@ -123,7 +157,7 @@ export default function AppLayout({ children }) {
             className="text-sm font-semibold"
             style={{ color: "var(--ink-text)", fontFamily: "var(--font-sans)" }}
           >
-            {TABS.find((t) => t.href === pathname)?.label ?? "Ledger"}
+            {activeTab?.label ?? "Trackit"}
           </span>
         </div>
 
@@ -131,10 +165,10 @@ export default function AppLayout({ children }) {
         <button
           onClick={() => setSettingsOpen(true)}
           className="shrink-0 w-9 h-9 flex items-center justify-center rounded-lg transition-colors"
-          style={{ color: "var(--ink-text-dim)", background: "var(--ink-3)" }}
+          style={{ color: "var(--ink-text-dim)", background: "var(--ink-3)", border: "1px solid var(--rule)" }}
           aria-label="Open settings"
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="12" cy="12" r="3"/>
             <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
           </svg>
@@ -149,7 +183,11 @@ export default function AppLayout({ children }) {
       {/* ── Mobile bottom navigation ───────────────────────── */}
       <nav
         className="md:hidden fixed bottom-0 left-0 right-0 z-30 flex border-t"
-        style={{ background: "var(--ink-2)", borderColor: "var(--rule)" }}
+        style={{
+          background: "var(--ink-2)",
+          borderColor: "var(--rule)",
+          boxShadow: "0 -4px 20px rgba(0,0,0,0.3)",
+        }}
       >
         {TABS.map((tab) => {
           const active = pathname === tab.href;
@@ -162,11 +200,13 @@ export default function AppLayout({ children }) {
                 color:      active ? "var(--gold)" : "var(--ink-text-dim)",
                 fontFamily: "var(--font-sans)",
                 minHeight:  52,
+                borderTop:  active ? "2px solid var(--gold)" : "2px solid transparent",
+                marginTop:  -1,
               }}
             >
-              <span style={{ opacity: active ? 1 : 0.7 }}>{tab.icon}</span>
+              <span style={{ opacity: active ? 1 : 0.6 }}>{tab.icon}</span>
               <span
-                className="text-[9px] font-semibold uppercase tracking-wide"
+                className="text-[9px] font-bold uppercase tracking-wide"
                 style={{ color: active ? "var(--gold)" : "var(--ink-text-dim)" }}
               >
                 {tab.shortLabel}
@@ -178,6 +218,9 @@ export default function AppLayout({ children }) {
 
       {/* Settings drawer */}
       <SettingsDrawer open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+
+      {/* Onboarding — shown when user has no Groq key */}
+      <OnboardingFlow userName={name} />
     </div>
   );
 }
