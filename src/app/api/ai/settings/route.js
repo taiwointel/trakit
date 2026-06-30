@@ -1,6 +1,20 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
+export async function GET() {
+  const supabase = await createClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) return NextResponse.json({ error: "Not authenticated." }, { status: 401 });
+
+  const { data } = await supabase
+    .from("user_ai_settings")
+    .select("provider")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  return NextResponse.json({ provider: data?.provider ?? "gemini" });
+}
+
 export async function POST(request) {
   const supabase = await createClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();

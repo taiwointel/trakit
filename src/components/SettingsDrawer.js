@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 
 const PROVIDERS = [
   { id: "gemini", label: "Gemini" },
@@ -9,10 +11,24 @@ const PROVIDERS = [
 ];
 
 export default function SettingsDrawer({ open, onClose }) {
+  const router   = useRouter();
+  const supabase = createClient();
+
   const [provider, setProvider] = useState("gemini");
   const [keys, setKeys]         = useState({ gemini: "", groq: "", claude: "" });
   const [status, setStatus]     = useState("");
   const [testing, setTesting]   = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
+
+  // Load the currently active provider whenever the drawer opens
+  useEffect(() => {
+    if (!open) return;
+    setStatus("");
+    fetch("/api/ai/settings")
+      .then((r) => r.json())
+      .then((d) => { if (d.provider) setProvider(d.provider); })
+      .catch(() => {});
+  }, [open]);
 
   async function saveKey() {
     setStatus("Saving…");
@@ -45,6 +61,14 @@ export default function SettingsDrawer({ open, onClose }) {
   function clearKey() {
     setKeys((k) => ({ ...k, [provider]: "" }));
     setStatus("Key cleared locally. Save to persist.");
+  }
+
+  async function signOut() {
+    setSigningOut(true);
+    await supabase.auth.signOut();
+    onClose();
+    router.push("/auth");
+    router.refresh();
   }
 
   if (!open) return null;
@@ -96,7 +120,7 @@ export default function SettingsDrawer({ open, onClose }) {
         </div>
 
         {/* Connection panel */}
-        <div className="px-5 py-5 flex flex-col gap-4">
+        <div className="px-5 py-5 flex flex-col gap-4 flex-1">
           <p
             className="text-xs font-semibold uppercase tracking-widest mb-1"
             style={{ color: "var(--ink-text-dim)" }}
@@ -193,6 +217,24 @@ export default function SettingsDrawer({ open, onClose }) {
               {status}
             </p>
           )}
+        </div>
+
+        {/* Sign out */}
+        <div className="px-5 py-4 border-t shrink-0" style={{ borderColor: "var(--rule)" }}>
+          <button
+            onClick={signOut}
+            disabled={signingOut}
+            className="w-full py-2 rounded text-sm font-medium transition-opacity"
+            style={{
+              background: "var(--ink-3)",
+              border:     "1px solid var(--rule)",
+              color:      "var(--red)",
+              opacity:    signingOut ? 0.6 : 1,
+              fontFamily: "var(--font-sans)",
+            }}
+          >
+            {signingOut ? "Signing out…" : "Sign out"}
+          </button>
         </div>
       </div>
     </>

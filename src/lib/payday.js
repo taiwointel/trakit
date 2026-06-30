@@ -29,7 +29,9 @@ export function nextPayday(paydayDay = 22) {
 
   const msDay      = 1000 * 60 * 60 * 24;
   const daysUntil  = Math.round((candidate - today) / msDay);
-  const isoDate    = candidate.toISOString().slice(0, 10);
+  // Use local date parts — toISOString() is UTC and shifts date back in UTC+ zones (e.g. WAT UTC+1)
+  const pad        = (n) => String(n).padStart(2, "0");
+  const isoDate    = `${candidate.getFullYear()}-${pad(candidate.getMonth() + 1)}-${pad(candidate.getDate())}`;
 
   return { daysUntil, isoDate };
 }
