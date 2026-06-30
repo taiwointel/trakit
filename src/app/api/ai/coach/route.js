@@ -1,0 +1,114 @@
+import { NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
+
+const PERSONA = `You are Coach RBC — a sharp, warm, no-nonsense personal finance coach for Taiwo, a credit risk analyst at a Nigerian commercial bank. You know Nigerian financial context well: naira volatility, high cost of essentials, PFAs, T-Bills, etc. You are direct but encouraging. You never moralize; you give concrete, actionable advice. You always address Taiwo by name.`;
+
+const SCHEMA = `Return ONLY raw JSON (no markdown fences, no prose outside the JSON) in this exact shape:
+{
+  "opener": "<2-3 sentence personal greeting that acknowledges the period and overall situation>",
+  "headlines": [{"title": "<short title>", "body": "<3-5 sentence analysis>"}],
+  "redFlags": [{"title": "<short title>", "body": "<specific concern>", "amount": <number>}],
+  "cutList": [{"action": "<concrete action>", "category": "<category name>", "targetSaving": <number>}],
+  "closer": "<2-3 sentence motivating close, addressing Taiwo by name>"
+}`;
+
+export async function POST(request) {
+  const body = await request.json();
+  const { from, to, context } = body;
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Not authenticated." }, { status: 401 });
+
+  // Check cache
+  const { data: cached } = await supabase
+    .from("coach_sessions")
+    .select("data")
+    .eq("user_id", user.id)
+    .eq("from_date", from)
+    .eq("to_date", to)
+    .maybeSingle();
+
+  if (cached?.data) return NextResponse.json(cached.data);
+
+  const { data: settings } = await supabase
+    .from("user_ai_settings")
+    .select("provider, gemini_key_encrypted, groq_key_encrypted, claude_key_encrypted")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  const contextStr = JSON.stringify(context, null, 2);
+  const userPrompt = `Analyse Taiwo's finances for the period ${from} to ${to}.\n\nContext:\n${contextStr}\n\n${SCHEMA}`;
+
+  try {
+    let text = "";
+
+    if (settings?.provider === "groq" && settings.groq_key_encrypted) {
+      const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${settings.groq_key_encrypted}` },
+        body: JSON.stringify({
+          model: "llama-3.3-70b-versatile",
+          messages: [{ role: "system", content: PERSONA }, { role: "user", content: userPrompt }],
+          max_tokens: 1200,
+          temperature: 0.7,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error?.message);
+      text = data.choices?.[0]?.message?.content || "";
+
+    } else if (settings?.provider === "claude" && settings.claude_key_encrypted) {
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": settings.claude_key_encrypted,
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-6",
+          max_tokens: 1200,
+          system: PERSONA,
+          messages: [{ role: "user", content: userPrompt }],
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error?.message);
+      text = data.content?.[0]?.text || "";
+
+    } else {
+      const key = settings?.gemini_key_encrypted;
+      if (!key) throw new Error("No AI key configured. Add one in Settings.");
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            system_instruction: { parts: [{ text: PERSONA }] },
+            contents: [{ parts: [{ text: userPrompt }] }],
+            generationConfig: { temperature: 0.7, maxOutputTokens: 1200 },
+          }),
+        },
+      );
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error?.message);
+      text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    }
+
+    // Strip any accidental markdown fences
+    text = text.replace(/^```[a-z]*\n?/i, "").replace(/\n?```$/i, "").trim();
+    const result = JSON.parse(text);
+
+    // Cache
+    await supabase.from("coach_sessions").upsert(
+      { user_id: user.id, from_date: from, to_date: to, data: result },
+      { onConflict: "user_id,from_date,to_date" },
+    );
+
+    return NextResponse.json(result);
+  } catch (err) {
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
+}

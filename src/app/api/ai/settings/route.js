@@ -1,0 +1,32 @@
+import { NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
+
+export async function POST(request) {
+  const supabase = await createClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return NextResponse.json({ error: "Not authenticated." }, { status: 401 });
+  }
+
+  const { provider, key } = await request.json();
+
+  if (!["gemini", "groq", "claude"].includes(provider)) {
+    return NextResponse.json({ error: "Invalid provider." }, { status: 400 });
+  }
+
+  const keyColumn = `${provider}_key_encrypted`;
+
+  const { error } = await supabase
+    .from("user_ai_settings")
+    .upsert(
+      { user_id: user.id, provider, [keyColumn]: key },
+      { onConflict: "user_id" },
+    );
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ ok: true });
+}

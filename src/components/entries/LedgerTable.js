@@ -1,0 +1,243 @@
+"use client";
+
+import { useState } from "react";
+import { CATEGORY_NAMES, categoryDefaults } from "@/lib/categories";
+import { formatNaira, formatAmountInput, parseAmount, formatDateShort } from "@/lib/format";
+
+const ESSENTIALITIES = ["Essential", "Discretionary", "—"];
+const NATURES        = ["Fixed", "Variable", "—"];
+
+function ConfidenceDot({ status, confidence }) {
+  if (status === "pending") return <span className="text-xs" style={{ color: "var(--ink-text-dim)" }}>…</span>;
+  if (status === "fallback") return (
+    <span title="Keyword fallback — check category" style={{
+      display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: "var(--amber)", flexShrink: 0,
+    }} />
+  );
+  const c = Number(confidence);
+  const color = c >= 0.8 ? "var(--green)" : c >= 0.5 ? "var(--amber)" : "var(--red)";
+  return (
+    <span title={`AI confidence: ${Math.round(c * 100)}%`} style={{
+      display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: color, flexShrink: 0,
+    }} />
+  );
+}
+
+function EditRow({ entry, onSave, onCancel }) {
+  const [date,   setDate]   = useState(entry.date || "");
+  const [desc,   setDesc]   = useState(entry.desc || "");
+  const [bene,   setBene]   = useState(entry.beneficiary || "");
+  const [amount, setAmount] = useState(String(entry.amount || ""));
+  const [flow,   setFlow]   = useState(entry.flow || "out");
+
+  const inputStyle = {
+    background: "var(--paper-2)",
+    border:     "1px solid var(--rule-paper)",
+    color:      "var(--paper-text)",
+    fontFamily: "var(--font-sans)",
+    padding:    "3px 6px",
+    borderRadius: 4,
+    fontSize:   13,
+    width:      "100%",
+    outline:    "none",
+  };
+
+  return (
+    <tr style={{ background: "var(--paper-2)" }}>
+      <td className="px-3 py-2">
+        <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={{ ...inputStyle, fontFamily: "var(--font-mono)" }} />
+      </td>
+      <td className="px-3 py-2" colSpan={2}>
+        <div className="flex flex-col gap-1">
+          <input type="text" value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Description" style={inputStyle} />
+          <input type="text" value={bene} onChange={(e) => setBene(e.target.value)} placeholder={flow === "out" ? "To…" : "From…"} style={inputStyle} />
+        </div>
+      </td>
+      <td className="px-3 py-2">
+        <div className="flex gap-1">
+          <input
+            type="text"
+            inputMode="decimal"
+            value={amount}
+            onChange={(e) => setAmount(formatAmountInput(e.target.value))}
+            style={{ ...inputStyle, fontFamily: "var(--font-mono)", width: 100 }}
+          />
+          <select value={flow} onChange={(e) => setFlow(e.target.value)} style={{ ...inputStyle, width: "auto" }}>
+            <option value="out">out</option>
+            <option value="in">in</option>
+          </select>
+        </div>
+      </td>
+      <td colSpan={2} className="px-3 py-2">
+        <div className="flex gap-2">
+          <button
+            onClick={() => onSave({ date, desc, beneficiary: bene || null, amount: parseAmount(amount), flow })}
+            className="px-3 py-1 rounded text-xs font-semibold"
+            style={{ background: "var(--green)", color: "#fff" }}
+          >✓ Save</button>
+          <button
+            onClick={onCancel}
+            className="px-3 py-1 rounded text-xs"
+            style={{ background: "var(--paper-3)", color: "var(--paper-text-dim)", border: "1px solid var(--rule-paper)" }}
+          >✕</button>
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+export default function LedgerTable({ entries, onUpdate, onDelete }) {
+  const [editingId, setEditingId] = useState(null);
+
+  if (entries.length === 0) {
+    return (
+      <div className="px-4 py-8 text-center text-sm" style={{ color: "var(--paper-text-dim)", fontFamily: "var(--font-sans)" }}>
+        No entries yet — add one above.
+      </div>
+    );
+  }
+
+  return (
+    <div className="overflow-x-auto" style={{ background: "var(--paper)" }}>
+      <table className="w-full text-sm border-collapse">
+        <thead>
+          <tr style={{ background: "var(--paper-2)", borderBottom: "1px solid var(--rule-paper)" }}>
+            {["Date", "Description", "Amount", "Category", "Tags", ""].map((h) => (
+              <th
+                key={h}
+                className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider"
+                style={{ color: "var(--paper-text-dim)", fontFamily: "var(--font-sans)", whiteSpace: "nowrap" }}
+              >
+                {h}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {entries.map((entry, i) => {
+            if (editingId === entry.id) {
+              return (
+                <EditRow
+                  key={entry.id}
+                  entry={entry}
+                  onSave={(patch) => { onUpdate(entry.id, patch); setEditingId(null); }}
+                  onCancel={() => setEditingId(null)}
+                />
+              );
+            }
+
+            const borderStyle = i < entries.length - 1 ? "1px solid var(--rule-paper)" : "none";
+
+            return (
+              <tr
+                key={entry.id}
+                style={{ background: i % 2 === 0 ? "var(--paper)" : "var(--paper-2)", borderBottom: borderStyle }}
+              >
+                {/* Date */}
+                <td className="px-3 py-2 whitespace-nowrap" style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--paper-text-dim)" }}>
+                  {entry.date}
+                </td>
+
+                {/* Description */}
+                <td className="px-3 py-2" style={{ maxWidth: 260 }}>
+                  <div className="flex items-start gap-1.5">
+                    <ConfidenceDot status={entry.status} confidence={entry.confidence} />
+                    <div>
+                      <div className="font-medium" style={{ color: "var(--paper-text)", fontFamily: "var(--font-sans)" }}>
+                        {entry.desc}
+                      </div>
+                      {(entry.subcategory || entry.note || entry.beneficiary) && (
+                        <div className="text-xs mt-0.5" style={{ color: "var(--paper-text-dim)", fontFamily: "var(--font-sans)" }}>
+                          {[entry.subcategory, entry.note, entry.beneficiary && `${entry.flow === "out" ? "To" : "From"} ${entry.beneficiary}`]
+                            .filter(Boolean).join(" · ")}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </td>
+
+                {/* Amount */}
+                <td className="px-3 py-2 whitespace-nowrap" style={{ fontFamily: "var(--font-mono)", fontWeight: 600, color: entry.flow === "in" ? "var(--green)" : "var(--red)" }}>
+                  {entry.flow === "in" ? "+" : "−"}{formatNaira(entry.amount)}
+                </td>
+
+                {/* Category */}
+                <td className="px-3 py-2">
+                  <select
+                    value={entry.category || ""}
+                    onChange={(e) => {
+                      const defaults = categoryDefaults(e.target.value);
+                      onUpdate(entry.id, { category: e.target.value, ...defaults });
+                    }}
+                    className="text-xs rounded px-1.5 py-1"
+                    style={{
+                      background:  "var(--paper-2)",
+                      border:      "1px solid var(--rule-paper)",
+                      color:       "var(--paper-text)",
+                      fontFamily:  "var(--font-sans)",
+                      maxWidth:    160,
+                    }}
+                  >
+                    <option value="">—</option>
+                    {CATEGORY_NAMES.map((c) => <option key={c} value={c}>{c}</option>)}
+                    <option value="Income">Income</option>
+                  </select>
+                </td>
+
+                {/* Tags: Essentiality + Nature stacked */}
+                <td className="px-3 py-2">
+                  <div className="flex flex-col gap-1">
+                    <select
+                      value={entry.essentiality || ""}
+                      onChange={(e) => onUpdate(entry.id, { essentiality: e.target.value })}
+                      className="text-xs rounded px-1.5 py-0.5"
+                      style={{
+                        background: "var(--paper-2)",
+                        border:     "1px solid var(--rule-paper)",
+                        color:      entry.essentiality === "Essential" ? "var(--green)" : entry.essentiality === "Discretionary" ? "var(--amber)" : "var(--paper-text-dim)",
+                        fontFamily: "var(--font-sans)",
+                      }}
+                    >
+                      {ESSENTIALITIES.map((e) => <option key={e} value={e}>{e}</option>)}
+                    </select>
+                    <select
+                      value={entry.nature || ""}
+                      onChange={(e) => onUpdate(entry.id, { nature: e.target.value })}
+                      className="text-xs rounded px-1.5 py-0.5"
+                      style={{
+                        background: "var(--paper-2)",
+                        border:     "1px solid var(--rule-paper)",
+                        color:      "var(--paper-text-dim)",
+                        fontFamily: "var(--font-sans)",
+                      }}
+                    >
+                      {NATURES.map((n) => <option key={n} value={n}>{n}</option>)}
+                    </select>
+                  </div>
+                </td>
+
+                {/* Actions */}
+                <td className="px-3 py-2 whitespace-nowrap">
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setEditingId(entry.id)}
+                      className="text-xs"
+                      style={{ color: "var(--paper-text-dim)" }}
+                      title="Edit"
+                    >✎</button>
+                    <button
+                      onClick={() => { if (confirm("Delete this entry?")) onDelete(entry.id); }}
+                      className="text-xs"
+                      style={{ color: "var(--red)" }}
+                      title="Delete"
+                    >✕</button>
+                  </div>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
