@@ -52,8 +52,8 @@ export default function GoalsPage() {
   return (
     <div className="flex flex-col gap-4 p-4 max-w-4xl mx-auto w-full pb-12">
 
-      {/* Payday widget */}
-      <PaydayWidget paydayDay={goals.payday_day} />
+      {/* Payday widget — no href since we're already on Goals */}
+      <PaydayWidget paydayDay={goals.payday_day} salary={goals.salary} />
 
       {/* Salary & payday setup */}
       <SalarySetup

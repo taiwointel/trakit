@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { formatNaira, formatAmountInput, parseAmount } from "@/lib/format";
 import InfoTooltip from "@/components/InfoTooltip";
 
@@ -155,6 +156,7 @@ export default function CustomGoalsPanel({ goals, salary, onAdd, onUpdateSaved, 
 }
 
 function GoalCard({ goal, salary, onUpdateSaved, onDelete }) {
+  const router = useRouter();
   const [savedInput,     setSavedInput]     = useState(
     goal.saved_so_far ? Number(goal.saved_so_far).toLocaleString("en-NG", { maximumFractionDigits: 0 }) : "",
   );
@@ -168,6 +170,14 @@ function GoalCard({ goal, salary, onUpdateSaved, onDelete }) {
   const reqPer   = requiredMonthly(goal);
   const pct      = target > 0 ? Math.min(100, (saved / target) * 100) : 0;
   const feasible = salary ? reqPer <= salary * 0.20 : true;
+
+  function askCoachAboutGoal() {
+    const msg = `I set a savings goal called "${goal.name}" — target: ${formatNaira(target)} by ${goal.target_date}. I've saved ${formatNaira(saved)} so far and need ${formatNaira(reqPer)} per month to hit it on time. Can I actually afford this? Does it fit my overall financial picture?`;
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem("trakit7-chat-prefill", msg);
+    }
+    router.push("/chat");
+  }
 
   async function handleSaveUpdate(e) {
     e.preventDefault();
@@ -253,6 +263,22 @@ function GoalCard({ goal, salary, onUpdateSaved, onDelete }) {
           </span>
         )}
       </div>
+
+      {/* Ask Coach RBC */}
+      <button
+        type="button"
+        onClick={askCoachAboutGoal}
+        className="w-full text-sm font-medium py-2 px-4 rounded-lg text-left flex items-center gap-2"
+        style={{
+          background: "linear-gradient(135deg, rgba(240,74,128,0.12) 0%, rgba(155,114,214,0.10) 100%)",
+          border: "1px solid rgba(240,74,128,0.22)",
+          color: "var(--rose)",
+          fontFamily: "var(--font-sans)",
+        }}
+      >
+        <span style={{ fontSize: 16 }}>✦</span>
+        Ask Coach RBC: Can I afford this goal?
+      </button>
 
       {/* Update saved control */}
       <form onSubmit={handleSaveUpdate} className="flex gap-2 items-center flex-wrap">

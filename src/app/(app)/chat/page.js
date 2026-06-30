@@ -166,6 +166,23 @@ export default function ChatPage() {
   const textareaRef    = useRef(null);
   const messagesEndRef = useRef(null);
 
+  // Pick up pre-fill from goal card "Ask Coach RBC" button
+  useEffect(() => {
+    const pending = sessionStorage.getItem("trakit7-chat-prefill");
+    if (pending) {
+      sessionStorage.removeItem("trakit7-chat-prefill");
+      setInput(pending);
+      // Give the textarea a tick to mount before adjusting height
+      setTimeout(() => {
+        if (textareaRef.current) {
+          textareaRef.current.style.height = "auto";
+          textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+          textareaRef.current.focus();
+        }
+      }, 50);
+    }
+  }, []);
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isLoading]);

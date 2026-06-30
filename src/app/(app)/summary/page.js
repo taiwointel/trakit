@@ -9,6 +9,7 @@ import { formatNaira }      from "@/lib/format";
 
 import PaydayWidget      from "@/components/summary/PaydayWidget";
 import LiquidityPanel    from "@/components/summary/LiquidityPanel";
+import { useUser }       from "@/hooks/useUser";
 import CoachRBCPanel     from "@/components/summary/CoachRBCPanel";
 import AskSpending       from "@/components/summary/AskSpending";
 import WhereItWent       from "@/components/summary/WhereItWent";
@@ -16,10 +17,54 @@ import CategoryExplorer  from "@/components/summary/CategoryExplorer";
 import AnalyticsRow      from "@/components/summary/AnalyticsRow";
 import SpendTrendChart   from "@/components/summary/SpendTrendChart";
 
+const GREETINGS = {
+  latenight: (n) => [
+    `It's late, ${n}. Logging expenses before bed? Respect.`,
+    `Still up, ${n}? Your budget never sleeps either.`,
+    `Late night check-in, ${n}. The kobo don't care what time it is.`,
+  ],
+  morning: (n) => [
+    `Good morning, ${n}! The day is young and so is your spending budget.`,
+    `Rise and shine, ${n}! Log today's expenses before they log themselves.`,
+    `Morning, ${n}! The only thing that should rise faster than you is your savings.`,
+    `Good morning, ${n}! Hope yesterday's receipts are still fresh in your memory.`,
+    `Morning, ${n}! Let's make sure the budget woke up before the spending did.`,
+  ],
+  afternoon: (n) => [
+    `Good afternoon, ${n}! How are we getting our urgent 2k today?`,
+    `Afternoon, ${n}! It's not too late to pretend the morning's expenses didn't happen. Log them anyway.`,
+    `Hey ${n}, good afternoon! The suya was 100% worth it. Now let's log it.`,
+    `Good afternoon, ${n}! The numbers don't lie, but they do need to be recorded first.`,
+    `Afternoon, ${n}! Your future self is watching. Make them proud.`,
+  ],
+  evening: (n) => [
+    `Good evening, ${n}! Time to review today's financial adventures.`,
+    `Evening, ${n}! The market is closed. Your spending tab, however, is still open.`,
+    `Good evening, ${n}! Payday is coming. We just need to make sure there's still room for it.`,
+    `Evening, ${n}! How are we getting our urgent 2k? Let's find out together.`,
+    `Hey ${n}, good evening! Let's debrief before the day escapes your wallet entirely.`,
+  ],
+  night: (n) => [
+    `Good night, ${n}! One last expense check before the dream of financial freedom.`,
+    `Night owl energy, ${n}! Your savings rate won't track itself.`,
+    `Still at it, ${n}? Log the damage and get some rest.`,
+    `Night shift vibes, ${n}. The budget is always clocking in.`,
+  ],
+};
+
+function getGreeting(name) {
+  const firstName = (name || "").split(" ")[0] || "Taiwo";
+  const h = new Date().getHours();
+  const key = h < 5 ? "latenight" : h < 12 ? "morning" : h < 17 ? "afternoon" : h < 21 ? "evening" : "night";
+  const arr = GREETINGS[key](firstName);
+  return arr[new Date().getDate() % arr.length];
+}
+
 export default function SummaryPage() {
   const { entries, loading: entriesLoading } = useEntries();
   const { goals,   loading: goalsLoading   } = useGoals();
   const { anchor,  loading: cashLoading    } = useCashBalance();
+  const { name }                             = useUser();
 
   const today   = new Date().toISOString().slice(0, 10);
   const thisMonth = today.slice(0, 7);
@@ -95,8 +140,24 @@ export default function SummaryPage() {
   return (
     <div className="flex flex-col gap-4 p-4 max-w-4xl mx-auto w-full pb-12">
 
-      {/* Payday widget */}
-      <PaydayWidget paydayDay={goals.payday_day} />
+      {/* Greeting */}
+      <div
+        className="rounded-xl px-5 py-4"
+        style={{
+          background: "linear-gradient(135deg, rgba(212,160,48,0.10) 0%, rgba(155,114,214,0.08) 100%)",
+          border: "1px solid rgba(212,160,48,0.18)",
+        }}
+      >
+        <p
+          className="text-lg font-semibold"
+          style={{ color: "var(--ink-text)", fontFamily: "var(--font-serif)" }}
+        >
+          {getGreeting(name)}
+        </p>
+      </div>
+
+      {/* Payday widget — clicking takes you to Goals to adjust */}
+      <PaydayWidget paydayDay={goals.payday_day} salary={goals.salary} href="/goals" />
 
       {/* Headline panel */}
       <div

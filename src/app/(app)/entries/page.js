@@ -53,6 +53,23 @@ export default function EntriesPage() {
 
   return (
     <div className="flex flex-col max-w-5xl mx-auto w-full pb-12">
+
+      {/* Motivational header */}
+      <div
+        className="px-4 py-3 text-center"
+        style={{
+          background: "linear-gradient(to right, rgba(212,160,48,0.08), rgba(212,160,48,0.04))",
+          borderBottom: "1px solid var(--rule)",
+        }}
+      >
+        <p
+          className="text-xs font-medium"
+          style={{ color: "var(--gold)", fontFamily: "var(--font-sans)", letterSpacing: "0.02em" }}
+        >
+          Log every naira and every kobo — your future self will thank you.
+        </p>
+      </div>
+
       {/* Month navigator */}
       <div style={{ background: "var(--ink-2)", borderBottom: "1px solid var(--rule)" }}>
         <MonthNav year={year} month={month} onChange={(y, m) => { setYear(y); setMonth(m); setSelectedDay(null); }} />

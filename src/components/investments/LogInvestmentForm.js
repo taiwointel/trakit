@@ -90,13 +90,21 @@ export default function LogInvestmentForm({ onAdd }) {
             <select
               value={type}
               onChange={(e) => setType(e.target.value)}
-              className="px-3 py-2 rounded text-sm outline-none"
+              className="py-2.5 rounded text-sm outline-none"
               style={{
-                background: "var(--ink-3)",
-                border:     "1px solid var(--rule)",
-                color:      "var(--ink-text)",
-                fontFamily: "var(--font-sans)",
-                maxWidth:   320,
+                background:        "var(--ink-3)",
+                border:            "1.5px solid var(--gold)",
+                color:             "var(--ink-text)",
+                fontFamily:        "var(--font-sans)",
+                width:             280,
+                paddingLeft:       12,
+                paddingRight:      36,
+                appearance:        "none",
+                WebkitAppearance:  "none",
+                backgroundImage:   `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23D4A030' stroke-width='2' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,
+                backgroundRepeat:  "no-repeat",
+                backgroundPosition:"right 12px center",
+                cursor:            "pointer",
               }}
             >
               <optgroup label="Fixed-income & money market">

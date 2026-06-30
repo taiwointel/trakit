@@ -1,54 +1,78 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 
-/**
- * Small "i" badge that reveals an explanatory tooltip on hover/focus/tap.
- * Drop next to a label or panel heading: <InfoTooltip text="..." />
- */
+const TT_W = 240;
+
 export default function InfoTooltip({ text, side = "top" }) {
-  const [open, setOpen] = useState(false);
+  const [rect, setRect] = useState(null);
+  const btnRef = useRef(null);
+
+  const show = useCallback(() => {
+    if (btnRef.current) setRect(btnRef.current.getBoundingClientRect());
+  }, []);
+  const hide = useCallback(() => setRect(null), []);
+  const toggle = useCallback((e) => {
+    e.preventDefault();
+    if (rect) { hide(); } else if (btnRef.current) { setRect(btnRef.current.getBoundingClientRect()); }
+  }, [rect, hide]);
+
+  let ttLeft = 0, ttTop = 0;
+  if (rect) {
+    ttLeft = Math.min(
+      Math.max(8, rect.left + rect.width / 2 - TT_W / 2),
+      (typeof window !== "undefined" ? window.innerWidth : 400) - TT_W - 8,
+    );
+    ttTop = side === "top" ? rect.top - 6 : rect.bottom + 8;
+  }
 
   return (
-    <span className="relative inline-flex" style={{ verticalAlign: "middle" }}>
+    <span style={{ position: "relative", display: "inline-flex", verticalAlign: "middle" }}>
       <button
+        ref={btnRef}
         type="button"
-        onMouseEnter={() => setOpen(true)}
-        onMouseLeave={() => setOpen(false)}
-        onFocus={() => setOpen(true)}
-        onBlur={() => setOpen(false)}
-        onClick={(e) => { e.preventDefault(); setOpen((v) => !v); }}
+        onMouseEnter={show}
+        onMouseLeave={hide}
+        onFocus={show}
+        onBlur={hide}
+        onClick={toggle}
         aria-label="More info"
-        className="inline-flex items-center justify-center rounded-full shrink-0"
         style={{
-          width:       14,
-          height:      14,
-          fontSize:    9,
-          lineHeight:  1,
-          background:  "var(--ink-3)",
-          color:       "var(--ink-text-dim)",
-          border:      "1px solid var(--rule)",
-          cursor:      "help",
-          fontFamily:  "var(--font-sans)",
-          fontWeight:  700,
+          width: 15, height: 15, fontSize: 9, lineHeight: 1,
+          display: "inline-flex", alignItems: "center", justifyContent: "center",
+          borderRadius: "50%", flexShrink: 0,
+          background: "var(--gold)", color: "#fff",
+          border: "none", cursor: "help",
+          fontFamily: "var(--font-sans)", fontWeight: 700,
+          boxShadow: "0 0 0 2px rgba(212,160,48,0.2)",
         }}
       >
         i
       </button>
-      {open && (
+
+      {rect && (
         <span
           role="tooltip"
-          className="absolute z-50 rounded-lg px-3 py-2 text-xs leading-relaxed normal-case font-normal"
           style={{
-            [side === "top" ? "bottom" : "top"]: "calc(100% + 6px)",
-            left:        0,
-            width:       230,
-            background:  "var(--ink-3)",
-            border:      "1px solid var(--rule)",
-            color:       "var(--ink-text)",
-            fontFamily:  "var(--font-sans)",
+            position: "fixed",
+            zIndex: 9999,
+            left: ttLeft,
+            top: ttTop,
+            transform: side === "top" ? "translateY(calc(-100% - 8px))" : "none",
+            width: TT_W,
+            borderRadius: 10,
+            padding: "10px 14px",
+            fontSize: 12,
+            lineHeight: 1.55,
+            background: "var(--ink-3)",
+            border: "1px solid var(--rule)",
+            color: "var(--ink-text)",
+            fontFamily: "var(--font-sans)",
+            fontWeight: 400,
             letterSpacing: "normal",
-            boxShadow:   "0 4px 20px rgba(0,0,0,0.4)",
+            textTransform: "none",
+            boxShadow: "0 8px 32px rgba(0,0,0,0.55)",
+            pointerEvents: "none",
           }}
         >
           {text}

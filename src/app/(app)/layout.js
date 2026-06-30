@@ -20,6 +20,17 @@ const TABS = [
     ),
   },
   {
+    label: "Expense Entry",
+    shortLabel: "Entry",
+    href: "/entries",
+    color: "var(--gold)",
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/>
+      </svg>
+    ),
+  },
+  {
     label: "Goals",
     shortLabel: "Goals",
     href: "/goals",
@@ -38,17 +49,6 @@ const TABS = [
     icon: (
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
         <rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/>
-      </svg>
-    ),
-  },
-  {
-    label: "Expense Entry",
-    shortLabel: "Entry",
-    href: "/entries",
-    color: "var(--gold)",
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/>
       </svg>
     ),
   },
@@ -102,10 +102,44 @@ function Trakit7Logo() {
   );
 }
 
+function SunIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="5"/>
+      <line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+      <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+    </svg>
+  );
+}
+
+function MoonIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+    </svg>
+  );
+}
+
 export default function AppLayout({ children }) {
   const pathname = usePathname();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [theme, setTheme] = useState("dark");
   const { name } = useUser();
+
+  useEffect(() => {
+    const saved = localStorage.getItem("trakit7-theme") || "dark";
+    setTheme(saved);
+    document.documentElement.setAttribute("data-theme", saved);
+  }, []);
+
+  function toggleTheme() {
+    const next = theme === "dark" ? "light" : "dark";
+    setTheme(next);
+    localStorage.setItem("trakit7-theme", next);
+    document.documentElement.setAttribute("data-theme", next);
+  }
 
   useEffect(() => {
     function onKey(e) {
@@ -122,7 +156,7 @@ export default function AppLayout({ children }) {
 
       {/* ── Topbar ─────────────────────────────────────────── */}
       <header
-        className="flex items-center gap-3 px-4 py-2.5 border-b shrink-0"
+        className="app-topbar flex items-center gap-3 px-4 py-2.5 border-b shrink-0"
         style={{
           borderColor: "var(--rule)",
           background: "linear-gradient(to bottom, var(--ink-2) 0%, rgba(29,35,44,0.95) 100%)",
@@ -166,6 +200,17 @@ export default function AppLayout({ children }) {
           </span>
         </div>
 
+        {/* Theme toggle */}
+        <button
+          onClick={toggleTheme}
+          className="shrink-0 w-9 h-9 flex items-center justify-center rounded-lg transition-colors"
+          style={{ color: "var(--ink-text-dim)", background: "var(--ink-3)", border: "1px solid var(--rule)" }}
+          aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+          title={theme === "dark" ? "Light mode" : "Dark mode"}
+        >
+          {theme === "dark" ? <SunIcon /> : <MoonIcon />}
+        </button>
+
         {/* Settings gear */}
         <button
           onClick={() => setSettingsOpen(true)}
@@ -187,7 +232,7 @@ export default function AppLayout({ children }) {
 
       {/* ── Mobile bottom navigation ───────────────────────── */}
       <nav
-        className="md:hidden fixed bottom-0 left-0 right-0 z-30 flex border-t"
+        className="app-bottom-nav md:hidden fixed bottom-0 left-0 right-0 z-30 flex border-t"
         style={{
           background: "var(--ink-2)",
           borderColor: "var(--rule)",

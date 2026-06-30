@@ -169,13 +169,15 @@ export default function LedgerTable({ entries, onUpdate, onDelete }) {
                       const defaults = categoryDefaults(e.target.value);
                       onUpdate(entry.id, { category: e.target.value, ...defaults });
                     }}
-                    className="text-xs rounded px-1.5 py-1"
+                    className="paper-select text-xs rounded py-1"
                     style={{
                       background:  "var(--paper-2)",
                       border:      "1px solid var(--rule-paper)",
                       color:       "var(--paper-text)",
                       fontFamily:  "var(--font-sans)",
                       maxWidth:    160,
+                      paddingLeft:  6,
+                      paddingRight: 24,
                     }}
                   >
                     <option value="">—</option>
@@ -190,12 +192,14 @@ export default function LedgerTable({ entries, onUpdate, onDelete }) {
                     <select
                       value={entry.essentiality || ""}
                       onChange={(e) => onUpdate(entry.id, { essentiality: e.target.value })}
-                      className="text-xs rounded px-1.5 py-0.5"
+                      className="paper-select text-xs rounded py-0.5"
                       style={{
-                        background: "var(--paper-2)",
-                        border:     "1px solid var(--rule-paper)",
-                        color:      entry.essentiality === "Essential" ? "var(--green)" : entry.essentiality === "Discretionary" ? "var(--amber)" : "var(--paper-text-dim)",
-                        fontFamily: "var(--font-sans)",
+                        background:   "var(--paper-2)",
+                        border:       "1px solid var(--rule-paper)",
+                        color:        entry.essentiality === "Essential" ? "var(--green)" : entry.essentiality === "Discretionary" ? "var(--amber)" : "var(--paper-text-dim)",
+                        fontFamily:   "var(--font-sans)",
+                        paddingLeft:  6,
+                        paddingRight: 22,
                       }}
                     >
                       {ESSENTIALITIES.map((e) => <option key={e} value={e}>{e}</option>)}
@@ -203,12 +207,14 @@ export default function LedgerTable({ entries, onUpdate, onDelete }) {
                     <select
                       value={entry.nature || ""}
                       onChange={(e) => onUpdate(entry.id, { nature: e.target.value })}
-                      className="text-xs rounded px-1.5 py-0.5"
+                      className="paper-select text-xs rounded py-0.5"
                       style={{
-                        background: "var(--paper-2)",
-                        border:     "1px solid var(--rule-paper)",
-                        color:      "var(--paper-text-dim)",
-                        fontFamily: "var(--font-sans)",
+                        background:   "var(--paper-2)",
+                        border:       "1px solid var(--rule-paper)",
+                        color:        "var(--paper-text-dim)",
+                        fontFamily:   "var(--font-sans)",
+                        paddingLeft:  6,
+                        paddingRight: 22,
                       }}
                     >
                       {NATURES.map((n) => <option key={n} value={n}>{n}</option>)}
