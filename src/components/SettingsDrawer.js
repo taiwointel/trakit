@@ -16,9 +16,20 @@ export default function SettingsDrawer({ open, onClose }) {
 
   const [provider, setProvider] = useState("gemini");
   const [keys, setKeys]         = useState({ gemini: "", groq: "", claude: "" });
+  const [keyWarning, setKeyWarning] = useState("");
   const [status, setStatus]     = useState("");
   const [testing, setTesting]   = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+
+  function handleKeyInput(value) {
+    // Strip any character outside printable ASCII — catches em dashes, smart quotes,
+    // and other characters that OS autocorrect silently inserts into pasted text
+    const clean = value.replace(/[^\x20-\x7E]/g, "");
+    setKeyWarning(clean.length !== value.length
+      ? "Non-ASCII characters were removed — check your key is correct."
+      : "");
+    setKeys((k) => ({ ...k, [provider]: clean }));
+  }
 
   // Load the currently active provider whenever the drawer opens
   useEffect(() => {
@@ -160,7 +171,7 @@ export default function SettingsDrawer({ open, onClose }) {
             <input
               type="password"
               value={keys[provider]}
-              onChange={(e) => setKeys((k) => ({ ...k, [provider]: e.target.value }))}
+              onChange={(e) => handleKeyInput(e.target.value)}
               placeholder="Paste your key…"
               className="w-full px-3 py-2 rounded text-sm outline-none"
               style={{
@@ -171,6 +182,12 @@ export default function SettingsDrawer({ open, onClose }) {
               }}
             />
           </div>
+
+          {keyWarning && (
+            <p className="text-xs px-2 py-1.5 rounded" style={{ color: "var(--amber)", background: "var(--amber-soft)", fontFamily: "var(--font-mono)" }}>
+              {keyWarning}
+            </p>
+          )}
 
           {/* Actions */}
           <div className="flex gap-2">

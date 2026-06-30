@@ -73,6 +73,15 @@ select {
   font-family: 'IBM Plex Mono', monospace;
 }
 
+/* Hide scrollbar while preserving scroll behaviour */
+.hide-scrollbar {
+  scrollbar-width: none;       /* Firefox */
+  -ms-overflow-style: none;    /* IE/Edge */
+}
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;               /* Chrome/Safari */
+}
+
 /* Scrollbar styling */
 ::-webkit-scrollbar {
   width: 4px;
