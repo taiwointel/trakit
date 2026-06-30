@@ -2,6 +2,7 @@
 
 import { formatNaira } from "@/lib/format";
 import { liquidityVerdict } from "@/lib/cashBalance";
+import InfoTooltip from "@/components/InfoTooltip";
 
 function BalanceSparkline({ rows }) {
   if (!rows || rows.length < 2) return null;
@@ -84,10 +85,11 @@ export default function LiquidityPanel({ balance, avgMonthlyEssential, months, s
       style={{ background: "var(--ink-2)", border: "1px solid var(--rule)" }}
     >
       <p
-        className="text-xs font-semibold uppercase tracking-widest"
+        className="text-xs font-semibold uppercase tracking-widest flex items-center gap-1.5"
         style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}
       >
         Cash & Liquidity
+        <InfoTooltip text="Liquidity coverage = cash now ÷ your average monthly essential spend (last up to 3 months with essential spend). It's a standard benchmark: under 1 month is critically thin, 1–3 is below the safety line, 3–6 is the healthy range, over 6 is very liquid." />
       </p>
 
       {/* Three-stat row */}

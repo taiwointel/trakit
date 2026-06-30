@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { formatNaira, formatAmountInput, parseAmount, todayISO } from "@/lib/format";
+import InfoTooltip from "@/components/InfoTooltip";
 
 export default function EmergencyFundPanel({
   transactions,
@@ -50,10 +51,11 @@ export default function EmergencyFundPanel({
       style={{ background: "var(--ink-2)", border: "1px solid var(--blue-accent)" }}
     >
       <p
-        className="text-xs font-semibold uppercase tracking-widest"
+        className="text-xs font-semibold uppercase tracking-widest flex items-center gap-1.5"
         style={{ color: "var(--blue-accent)", fontFamily: "var(--font-sans)" }}
       >
         Emergency Fund
+        <InfoTooltip text="A separate, dedicated cash cushion — kept apart from your regular cash balance and from the Save & Invest target. The default target is 6 × this calendar month's essential spend, recalculated fresh every month, unless you set a manual override below." />
       </p>
 
       {met && (

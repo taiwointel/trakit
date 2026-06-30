@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { formatNaira } from "@/lib/format";
+import InfoTooltip from "@/components/InfoTooltip";
 
 function ProgressBar({ pct, color }) {
   return (
@@ -124,6 +125,7 @@ export default function MonthlyTargets({ entries, salary, customGoals = [], user
     },
     {
       label:  "Save & Invest (20%)",
+      tip:    "Higher is better here — a breach means you saved less than the target, not more. Actuals include balance-group deposits, pension accruals, paid life-assurance premiums, and maturity-instrument purchases this month.",
       target: saveTarget,
       actual: actualSavings,
       pct:    savePct,
@@ -154,10 +156,11 @@ export default function MonthlyTargets({ entries, salary, customGoals = [], user
         style={{ background: "var(--ink-2)", border: "1px solid var(--rule)", borderTop: "3px solid var(--teal)" }}
       >
         <p
-          className="text-xs font-semibold uppercase tracking-widest"
+          className="text-xs font-semibold uppercase tracking-widest flex items-center gap-1.5"
           style={{ color: "var(--teal)", fontFamily: "var(--font-sans)" }}
         >
           This month's targets
+          <InfoTooltip text="The 50/30/20 rule: 50% of salary for Needs, 30% for Wants, 20% for Save & Invest. Any custom savings goal's required monthly amount is pulled out of Wants and added to Save & Invest automatically — that's what the reallocation note below means." />
         </p>
 
         {rows.map((row) => (
@@ -169,6 +172,7 @@ export default function MonthlyTargets({ entries, salary, customGoals = [], user
               >
                 {row.label}
               </span>
+              {row.tip && <InfoTooltip text={row.tip} />}
               <Badge breach={row.breach} />
               <span
                 className="ml-auto text-xs"

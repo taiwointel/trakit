@@ -221,7 +221,7 @@ export default function ChatPage() {
         <div
           className="px-4 pt-4 pb-4 flex items-center justify-between gap-4 shrink-0"
           style={{
-            background: "linear-gradient(to bottom, rgba(27,63,187,0.12) 0%, transparent 100%)",
+            background: "linear-gradient(to bottom, rgba(200,134,46,0.12) 0%, transparent 100%)",
             borderBottom: "1px solid var(--rule)",
           }}
         >
@@ -282,9 +282,9 @@ export default function ChatPage() {
           {isEmpty ? (
             /* Empty state — colorful, illustration-forward */
             <div className="h-full flex flex-col items-center justify-center gap-6 py-6">
-              {/* Big illustration */}
-              <div style={{ filter: "drop-shadow(0 8px 40px rgba(43,103,224,0.35))" }}>
-                <RbcIllustration size={200} animate={true} />
+              {/* Big avatar */}
+              <div style={{ filter: "drop-shadow(0 8px 40px rgba(169,133,79,0.35))" }}>
+                <RbcIllustration size={140} animate={true} />
               </div>
 
               <div className="text-center">

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { formatAmountInput, parseAmount, formatNaira } from "@/lib/format";
+import InfoTooltip from "@/components/InfoTooltip";
 
 export default function SalarySetup({ salary, paydayDay = 22, onSave }) {
   const [salaryInput, setSalaryInput] = useState(salary ? salary.toLocaleString("en-NG", { maximumFractionDigits: 0 }) : "");
@@ -59,10 +60,11 @@ export default function SalarySetup({ salary, paydayDay = 22, onSave }) {
 
         <div className="flex flex-col gap-1">
           <label
-            className="text-xs"
+            className="text-xs flex items-center gap-1.5"
             style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}
           >
             Payday (day of month)
+            <InfoTooltip text="If this date lands on a Saturday or Sunday, your countdown is pulled back to the nearest weekday before it — mirroring standard Nigerian payroll behavior. So a payday of e.g. the 1st can sometimes show a date in the last days of the prior month." />
           </label>
           <input
             type="number"

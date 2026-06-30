@@ -18,13 +18,19 @@ export function nextPayday(paydayDay = 22) {
     return d;
   }
 
-  let candidate = makePayday(today.getFullYear(), today.getMonth());
-  if (candidate < today) {
-    // Already passed this month — use next month
-    candidate = makePayday(
-      today.getMonth() === 11 ? today.getFullYear() + 1 : today.getFullYear(),
-      (today.getMonth() + 1) % 12,
-    );
+  // Walk forward month by month until we land on a date that hasn't passed.
+  // A single next-month lookahead isn't always enough: when an early payday
+  // (e.g. the 1st) falls on a weekend, the weekday pull-back can land it in
+  // the *previous* calendar month — which can still be before today.
+  let year      = today.getFullYear();
+  let month     = today.getMonth();
+  let candidate = makePayday(year, month);
+  let guard     = 0;
+  while (candidate < today && guard < 13) {
+    month += 1;
+    if (month > 11) { month = 0; year += 1; }
+    candidate = makePayday(year, month);
+    guard += 1;
   }
 
   const msDay      = 1000 * 60 * 60 * 24;

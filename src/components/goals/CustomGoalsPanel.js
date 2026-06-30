@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { formatNaira, formatAmountInput, parseAmount } from "@/lib/format";
+import InfoTooltip from "@/components/InfoTooltip";
 
 function monthsRemaining(targetDate) {
   if (!targetDate) return 0;
@@ -39,10 +40,11 @@ export default function CustomGoalsPanel({ goals, salary, onAdd, onUpdateSaved, 
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <p
-          className="text-xs font-semibold uppercase tracking-widest"
+          className="text-xs font-semibold uppercase tracking-widest flex items-center gap-1.5"
           style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}
         >
           Custom savings goals
+          <InfoTooltip text="Each goal needs target − saved-so-far, spread over the months remaining. That required-per-month is checked against your 20% Save & Invest capacity independently per goal — it doesn't account for multiple goals stacking, so 'On track' on several goals at once can still be tight in total." />
         </p>
         <button
           onClick={() => setShowForm((v) => !v)}
@@ -235,8 +237,9 @@ function GoalCard({ goal, salary, onUpdateSaved, onDelete }) {
 
       {/* Required per month */}
       <div className="flex items-center gap-2 flex-wrap">
-        <span className="text-xs" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>
+        <span className="text-xs flex items-center gap-1.5" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>
           Required/month:
+          <InfoTooltip text="(Target − saved so far) ÷ months remaining until the target date." />
         </span>
         <span
           className="text-sm font-semibold"

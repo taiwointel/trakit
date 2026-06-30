@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { formatNaira, formatAmountInput, parseAmount, todayISO } from "@/lib/format";
+import InfoTooltip from "@/components/InfoTooltip";
 
 export default function CashSetup({ anchor, onSave }) {
   const hasAnchor = !!anchor.anchor_date;
@@ -27,10 +28,11 @@ export default function CashSetup({ anchor, onSave }) {
       style={{ background: "var(--ink-2)", border: "1px solid var(--rule)" }}
     >
       <p
-        className="text-xs font-semibold uppercase tracking-widest"
+        className="text-xs font-semibold uppercase tracking-widest flex items-center gap-1.5"
         style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}
       >
         Cash balance
+        <InfoTooltip text="There's no stored running balance — every day's balance is computed fresh from this anchor point plus every ledger entry from that date forward. Re-anchoring just moves the reference point; it never edits or deletes past entries." />
       </p>
 
       {hasAnchor && (
