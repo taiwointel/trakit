@@ -13,7 +13,7 @@ create table if not exists entries (
   created_at      timestamptz default now(),
   updated_at      timestamptz default now(),
   date            date not null,
-  desc            text not null,
+  "desc"          text not null,
   amount          numeric(14,2) not null,
   flow            text not null check (flow in ('in','out')),
   beneficiary     text,
