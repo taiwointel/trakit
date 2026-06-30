@@ -72,9 +72,12 @@ export default function CategoryExplorer({ entries }) {
           <button
             onClick={() => toggle(cat.category)}
             className="w-full flex items-center gap-3 px-4 py-3 transition-colors text-left"
-            style={{ background: isOpen(cat.category) ? "var(--paper-2)" : "transparent" }}
+            style={{
+              background: isOpen(cat.category) ? "var(--paper-2)" : "transparent",
+              borderLeft: `3px solid ${cat.color}`,
+            }}
           >
-            <div style={{ width: 10, height: 10, borderRadius: 2, background: cat.color, flexShrink: 0 }} />
+            <div style={{ width: 10, height: 10, borderRadius: "50%", background: cat.color, flexShrink: 0, boxShadow: `0 0 8px ${cat.color}` }} />
             <span className="flex-1 text-sm font-medium" style={{ color: "var(--paper-text)", fontFamily: "var(--font-sans)" }}>
               {cat.category}
             </span>

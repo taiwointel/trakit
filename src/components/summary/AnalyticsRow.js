@@ -3,14 +3,15 @@
 import { useMemo } from "react";
 import { formatNaira } from "@/lib/format";
 
-function Card({ title, children }) {
+function Card({ title, accent, icon, children }) {
   return (
     <div
-      className="flex-1 rounded-lg flex flex-col overflow-hidden"
-      style={{ background: "var(--ink-2)", border: "1px solid var(--rule)", minWidth: 0 }}
+      className="flex-1 rounded-xl flex flex-col overflow-hidden"
+      style={{ background: "var(--ink-2)", border: "1px solid var(--rule)", borderTop: `3px solid ${accent}`, minWidth: 0 }}
     >
-      <div className="px-4 py-3 border-b shrink-0" style={{ borderColor: "var(--rule)" }}>
-        <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>
+      <div className="px-4 py-3 border-b shrink-0 flex items-center gap-2" style={{ borderColor: "var(--rule)" }}>
+        <span style={{ fontSize: 13 }}>{icon}</span>
+        <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: accent, fontFamily: "var(--font-sans)" }}>
           {title}
         </p>
       </div>
@@ -61,7 +62,7 @@ export default function AnalyticsRow({ entries, from, to }) {
   return (
     <div className="flex gap-3 flex-wrap">
       {/* Biggest Movers */}
-      <Card title="Biggest Movers">
+      <Card title="Biggest Movers" accent="var(--violet)" icon="📊">
         {movers.length === 0 ? (
           <p className="text-xs" style={{ color: "var(--ink-text-dim)" }}>Need 2 months of data.</p>
         ) : movers.map((m) => (
@@ -83,7 +84,7 @@ export default function AnalyticsRow({ entries, from, to }) {
       </Card>
 
       {/* Big-Ticket Items */}
-      <Card title="Big-Ticket Items">
+      <Card title="Big-Ticket Items" accent="var(--sky)" icon="💳">
         {bigTickets.length === 0 ? (
           <p className="text-xs" style={{ color: "var(--ink-text-dim)" }}>No expenses yet.</p>
         ) : bigTickets.map((e) => (
@@ -104,7 +105,7 @@ export default function AnalyticsRow({ entries, from, to }) {
       </Card>
 
       {/* Where to Cut */}
-      <Card title="Where to Cut">
+      <Card title="Where to Cut" accent="var(--rose)" icon="✂️">
         {cutList.length === 0 ? (
           <p className="text-xs" style={{ color: "var(--ink-text-dim)" }}>No discretionary spend found.</p>
         ) : cutList.map((c) => (

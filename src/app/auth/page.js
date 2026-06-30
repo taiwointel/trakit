@@ -363,7 +363,7 @@ function AuthForm({ onBack }) {
               <path d="M7 14h14M14 7v14" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
             </svg>
             <span style={{ fontFamily: "var(--font-serif)", fontSize: 22, fontWeight: 700, color: "var(--ink-text)", letterSpacing: -0.5 }}>
-              Trackit
+              Trakit7
             </span>
           </div>
           <div style={{ color: "var(--ink-text)", fontSize: 18, fontFamily: "var(--font-serif)", fontWeight: 600 }}>
@@ -506,7 +506,7 @@ export default function LandingPage() {
           </svg>
           <div>
             <div style={{ fontFamily: "var(--font-serif)", color: "white", fontSize: "clamp(16px,4vw,20px)", fontWeight: 700, letterSpacing: -0.5, lineHeight: 1 }}>
-              Trackit
+              Trakit7
             </div>
             <div style={{ fontFamily: "var(--font-sans)", color: "rgba(255,255,255,0.55)", fontSize: 9.5, letterSpacing: "0.12em", textTransform: "uppercase" }}>
               Daily Expense Tracker

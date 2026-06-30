@@ -37,7 +37,7 @@ function Badge({ breach }) {
   );
 }
 
-export default function MonthlyTargets({ entries, salary, customGoals = [] }) {
+export default function MonthlyTargets({ entries, salary, customGoals = [], userName = "" }) {
   const thisMonth = new Date().toISOString().slice(0, 7);
   const today     = new Date();
 
@@ -144,18 +144,18 @@ export default function MonthlyTargets({ entries, salary, customGoals = [] }) {
         >
           <span>🎉</span>
           <span className="text-sm font-medium" style={{ color: "var(--green)", fontFamily: "var(--font-sans)" }}>
-            Save &amp; Invest target met this month — great work, Taiwo!
+            Save &amp; Invest target met this month — great work{userName ? `, ${userName}` : ""}!
           </span>
         </div>
       )}
 
       <div
-        className="rounded-lg p-4 flex flex-col gap-5"
-        style={{ background: "var(--ink-2)", border: "1px solid var(--rule)" }}
+        className="rounded-xl p-4 flex flex-col gap-5"
+        style={{ background: "var(--ink-2)", border: "1px solid var(--rule)", borderTop: "3px solid var(--teal)" }}
       >
         <p
           className="text-xs font-semibold uppercase tracking-widest"
-          style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}
+          style={{ color: "var(--teal)", fontFamily: "var(--font-sans)" }}
         >
           This month's targets
         </p>

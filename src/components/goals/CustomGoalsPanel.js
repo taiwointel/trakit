@@ -176,8 +176,8 @@ function GoalCard({ goal, salary, onUpdateSaved, onDelete }) {
 
   return (
     <div
-      className="rounded-lg p-4 flex flex-col gap-3"
-      style={{ background: "var(--ink-2)", border: "1px solid var(--rule)" }}
+      className="rounded-xl p-4 flex flex-col gap-3"
+      style={{ background: "var(--ink-2)", border: "1px solid var(--rule)", borderLeft: "3px solid var(--violet)" }}
     >
       {/* Header */}
       <div className="flex items-start justify-between gap-2">
@@ -217,14 +217,14 @@ function GoalCard({ goal, salary, onUpdateSaved, onDelete }) {
             style={{
               width:        `${pct}%`,
               height:       "100%",
-              background:   "var(--gold)",
+              background:   "linear-gradient(90deg, var(--violet), var(--rose))",
               borderRadius: 4,
               transition:   "width 0.4s",
             }}
           />
         </div>
         <div className="flex items-center justify-between mt-1">
-          <span className="text-xs" style={{ color: "var(--gold)", fontFamily: "var(--font-mono)" }}>
+          <span className="text-xs" style={{ color: "var(--violet)", fontFamily: "var(--font-mono)" }}>
             {pct.toFixed(1)}%
           </span>
           <span className="text-xs" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-mono)" }}>

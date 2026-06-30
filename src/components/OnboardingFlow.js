@@ -68,7 +68,7 @@ function OverlayShell({ children }) {
         className="relative w-full flex flex-col items-center gap-0"
         style={{ maxWidth: 480 }}
       >
-        {/* Trackit wordmark */}
+        {/* Trakit7 wordmark */}
         <div className="flex items-center gap-2 mb-8">
           <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
             <rect width="28" height="28" rx="7" fill="url(#lgOnb)"/>
@@ -82,7 +82,7 @@ function OverlayShell({ children }) {
             <path d="M10 18l8-8" stroke="white" strokeWidth="1.8" strokeLinecap="round" opacity="0.6"/>
           </svg>
           <span style={{ color: "#ECE9E1", fontFamily: "var(--font-serif)", fontSize: "1.25rem", fontWeight: 700, letterSpacing: -0.5 }}>
-            Trackit
+            Trakit7
           </span>
         </div>
         {children}
@@ -123,19 +123,33 @@ function StepCard({ icon, stepLabel, title, body, onNext, nextLabel = "Got it �
 }
 
 export default function OnboardingFlow({ userName }) {
-  const [show, setShow]     = useState(false);
-  const [step, setStep]     = useState(0);
-  const [key, setKey]       = useState("");
-  const [status, setStatus] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [done, setDone]     = useState(false);
+  const [show, setShow]       = useState(false);
+  const [checked, setChecked] = useState(false);
+  const [step, setStep]       = useState(0);
+  const [key, setKey]         = useState("");
+  const [status, setStatus]   = useState("");
+  const [saving, setSaving]   = useState(false);
+  const [done, setDone]       = useState(false);
 
   useEffect(() => {
     fetch("/api/ai/settings")
       .then((r) => r.json())
       .then((d) => { if (!d.hasKey) setShow(true); })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setChecked(true));
   }, []);
+
+  // Block render of the dashboard underneath until we know whether the
+  // wizard needs to show — prevents a flash of the app before the overlay.
+  if (!checked) {
+    return (
+      <div
+        className="fixed inset-0 z-50"
+        style={{ background: "var(--ink)" }}
+        aria-hidden="true"
+      />
+    );
+  }
 
   async function handleSave() {
     const clean = key.replace(/[^\x20-\x7E]/g, "").trim();
@@ -191,7 +205,7 @@ export default function OnboardingFlow({ userName }) {
             className="w-full py-3 rounded-xl font-bold text-base"
             style={{ background: "linear-gradient(135deg, #C8862E, #A9854F)", color: "#fff", fontFamily: "var(--font-sans)" }}
           >
-            Enter Trackit →
+            Enter Trakit7 →
           </button>
         </div>
       </OverlayShell>
@@ -221,7 +235,7 @@ export default function OnboardingFlow({ userName }) {
           icon={<IconGroq />}
           stepLabel={`Step 1 of ${TOTAL}`}
           title={`Hey ${name}, one quick setup 👋`}
-          body="Trackit uses Groq — a free AI service — to power Coach RBC, your personal finance coach. You'll need a free API key. It takes about 2 minutes and costs nothing."
+          body="Trakit7 uses Groq — a free AI service — to power Coach RBC, your personal finance coach. You'll need a free API key. It takes about 2 minutes and costs nothing."
           onNext={() => setStep(1)}
           nextLabel="Let's get the key →"
         />
@@ -283,7 +297,7 @@ export default function OnboardingFlow({ userName }) {
           icon={<IconKey />}
           stepLabel={`Step 4 of ${TOTAL}`}
           title="Create a new API key"
-          body={`Click the "+ Create API Key" button. Give it any name — like "Trackit". The key will appear once. Copy it now — you won't see it again after closing the dialog.`}
+          body={`Click the "+ Create API Key" button. Give it any name — like "Trakit7". The key will appear once. Copy it now — you won't see it again after closing the dialog.`}
           extra={
             <div
               className="px-4 py-3 rounded-xl"

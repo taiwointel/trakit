@@ -27,6 +27,16 @@
   --red:            #B8392B;
   --red-soft:       rgba(184, 57, 43, 0.15);
   --blue-accent:    #5B8FA8;
+
+  /* Vivid secondary accents — used to break the gold-monotone look across panels */
+  --violet:         #8A6FA8;
+  --violet-soft:    rgba(138, 111, 168, 0.18);
+  --teal:           #2F9C8F;
+  --teal-soft:      rgba(47, 156, 143, 0.16);
+  --rose:           #C8537A;
+  --rose-soft:      rgba(200, 83, 122, 0.16);
+  --sky:            #4F9FD6;
+  --sky-soft:       rgba(79, 159, 214, 0.16);
 }
 
 @theme inline {
@@ -46,6 +56,10 @@
   --color-amber:          var(--amber);
   --color-red:            var(--red);
   --color-blue-accent:    var(--blue-accent);
+  --color-violet:         var(--violet);
+  --color-teal:           var(--teal);
+  --color-rose:           var(--rose);
+  --color-sky:            var(--sky);
 }
 
 html,
@@ -54,7 +68,12 @@ body {
 }
 
 body {
-  background: var(--ink);
+  background:
+    radial-gradient(ellipse 900px 500px at 8% -10%, rgba(200,134,46,0.16), transparent 60%),
+    radial-gradient(ellipse 800px 480px at 100% 0%, rgba(138,111,168,0.13), transparent 55%),
+    radial-gradient(ellipse 700px 600px at 50% 100%, rgba(47,156,143,0.08), transparent 60%),
+    var(--ink);
+  background-attachment: fixed;
   color: var(--ink-text);
   font-family: 'IBM Plex Sans', sans-serif;
 }

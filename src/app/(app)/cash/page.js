@@ -15,14 +15,17 @@ import BalanceCard          from "@/components/investments/BalanceCard";
 import LifeAssuranceCard    from "@/components/investments/LifeAssuranceCard";
 import PensionCard          from "@/components/investments/PensionCard";
 
-function GroupHeader({ title }) {
+function GroupHeader({ title, color = "var(--gold)" }) {
   return (
-    <p
-      className="text-xs font-semibold uppercase tracking-widest mt-2"
-      style={{ color: "var(--gold)", fontFamily: "var(--font-sans)" }}
-    >
-      {title}
-    </p>
+    <div className="flex items-center gap-2 mt-2">
+      <span style={{ width: 8, height: 8, borderRadius: "50%", background: color, boxShadow: `0 0 6px ${color}` }} />
+      <p
+        className="text-xs font-semibold uppercase tracking-widest"
+        style={{ color, fontFamily: "var(--font-sans)" }}
+      >
+        {title}
+      </p>
+    </div>
   );
 }
 
@@ -81,7 +84,7 @@ export default function CashPage() {
       {/* Fixed-income & money market */}
       {maturityInvs.length > 0 && (
         <div className="flex flex-col gap-3">
-          <GroupHeader title="Fixed-income & money market" />
+          <GroupHeader title="Fixed-income & money market" color="var(--gold)" />
           {maturityInvs.map((inv) => (
             <MaturityCard
               key={inv.id}
@@ -95,7 +98,7 @@ export default function CashPage() {
       {/* Funds & holdings */}
       {balanceInvs.length > 0 && (
         <div className="flex flex-col gap-3">
-          <GroupHeader title="Funds & holdings" />
+          <GroupHeader title="Funds & holdings" color="var(--teal)" />
           {balanceInvs.map((inv) => (
             <BalanceCard
               key={inv.id}
@@ -112,7 +115,7 @@ export default function CashPage() {
       {/* Life assurance */}
       {lifeInvs.length > 0 && (
         <div className="flex flex-col gap-3">
-          <GroupHeader title="Life assurance" />
+          <GroupHeader title="Life assurance" color="var(--rose)" />
           {lifeInvs.map((inv) => (
             <LifeAssuranceCard
               key={inv.id}
@@ -130,7 +133,7 @@ export default function CashPage() {
       {/* Pension */}
       {pensionInvs.length > 0 && (
         <div className="flex flex-col gap-3">
-          <GroupHeader title="Pension" />
+          <GroupHeader title="Pension" color="var(--violet)" />
           {pensionInvs.map((inv) => (
             <PensionCard
               key={inv.id}

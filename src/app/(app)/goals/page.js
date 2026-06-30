@@ -5,6 +5,7 @@ import { useEntries }        from "@/hooks/useEntries";
 import { useGoals }          from "@/hooks/useGoals";
 import { useEmergencyFund }  from "@/hooks/useEmergencyFund";
 import { useCustomGoals }    from "@/hooks/useCustomGoals";
+import { useUser }           from "@/hooks/useUser";
 
 import PaydayWidget       from "@/components/summary/PaydayWidget";
 import SalarySetup        from "@/components/goals/SalarySetup";
@@ -17,6 +18,7 @@ export default function GoalsPage() {
   const { goals, loading: goalsLoading, saveGoals } = useGoals();
   const { transactions, balance, loading: efLoading, addTransaction } = useEmergencyFund();
   const { goals: customGoals, loading: cgLoading, addGoal, updateSavedSoFar, deleteGoal } = useCustomGoals();
+  const { name: userName } = useUser();
 
   const thisMonth = new Date().toISOString().slice(0, 7);
 
@@ -65,6 +67,7 @@ export default function GoalsPage() {
         entries={entries}
         salary={goals.salary}
         customGoals={customGoals}
+        userName={userName}
       />
 
       {/* Emergency fund */}

@@ -12,6 +12,7 @@ const TABS = [
     label: "Summary",
     shortLabel: "Summary",
     href: "/summary",
+    color: "var(--sky)",
     icon: (
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
         <rect x="3" y="12" width="4" height="9"/><rect x="10" y="7" width="4" height="14"/><rect x="17" y="3" width="4" height="18"/>
@@ -22,6 +23,7 @@ const TABS = [
     label: "Goals",
     shortLabel: "Goals",
     href: "/goals",
+    color: "var(--violet)",
     icon: (
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
         <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>
@@ -32,6 +34,7 @@ const TABS = [
     label: "Cash & Investments",
     shortLabel: "Cash",
     href: "/cash",
+    color: "var(--teal)",
     icon: (
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
         <rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/>
@@ -42,6 +45,7 @@ const TABS = [
     label: "Expense Entry",
     shortLabel: "Entry",
     href: "/entries",
+    color: "var(--gold)",
     icon: (
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/>
@@ -52,6 +56,7 @@ const TABS = [
     label: "Ask Coach RBC",
     shortLabel: "Coach",
     href: "/chat",
+    color: "var(--rose)",
     icon: (
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
         <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
@@ -60,8 +65,8 @@ const TABS = [
   },
 ];
 
-/* ── Trackit SVG logo mark ── */
-function TrackitLogo() {
+/* ── Trakit7 SVG logo mark ── */
+function Trakit7Logo() {
   return (
     <div className="flex items-center gap-2.5 select-none shrink-0">
       <svg width="30" height="30" viewBox="0 0 30 30" fill="none">
@@ -84,7 +89,7 @@ function TrackitLogo() {
           className="text-base font-bold leading-tight"
           style={{ color: "var(--ink-text)", fontFamily: "var(--font-serif)", letterSpacing: -0.5 }}
         >
-          Trackit
+          Trakit7
         </span>
         <span
           className="text-[9px] font-semibold uppercase tracking-widest leading-tight hidden sm:block"
@@ -125,7 +130,7 @@ export default function AppLayout({ children }) {
         }}
       >
         {/* Brand */}
-        <TrackitLogo />
+        <Trakit7Logo />
 
         {/* Desktop tabs */}
         <nav className="hidden md:flex flex-1 overflow-x-auto hide-scrollbar">
@@ -139,8 +144,8 @@ export default function AppLayout({ children }) {
                   className="px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-all border-b-2"
                   style={{
                     background:  active ? "var(--ink-3)" : "transparent",
-                    color:       active ? "var(--ink-text)" : "var(--ink-text-dim)",
-                    borderColor: active ? "var(--gold)" : "transparent",
+                    color:       active ? tab.color : "var(--ink-text-dim)",
+                    borderColor: active ? tab.color : "transparent",
                     fontFamily:  "var(--font-sans)",
                   }}
                 >
@@ -157,7 +162,7 @@ export default function AppLayout({ children }) {
             className="text-sm font-semibold"
             style={{ color: "var(--ink-text)", fontFamily: "var(--font-sans)" }}
           >
-            {activeTab?.label ?? "Trackit"}
+            {activeTab?.label ?? "Trakit7"}
           </span>
         </div>
 
@@ -197,17 +202,17 @@ export default function AppLayout({ children }) {
               href={tab.href}
               className="flex-1 flex flex-col items-center justify-center py-2 gap-0.5 transition-colors"
               style={{
-                color:      active ? "var(--gold)" : "var(--ink-text-dim)",
+                color:      active ? tab.color : "var(--ink-text-dim)",
                 fontFamily: "var(--font-sans)",
                 minHeight:  52,
-                borderTop:  active ? "2px solid var(--gold)" : "2px solid transparent",
+                borderTop:  active ? `2px solid ${tab.color}` : "2px solid transparent",
                 marginTop:  -1,
               }}
             >
               <span style={{ opacity: active ? 1 : 0.6 }}>{tab.icon}</span>
               <span
                 className="text-[9px] font-bold uppercase tracking-wide"
-                style={{ color: active ? "var(--gold)" : "var(--ink-text-dim)" }}
+                style={{ color: active ? tab.color : "var(--ink-text-dim)" }}
               >
                 {tab.shortLabel}
               </span>

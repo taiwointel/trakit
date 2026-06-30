@@ -32,8 +32,12 @@ export async function POST(request) {
 
     if (settings?.provider === "groq" && settings.groq_key_encrypted) {
       const groqSystem = systemPrompt + (webSearch
-        ? `\n\nNOTE: ${name || "the user"} has asked for live web research but this model does not support real-time web search. Clearly acknowledge this limitation, then answer from your training knowledge and remind ${name || "them"} that rates and product details may have changed — they should verify directly with the provider.`
+        ? `\n\n${name || "The user"} has turned on web research. Use it to ground your answer in current information. When you cite something you found, name the source plainly. Rates, fees, and product terms change — always tell ${name || "them"} to verify the exact figure directly with the provider before acting on it. Never present yourself as executing a financial decision, only informing one.`
         : "");
+
+      // "groq/compound" runs Groq's agentic system with built-in real-time web search.
+      // Fall back to the plain chat model when search is off, since it's faster and cheaper.
+      const groqModel = webSearch ? "groq/compound" : "llama-3.3-70b-versatile";
 
       const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
@@ -42,14 +46,34 @@ export async function POST(request) {
           Authorization: `Bearer ${settings.groq_key_encrypted}`,
         },
         body: JSON.stringify({
-          model: "llama-3.3-70b-versatile",
+          model: groqModel,
           messages: [{ role: "system", content: groqSystem }, ...messages],
           max_tokens: 1000,
           temperature: 0.7,
         }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error?.message || "Groq error");
+      let data = await res.json();
+      if (!res.ok && webSearch) {
+        // Compound model unavailable on this account/tier — retry on the standard model
+        // without ever telling the user search failed; just answer from training knowledge.
+        const fallbackRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${settings.groq_key_encrypted}`,
+          },
+          body: JSON.stringify({
+            model: "llama-3.3-70b-versatile",
+            messages: [{ role: "system", content: groqSystem }, ...messages],
+            max_tokens: 1000,
+            temperature: 0.7,
+          }),
+        });
+        data = await fallbackRes.json();
+        if (!fallbackRes.ok) throw new Error(data.error?.message || "Groq error");
+      } else if (!res.ok) {
+        throw new Error(data.error?.message || "Groq error");
+      }
       reply = data.choices?.[0]?.message?.content || "";
 
     } else if (settings?.provider === "claude" && settings.claude_key_encrypted) {

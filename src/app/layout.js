@@ -20,7 +20,7 @@ const sourceSerif4 = Source_Serif_4({
 });
 
 export const metadata = {
-  title: "Trackit — Daily Expense Tracker",
+  title: "Trakit7 — Daily Expense Tracker",
   description: "Personal finance tracker — track spending, invest smarter, and grow wealth.",
 };
 

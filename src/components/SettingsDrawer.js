@@ -14,6 +14,10 @@ export default function SettingsDrawer({ open, onClose }) {
   const [status,     setStatus]     = useState("");
   const [testing,    setTesting]    = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleteText,       setDeleteText]       = useState("");
+  const [deleting,         setDeleting]         = useState(false);
+  const [deleteStatus,     setDeleteStatus]     = useState("");
 
   function handleKeyInput(value) {
     const clean = value.replace(/[^\x20-\x7E]/g, "");
@@ -70,6 +74,30 @@ export default function SettingsDrawer({ open, onClose }) {
     onClose();
     router.push("/auth");
     router.refresh();
+  }
+
+  async function deleteAccount() {
+    setDeleting(true);
+    setDeleteStatus("Deleting your account and all data…");
+    try {
+      const res = await fetch("/api/account/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirm: deleteText }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setDeleteStatus(data.error || "Could not delete account.");
+        setDeleting(false);
+        return;
+      }
+      await supabase.auth.signOut();
+      router.push("/auth");
+      router.refresh();
+    } catch {
+      setDeleteStatus("Network error. Try again.");
+      setDeleting(false);
+    }
   }
 
   if (!open) return null;
@@ -153,7 +181,7 @@ export default function SettingsDrawer({ open, onClose }) {
               <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
             </svg>
             <p className="text-xs leading-relaxed" style={{ color: "var(--blue-accent)", fontFamily: "var(--font-sans)" }}>
-              Trackit uses Groq for AI features (free tier available).{" "}
+              Trakit7 uses Groq for AI features (free tier available).{" "}
               <a
                 href="https://console.groq.com"
                 target="_blank"
@@ -259,6 +287,74 @@ export default function SettingsDrawer({ open, onClose }) {
             </svg>
             {signingOut ? "Signing out…" : "Sign out"}
           </button>
+
+          {/* Delete account */}
+          {!confirmingDelete ? (
+            <button
+              onClick={() => { setConfirmingDelete(true); setDeleteText(""); setDeleteStatus(""); }}
+              className="w-full py-2.5 rounded-lg text-xs font-medium transition-opacity"
+              style={{
+                background: "transparent",
+                color:      "var(--ink-text-dim)",
+                fontFamily: "var(--font-sans)",
+              }}
+            >
+              Delete account
+            </button>
+          ) : (
+            <div
+              className="flex flex-col gap-3 p-4 rounded-xl"
+              style={{ background: "var(--red-soft)", border: "1px solid var(--red)" }}
+            >
+              <p className="text-xs leading-relaxed font-semibold" style={{ color: "var(--red)", fontFamily: "var(--font-sans)" }}>
+                This permanently deletes your account and every entry, budget, balance, investment, goal, and chat — there is no undo.
+              </p>
+              <label className="text-xs" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>
+                Type <span className="font-bold" style={{ color: "var(--red)" }}>DELETE</span> to confirm
+              </label>
+              <input
+                type="text"
+                value={deleteText}
+                onChange={(e) => setDeleteText(e.target.value)}
+                placeholder="DELETE"
+                className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+                style={{
+                  background: "var(--ink-3)",
+                  border:     "1px solid var(--red)",
+                  color:      "var(--ink-text)",
+                  fontFamily: "var(--font-mono)",
+                }}
+              />
+              {deleteStatus && (
+                <p className="text-xs" style={{ color: "var(--red)", fontFamily: "var(--font-mono)" }}>
+                  {deleteStatus}
+                </p>
+              )}
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setConfirmingDelete(false)}
+                  disabled={deleting}
+                  className="flex-1 py-2 rounded-lg text-xs font-medium"
+                  style={{ background: "var(--ink-3)", color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={deleteAccount}
+                  disabled={deleting || deleteText !== "DELETE"}
+                  className="flex-1 py-2 rounded-lg text-xs font-bold transition-opacity"
+                  style={{
+                    background: "var(--red)",
+                    color:      "#fff",
+                    fontFamily: "var(--font-sans)",
+                    opacity:    (deleting || deleteText !== "DELETE") ? 0.5 : 1,
+                  }}
+                >
+                  {deleting ? "Deleting…" : "Permanently delete"}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </>
