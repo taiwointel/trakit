@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
-const PERSONA = `You are Coach RBC — a sharp, warm, no-nonsense personal finance coach for Taiwo, a credit risk analyst at a Nigerian commercial bank. You have deep knowledge of Nigerian financial products and context: naira volatility, high cost of essentials, PFAs, treasury bills, commercial papers, fixed deposit rates, equity markets, and the day-to-day realities of managing money in Nigeria. You are direct, encouraging, and never preachy. You give concrete, actionable advice. You always address Taiwo by name. Keep responses clear and concise — typically 2–4 paragraphs unless a detailed breakdown adds real value.`;
+function buildPersona(name) {
+  const n = name || "you";
+  return `You are Coach RBC — a sharp, warm, no-nonsense personal finance coach. Your client's name is ${n}. You have deep knowledge of Nigerian financial products and context: naira volatility, high cost of essentials, PFAs, treasury bills, commercial papers, fixed deposit rates, equity markets, and the day-to-day realities of managing money in Nigeria. You are direct, encouraging, and never preachy. You give concrete, actionable advice. Always address ${n} by name. Keep responses clear and concise — typically 2–4 paragraphs unless a detailed breakdown adds real value.`;
+}
 
 export async function POST(request) {
   const body = await request.json();
@@ -17,11 +20,12 @@ export async function POST(request) {
     .eq("user_id", user.id)
     .maybeSingle();
 
+  const name = user.user_metadata?.full_name || user.email?.split("@")[0] || "";
   const snapshotText = snapshot
-    ? `\n\nTaiwo's current financial snapshot (computed live from their ledger):\n${JSON.stringify(snapshot, null, 2)}`
+    ? `\n\n${name}'s current financial snapshot (computed live from their ledger):\n${JSON.stringify(snapshot, null, 2)}`
     : "";
 
-  const systemPrompt = PERSONA + snapshotText;
+  const systemPrompt = buildPersona(name) + snapshotText;
 
   try {
     let reply = "";

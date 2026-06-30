@@ -80,14 +80,14 @@ export default function AppLayout({ children }) {
         {/* Brand */}
         <div className="flex flex-col leading-none select-none shrink-0">
           <span
-            className="text-[9px] font-semibold uppercase tracking-widest"
-            style={{ color: "var(--gold)", fontFamily: "var(--font-sans)" }}
+            className="text-base font-bold leading-tight"
+            style={{ color: "var(--ink-text)", fontFamily: "var(--font-serif)", letterSpacing: -0.4 }}
           >
-            Ledger
+            Trackit
           </span>
           <span
-            className="text-base font-semibold leading-tight"
-            style={{ color: "var(--ink-text)", fontFamily: "var(--font-serif)" }}
+            className="text-[9px] font-medium uppercase tracking-widest leading-tight"
+            style={{ color: "var(--gold)", fontFamily: "var(--font-sans)" }}
           >
             Daily Expense Tracker
           </span>

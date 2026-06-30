@@ -20,8 +20,8 @@ const sourceSerif4 = Source_Serif_4({
 });
 
 export const metadata = {
-  title: "Ledger — Taiwo's Daily Expense Tracker",
-  description: "Personal finance tracker for Taiwo Ogunfile",
+  title: "Trackit — Daily Expense Tracker",
+  description: "Personal finance tracker — track spending, invest smarter, and grow wealth.",
 };
 
 export default function RootLayout({ children }) {

@@ -1,16 +1,22 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
-const PERSONA = `You are Coach RBC — a sharp, warm, no-nonsense personal finance coach for Taiwo, a credit risk analyst at a Nigerian commercial bank. You know Nigerian financial context well: naira volatility, high cost of essentials, PFAs, T-Bills, etc. You are direct but encouraging. You never moralize; you give concrete, actionable advice. You always address Taiwo by name.`;
+function buildPersona(name) {
+  const n = name || "the user";
+  return `You are Coach RBC — a sharp, warm, no-nonsense personal finance coach. Your client's name is ${n}. You know Nigerian financial context well: naira volatility, high cost of essentials, PFAs, T-Bills, etc. You are direct but encouraging. You never moralize; you give concrete, actionable advice. Always address ${n} by name.`;
+}
 
-const SCHEMA = `Return ONLY raw JSON (no markdown fences, no prose outside the JSON) in this exact shape:
+function buildSchema(name) {
+  const n = name || "the user";
+  return `Return ONLY raw JSON (no markdown fences, no prose outside the JSON) in this exact shape:
 {
-  "opener": "<2-3 sentence personal greeting that acknowledges the period and overall situation>",
+  "opener": "<2-3 sentence personal greeting addressing ${n} by name, acknowledging the period and overall situation>",
   "headlines": [{"title": "<short title>", "body": "<3-5 sentence analysis>"}],
   "redFlags": [{"title": "<short title>", "body": "<specific concern>", "amount": <number>}],
   "cutList": [{"action": "<concrete action>", "category": "<category name>", "targetSaving": <number>}],
-  "closer": "<2-3 sentence motivating close, addressing Taiwo by name>"
+  "closer": "<2-3 sentence motivating close, addressing ${n} by name>"
 }`;
+}
 
 export async function POST(request) {
   const body = await request.json();
@@ -37,8 +43,12 @@ export async function POST(request) {
     .eq("user_id", user.id)
     .maybeSingle();
 
+  const name = user.user_metadata?.full_name || user.email?.split("@")[0] || "";
+  const PERSONA = buildPersona(name);
+  const SCHEMA  = buildSchema(name);
+
   const contextStr = JSON.stringify(context, null, 2);
-  const userPrompt = `Analyse Taiwo's finances for the period ${from} to ${to}.\n\nContext:\n${contextStr}\n\n${SCHEMA}`;
+  const userPrompt = `Analyse ${name || "the user"}'s finances for the period ${from} to ${to}.\n\nContext:\n${contextStr}\n\n${SCHEMA}`;
 
   try {
     let text = "";
