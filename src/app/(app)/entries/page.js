@@ -9,8 +9,52 @@ import EntryForm       from "@/components/entries/EntryForm";
 import LedgerTable     from "@/components/entries/LedgerTable";
 import BudgetsGrid     from "@/components/entries/BudgetsGrid";
 import { formatNaira } from "@/lib/format";
-import CsvImport      from "@/components/entries/CsvImport";
-import BillTracker    from "@/components/entries/BillTracker";
+import CsvImport        from "@/components/entries/CsvImport";
+import BillTracker      from "@/components/entries/BillTracker";
+import TelegramBotSetup from "@/components/entries/TelegramBotSetup";
+
+function FeatureCard({ icon, title, tag, tagColor, description, children }) {
+  return (
+    <div style={{ background: "var(--ink-2)", border: "1px solid var(--rule)", borderRadius: 16, overflow: "hidden" }}>
+      {/* Card header */}
+      <div style={{ padding: "16px 20px 12px", borderBottom: "1px solid var(--rule)", display: "flex", flexDirection: "column", gap: 6 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <span style={{ fontSize: 16 }}>{icon}</span>
+          <span style={{ color: "var(--ink-text)", fontFamily: "var(--font-sans)", fontSize: 14, fontWeight: 700 }}>
+            {title}
+          </span>
+          <span style={{
+            marginLeft: "auto",
+            background: `color-mix(in srgb, ${tagColor} 15%, transparent)`,
+            color: tagColor,
+            fontFamily: "var(--font-sans)", fontSize: 10, fontWeight: 700,
+            textTransform: "uppercase", letterSpacing: "0.1em",
+            padding: "2px 8px", borderRadius: 20,
+          }}>
+            {tag}
+          </span>
+        </div>
+        <p style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", fontSize: 12, lineHeight: 1.65, margin: 0 }}>
+          {description}
+        </p>
+      </div>
+      {/* Card body */}
+      {children}
+    </div>
+  );
+}
+
+function OrDivider() {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+      <div style={{ flex: 1, height: 1, background: "var(--rule)" }} />
+      <span style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.12em" }}>
+        or
+      </span>
+      <div style={{ flex: 1, height: 1, background: "var(--rule)" }} />
+    </div>
+  );
+}
 
 export default function EntriesPage() {
   const today  = new Date();
@@ -124,9 +168,8 @@ export default function EntriesPage() {
       )}
 
       {/* ── 1. ADD ENTRIES ────────────────────────────────────────────────
-          Both input methods sit here: quick manual entry and bulk import.
-          They answer the same question ("how do I get data in?") and belong
-          together at the top of the page. */}
+          Three input methods, all for the same job: getting data in.
+          Each has a feature card explaining why it matters. */}
       <div className="section-divider">
         <div className="section-divider-bar" />
         <span className="section-divider-label">Add Entries</span>
@@ -134,23 +177,44 @@ export default function EntriesPage() {
       </div>
 
       <div className="section-body">
-        {/* Manual entry */}
-        <div style={{ background: "var(--ink-2)", border: "1px solid var(--rule)", borderRadius: 16, overflow: "hidden" }}>
+
+        {/* ── Method 1: Type it in ── */}
+        <FeatureCard
+          icon="✏️"
+          title="Type it in"
+          tag="Instant"
+          tagColor="var(--gold)"
+          description="The fastest way to capture a spend the moment it happens — before you forget the amount. Describe it, enter the naira value, and AI categorizes it automatically. Zero friction, every time."
+        >
           <EntryForm entries={entries} onAdd={addEntry} />
-        </div>
+        </FeatureCard>
 
-        {/* Import — same section, equal prominence */}
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{ flex: 1, height: 1, background: "var(--rule)" }} />
-          <span style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.1em", whiteSpace: "nowrap" }}>
-            or import from a bank statement
-          </span>
-          <div style={{ flex: 1, height: 1, background: "var(--rule)" }} />
-        </div>
+        <OrDivider />
 
-        <div style={{ background: "var(--ink-2)", border: "1px solid var(--rule)", borderRadius: 16, overflow: "hidden" }}>
+        {/* ── Method 2: Import a bank statement ── */}
+        <FeatureCard
+          icon="📄"
+          title="Import a bank statement"
+          tag="Bulk"
+          tagColor="var(--teal)"
+          description="Drop in your PDF or CSV bank statement and AI reads, extracts, and queues every transaction for categorization — months of history in a single upload. This is the fastest way to catch up on weeks you haven't tracked."
+        >
           <CsvImport onImported={() => window.location.reload()} />
-        </div>
+        </FeatureCard>
+
+        <OrDivider />
+
+        {/* ── Method 3: Telegram bot ── */}
+        <FeatureCard
+          icon="✈️"
+          title="Telegram bot"
+          tag="Anywhere"
+          tagColor="var(--blue-accent)"
+          description="Log expenses mid-transaction without opening the app. Message your personal bot — '3,500 suya at Mallam Musa' — and it's in your ledger instantly. Works from your lock screen, from a market, from any device."
+        >
+          <TelegramBotSetup />
+        </FeatureCard>
+
       </div>
 
       {/* ── 2. LEDGER ─────────────────────────────────────────────────────
