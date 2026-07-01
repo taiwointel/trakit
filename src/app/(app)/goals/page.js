@@ -56,46 +56,80 @@ export default function GoalsPage() {
   }
 
   return (
-    <div className="flex flex-col gap-4 p-4 max-w-4xl mx-auto w-full pb-12">
+    <div className="page-root">
 
-      {/* Payday widget — no href since we're already on Goals */}
-      <PaydayWidget paydayDay={goals.payday_day} salary={goals.salary} />
+      {/* ── HERO: Payday widget ────────────────────────────────────────── */}
+      <div className="section-body" style={{ paddingTop: 24 }}>
+        <PaydayWidget paydayDay={goals.payday_day} salary={goals.salary} />
+      </div>
 
-      {/* Salary & payday setup */}
-      <SalarySetup
-        salary={goals.salary}
-        paydayDay={goals.payday_day}
-        onSave={saveGoals}
-      />
+      {/* ── SETUP ─────────────────────────────────────────────────────── */}
+      <div className="section-divider">
+        <div className="section-divider-bar" />
+        <span className="section-divider-label">Salary &amp; Payday</span>
+        <div className="section-divider-rule" />
+      </div>
 
-      {/* 50/30/20 monthly targets */}
-      <MonthlyTargets
-        entries={entries}
-        salary={goals.salary}
-        customGoals={customGoals}
-        userName={userName}
-        cycleStart={cycleStart}
-        cycleLabel={cycle?.label}
-      />
+      <div className="section-body">
+        <SalarySetup
+          salary={goals.salary}
+          paydayDay={goals.payday_day}
+          onSave={saveGoals}
+        />
+      </div>
 
-      {/* Emergency fund */}
-      <EmergencyFundPanel
-        transactions={transactions}
-        balance={balance}
-        target={efTarget}
-        overrideTarget={goals.emergency_fund_target_override}
-        onAdd={addTransaction}
-        onSetOverride={handleSetOverride}
-      />
+      {/* ── MONTHLY TARGETS ───────────────────────────────────────────── */}
+      <div className="section-divider">
+        <div className="section-divider-bar" style={{ background: "var(--violet)" }} />
+        <span className="section-divider-label" style={{ color: "var(--violet)" }}>Monthly Targets (50/30/20)</span>
+        <div className="section-divider-rule" />
+      </div>
 
-      {/* Custom savings goals */}
-      <CustomGoalsPanel
-        goals={customGoals}
-        salary={goals.salary}
-        onAdd={addGoal}
-        onUpdateSaved={updateSavedSoFar}
-        onDelete={deleteGoal}
-      />
+      <div className="section-body">
+        <MonthlyTargets
+          entries={entries}
+          salary={goals.salary}
+          customGoals={customGoals}
+          userName={userName}
+          cycleStart={cycleStart}
+          cycleLabel={cycle?.label}
+        />
+      </div>
+
+      {/* ── EMERGENCY FUND ────────────────────────────────────────────── */}
+      <div className="section-divider">
+        <div className="section-divider-bar" style={{ background: "var(--blue-accent)" }} />
+        <span className="section-divider-label" style={{ color: "var(--blue-accent)" }}>Emergency Fund</span>
+        <div className="section-divider-rule" />
+      </div>
+
+      <div className="section-body">
+        <EmergencyFundPanel
+          transactions={transactions}
+          balance={balance}
+          target={efTarget}
+          overrideTarget={goals.emergency_fund_target_override}
+          onAdd={addTransaction}
+          onSetOverride={handleSetOverride}
+        />
+      </div>
+
+      {/* ── SAVINGS GOALS ─────────────────────────────────────────────── */}
+      <div className="section-divider">
+        <div className="section-divider-bar" style={{ background: "var(--teal)" }} />
+        <span className="section-divider-label" style={{ color: "var(--teal)" }}>Custom Savings Goals</span>
+        <div className="section-divider-rule" />
+      </div>
+
+      <div className="section-body">
+        <CustomGoalsPanel
+          goals={customGoals}
+          salary={goals.salary}
+          onAdd={addGoal}
+          onUpdateSaved={updateSavedSoFar}
+          onDelete={deleteGoal}
+        />
+      </div>
 
     </div>
   );

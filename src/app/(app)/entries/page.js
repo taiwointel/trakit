@@ -56,26 +56,18 @@ export default function EntriesPage() {
   }
 
   return (
-    <div className="flex flex-col max-w-5xl mx-auto w-full pb-12">
+    <div className="page-root" style={{ maxWidth: 1000 }}>
 
-      {/* Motivational header */}
+      {/* ── NAVIGATION HEADER ─────────────────────────────────────────── */}
       <div
-        className="px-4 py-3 text-center"
         style={{
-          background: "linear-gradient(to right, rgba(212,160,48,0.08), rgba(212,160,48,0.04))",
+          background: "var(--ink-2)",
           borderBottom: "1px solid var(--rule)",
+          position: "sticky",
+          top: 0,
+          zIndex: 10,
         }}
       >
-        <p
-          className="text-xs font-medium"
-          style={{ color: "var(--gold)", fontFamily: "var(--font-sans)", letterSpacing: "0.02em" }}
-        >
-          Log every naira and every kobo — your future self will thank you.
-        </p>
-      </div>
-
-      {/* Month navigator */}
-      <div style={{ background: "var(--ink-2)", borderBottom: "1px solid var(--rule)" }}>
         <MonthNav year={year} month={month} onChange={(y, m) => { setYear(y); setMonth(m); setSelectedDay(null); }} />
       </div>
 
@@ -94,13 +86,20 @@ export default function EntriesPage() {
         />
       </div>
 
-      {/* Daily summary panel (visible when a day is selected) */}
+      {/* Daily summary — shown when a day is selected */}
       {selectedDay && (
         <div
-          className="px-4 py-3 flex items-center gap-4 text-sm"
-          style={{ background: "var(--ink-3)", borderBottom: "1px solid var(--rule)" }}
+          style={{
+            background: "var(--ink-3)",
+            borderBottom: "1px solid var(--rule)",
+            padding: "12px 20px",
+            display: "flex",
+            alignItems: "center",
+            gap: 20,
+            flexWrap: "wrap",
+          }}
         >
-          <span style={{ color: "var(--ink-text)", fontFamily: "var(--font-mono)", fontWeight: 600 }}>
+          <span style={{ color: "var(--gold)", fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 13 }}>
             {(() => {
               if (!dayStr) return "";
               const d = new Date(dayStr + "T00:00:00");
@@ -108,69 +107,101 @@ export default function EntriesPage() {
               return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
             })()}
           </span>
-          <span style={{ color: "var(--red)", fontFamily: "var(--font-mono)" }}>
+          <span style={{ color: "var(--red)", fontFamily: "var(--font-mono)", fontSize: 13 }}>
             Out: {formatNaira(dayOut)}
           </span>
-          <span style={{ color: "var(--green)", fontFamily: "var(--font-mono)" }}>
+          <span style={{ color: "var(--green)", fontFamily: "var(--font-mono)", fontSize: 13 }}>
             In: {formatNaira(dayIn)}
           </span>
-          <span style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-mono)" }}>
+          <span style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-mono)", fontSize: 13 }}>
             Net: {formatNaira(dayIn - dayOut)}
           </span>
           <button
             onClick={() => setSelectedDay(null)}
-            className="ml-auto text-xs"
-            style={{ color: "var(--ink-text-dim)" }}
+            style={{ marginLeft: "auto", fontSize: 11, color: "var(--ink-text-dim)", cursor: "pointer", fontFamily: "var(--font-sans)" }}
           >
-            ✕ Clear
+            ✕ Clear filter
           </button>
         </div>
       )}
 
-      {/* Bill Tracker */}
-      <BillTracker onLogEntry={addEntry} />
-
-      {/* CSV Import */}
-      <CsvImport onImported={() => window.location.reload()} />
-
-      {/* Entry form */}
-      <div style={{ background: "var(--ink-2)", borderBottom: "1px solid var(--rule)" }}>
-        <EntryForm entries={entries} onAdd={addEntry} />
+      {/* ── LOG AN ENTRY ──────────────────────────────────────────────── */}
+      <div className="section-divider">
+        <div className="section-divider-bar" />
+        <span className="section-divider-label">Log an Entry</span>
+        <div className="section-divider-rule" />
       </div>
 
-      {/* Ledger table — collapsible */}
-      <div style={{ borderTop: "1px solid var(--rule)" }}>
-        <button
-          onClick={() => setLedgerOpen((v) => !v)}
-          className="w-full flex items-center justify-between px-4 py-2.5"
-          style={{ background: "var(--ink-2)", borderBottom: ledgerOpen ? "1px solid var(--rule)" : "none" }}
-        >
-          <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>
-            Entries ({displayEntries.length})
-          </span>
-          <span className="text-xs" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-mono)" }}>
-            {ledgerOpen ? "▲ Collapse" : "▼ Show"}
-          </span>
-        </button>
-        {ledgerOpen && <LedgerTable entries={displayEntries} onUpdate={updateEntry} onDelete={deleteEntry} />}
+      <div className="section-body">
+        <div style={{ background: "var(--ink-2)", border: "1px solid var(--rule)", borderRadius: 16, overflow: "hidden" }}>
+          <EntryForm entries={entries} onAdd={addEntry} />
+        </div>
       </div>
 
-      {/* Budgets grid — collapsible, closed by default */}
-      <div style={{ borderTop: "1px solid var(--rule)" }}>
-        <button
-          onClick={() => setBudgetsOpen((v) => !v)}
-          className="w-full flex items-center justify-between px-4 py-2.5"
-          style={{ background: "var(--ink-2)", borderBottom: budgetsOpen ? "1px solid var(--rule)" : "none" }}
-        >
-          <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>
-            Monthly budgets
-          </span>
-          <span className="text-xs" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-mono)" }}>
-            {budgetsOpen ? "▲ Collapse" : "▼ Show"}
-          </span>
-        </button>
-        {budgetsOpen && <BudgetsGrid entries={monthEntries} budgets={budgets} onSave={saveBudget} />}
+      {/* ── TOOLS ─────────────────────────────────────────────────────── */}
+      <div className="section-divider">
+        <div className="section-divider-bar" style={{ background: "var(--teal)" }} />
+        <span className="section-divider-label" style={{ color: "var(--teal)" }}>Tools</span>
+        <div className="section-divider-rule" />
       </div>
+
+      <div className="section-body">
+        <div className="grid-2">
+          <div style={{ background: "var(--ink-2)", border: "1px solid var(--rule)", borderRadius: 16, overflow: "hidden" }}>
+            <BillTracker onLogEntry={addEntry} />
+          </div>
+          <div style={{ background: "var(--ink-2)", border: "1px solid var(--rule)", borderRadius: 16, overflow: "hidden" }}>
+            <CsvImport onImported={() => window.location.reload()} />
+          </div>
+        </div>
+      </div>
+
+      {/* ── LEDGER ────────────────────────────────────────────────────── */}
+      <div className="section-divider">
+        <div className="section-divider-bar" style={{ background: "var(--amber)" }} />
+        <span className="section-divider-label" style={{ color: "var(--amber)" }}>Ledger</span>
+        <div className="section-divider-rule" />
+      </div>
+
+      <div className="section-body">
+        <div style={{ background: "var(--ink-2)", border: "1px solid var(--rule)", borderRadius: 16, overflow: "hidden" }}>
+          <button
+            onClick={() => setLedgerOpen((v) => !v)}
+            className="section-toggle"
+          >
+            <span className="section-toggle-label">
+              Entries ({displayEntries.length})
+            </span>
+            <span className="section-toggle-arrow">
+              {ledgerOpen ? "▲ Collapse" : "▼ Show"}
+            </span>
+          </button>
+          {ledgerOpen && <LedgerTable entries={displayEntries} onUpdate={updateEntry} onDelete={deleteEntry} />}
+        </div>
+      </div>
+
+      {/* ── BUDGETS ───────────────────────────────────────────────────── */}
+      <div className="section-divider">
+        <div className="section-divider-bar" style={{ background: "var(--violet)" }} />
+        <span className="section-divider-label" style={{ color: "var(--violet)" }}>Monthly Budgets</span>
+        <div className="section-divider-rule" />
+      </div>
+
+      <div className="section-body">
+        <div style={{ background: "var(--ink-2)", border: "1px solid var(--rule)", borderRadius: 16, overflow: "hidden" }}>
+          <button
+            onClick={() => setBudgetsOpen((v) => !v)}
+            className="section-toggle"
+          >
+            <span className="section-toggle-label">Budget caps by category</span>
+            <span className="section-toggle-arrow">
+              {budgetsOpen ? "▲ Collapse" : "▼ Show"}
+            </span>
+          </button>
+          {budgetsOpen && <BudgetsGrid entries={monthEntries} budgets={budgets} onSave={saveBudget} />}
+        </div>
+      </div>
+
     </div>
   );
 }

@@ -159,7 +159,7 @@ export default function SummaryPage() {
   }
 
   return (
-    <div className="flex flex-col gap-4 p-4 max-w-4xl mx-auto w-full pb-12">
+    <div className="page-root">
       <style>{`
         @media print {
           .app-topbar, .app-bottom-nav, [data-no-print] { display: none !important; }
@@ -168,137 +168,166 @@ export default function SummaryPage() {
         }
       `}</style>
 
-      {/* Greeting */}
-      <div
-        className="rounded-xl px-5 py-4"
-        style={{
-          background: "linear-gradient(135deg, rgba(212,160,48,0.10) 0%, rgba(155,114,214,0.08) 100%)",
-          border: "1px solid rgba(212,160,48,0.18)",
-        }}
-      >
-        <p
-          className="text-lg font-semibold"
-          style={{ color: "var(--ink-text)", fontFamily: "var(--font-serif)" }}
-        >
-          {getGreeting(name)}
-        </p>
-      </div>
-
-      <AnnualWrapped
-        entries={entries}
-        investments={investments}
-        transactions={transactions}
-        currentBalance={currentBalance}
-        salary={goals.salary}
-      />
-
-      {/* FX rates widget */}
-      <FXWidget />
-
-      {/* Payday widget — clicking takes you to Goals to adjust */}
-      <PaydayWidget paydayDay={goals.payday_day} salary={goals.salary} href="/goals" />
-
-      {/* End-of-cycle spend forecast */}
-      <ForecastBanner
-        cycleStart={cycleStart}
-        cycleEnd={cycle?.end || today}
-        salary={goals.salary}
-        entries={entries}
-        today={today}
-      />
-
-      {/* Headline panel */}
-      <div
-        className="rounded-lg p-5 flex flex-col gap-2"
-        style={{ background: "var(--ink-2)", border: "1px solid var(--rule)" }}
-      >
-        <div className="flex items-center justify-between gap-2">
-          <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>
-            {periodLabel}
-          </p>
-          <button
-            onClick={() => window.print()}
-            className="text-xs px-2.5 py-1 rounded-lg"
-            style={{ background: "var(--ink-3)", border: "1px solid var(--rule)", color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}
-          >
-            Print / PDF
-          </button>
-        </div>
-        <div
-          className="text-4xl font-bold"
-          style={{ color: "var(--ink-text)", fontFamily: "var(--font-serif)" }}
-        >
-          {formatNaira(monthOut)}
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          {biggestCat && (
-            <span className="text-sm" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>
-              Biggest: <strong style={{ color: "var(--ink-text)" }}>{biggestCat[0]}</strong> ({formatNaira(biggestCat[1], { compact: true })})
-            </span>
-          )}
-          {prevOut > 0 && (
-            <span
-              className="text-sm font-semibold"
-              style={{ color: deltaColor, fontFamily: "var(--font-mono)" }}
+      {/* ── HERO ──────────────────────────────────────────────────────── */}
+      <div style={{ padding: "24px 24px 4px" }} className="sm:p-8 sm:pb-1">
+        <div className="grid-hero">
+          {/* Left column: greeting + FX strip + forecast + anomalies */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <div
+              style={{
+                background: "linear-gradient(135deg, rgba(212,160,48,0.10) 0%, rgba(155,114,214,0.08) 100%)",
+                border: "1px solid rgba(212,160,48,0.18)",
+                borderRadius: 16,
+                padding: "20px 24px",
+              }}
             >
-              {deltaDir} {formatNaira(Math.abs(delta), { compact: true })} vs last month
-            </span>
-          )}
+              <p style={{ color: "var(--ink-text)", fontFamily: "var(--font-serif)", fontSize: "1.1rem", fontWeight: 600, lineHeight: 1.5 }}>
+                {getGreeting(name)}
+              </p>
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+              <FXWidget />
+              <AnnualWrapped
+                entries={entries}
+                investments={investments}
+                transactions={transactions}
+                currentBalance={currentBalance}
+                salary={goals.salary}
+              />
+            </div>
+
+            <ForecastBanner
+              cycleStart={cycleStart}
+              cycleEnd={cycle?.end || today}
+              salary={goals.salary}
+              entries={entries}
+              today={today}
+            />
+
+            <AnomalyAlerts
+              entries={entries}
+              cycleStart={cycleStart}
+              cycle={cycle}
+              today={today}
+            />
+          </div>
+
+          {/* Right column: payday widget */}
+          <PaydayWidget paydayDay={goals.payday_day} salary={goals.salary} href="/goals" />
         </div>
       </div>
 
-      {/* Cash & liquidity */}
-      <LiquidityPanel
-        balance={currentBalance}
-        avgMonthlyEssential={avgEssential}
-        months={months}
-        sparkRows={sparkRows}
-      />
+      {/* ── YOUR NUMBERS ──────────────────────────────────────────────── */}
+      <div className="section-divider">
+        <div className="section-divider-bar" />
+        <span className="section-divider-label">Your Numbers</span>
+        <div className="section-divider-rule" />
+      </div>
 
-      {/* Net worth */}
-      <NetWorthCard
-        cashBalance={currentBalance}
-        investments={investments}
-        transactions={transactions}
-      />
+      <div className="section-body">
+        {/* Headline card + Liquidity side by side */}
+        <div className="grid-2">
+          {/* Headline */}
+          <div
+            style={{
+              background: "var(--ink-2)",
+              border: "1px solid var(--rule)",
+              borderRadius: 16,
+              padding: "24px",
+              display: "flex",
+              flexDirection: "column",
+              gap: 12,
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
+              <p style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em" }}>
+                {periodLabel}
+              </p>
+              <button
+                onClick={() => window.print()}
+                style={{ background: "var(--ink-3)", border: "1px solid var(--rule)", color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", fontSize: 11, padding: "4px 10px", borderRadius: 8, cursor: "pointer", whiteSpace: "nowrap" }}
+              >
+                Print / PDF
+              </button>
+            </div>
+            <div style={{ color: "var(--ink-text)", fontFamily: "var(--font-serif)", fontSize: "clamp(1.8rem, 4vw, 2.5rem)", fontWeight: 700, lineHeight: 1 }}>
+              {formatNaira(monthOut)}
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {biggestCat && (
+                <span style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", fontSize: 13 }}>
+                  Biggest: <strong style={{ color: "var(--ink-text)" }}>{biggestCat[0]}</strong>{" "}
+                  ({formatNaira(biggestCat[1], { compact: true })})
+                </span>
+              )}
+              {prevOut > 0 && (
+                <span style={{ color: deltaColor, fontFamily: "var(--font-mono)", fontSize: 13, fontWeight: 600 }}>
+                  {deltaDir} {formatNaira(Math.abs(delta), { compact: true })} vs prior period
+                </span>
+              )}
+            </div>
+          </div>
 
-      {/* Spending anomalies */}
-      <AnomalyAlerts
-        entries={entries}
-        cycleStart={cycleStart}
-        cycle={cycle}
-        today={today}
-      />
+          <LiquidityPanel
+            balance={currentBalance}
+            avgMonthlyEssential={avgEssential}
+            months={months}
+            sparkRows={sparkRows}
+          />
+        </div>
 
-      {/* Coach RBC */}
-      <CoachRBCPanel
-        entries={entries}
-        cashBalance={currentBalance}
-        salary={goals.salary}
-        paydayDay={goals.payday_day}
-      />
+        <NetWorthCard
+          cashBalance={currentBalance}
+          investments={investments}
+          transactions={transactions}
+        />
+      </div>
 
-      {/* Ask about your spending */}
-      <AskSpending entries={entries} />
+      {/* ── COACH RBC ─────────────────────────────────────────────────── */}
+      <div className="section-divider">
+        <div className="section-divider-bar" />
+        <span className="section-divider-label">Coach RBC</span>
+        <div className="section-divider-rule" />
+      </div>
 
-      {/* Where it went */}
-      <WhereItWent entries={cycleEntries} />
+      <div className="section-body">
+        <CoachRBCPanel
+          entries={entries}
+          cashBalance={currentBalance}
+          salary={goals.salary}
+          paydayDay={goals.payday_day}
+        />
+        <AskSpending entries={entries} />
+      </div>
 
-      {/* Category explorer */}
-      <CategoryExplorer entries={cycleEntries} />
+      {/* ── SPEND ANALYSIS ────────────────────────────────────────────── */}
+      <div className="section-divider">
+        <div className="section-divider-bar" />
+        <span className="section-divider-label">Spend Analysis</span>
+        <div className="section-divider-rule" />
+      </div>
 
-      {/* Analytics row */}
-      <AnalyticsRow entries={entries} />
+      <div className="section-body">
+        <div className="grid-2">
+          <WhereItWent entries={cycleEntries} />
+          <SpendTrendChart entries={entries} from={cycleStart} to={today} />
+        </div>
+        <CategoryExplorer entries={cycleEntries} />
+        <AnalyticsRow entries={entries} />
+      </div>
 
-      {/* Spending trend — use salary cycle range, fall back to 30 days */}
-      <SpendTrendChart entries={entries} from={cycleStart} to={today} />
+      {/* ── PATTERNS & HISTORY ────────────────────────────────────────── */}
+      <div className="section-divider">
+        <div className="section-divider-bar" />
+        <span className="section-divider-label">Patterns &amp; History</span>
+        <div className="section-divider-rule" />
+      </div>
 
-      {/* Spending heatmap */}
-      <SpendHeatmap entries={entries} />
-
-      {/* Recurring committed spend */}
-      <RecurringPanel entries={entries} />
-
+      <div className="section-body">
+        <SpendHeatmap entries={entries} />
+        <RecurringPanel entries={entries} />
+      </div>
     </div>
   );
 }

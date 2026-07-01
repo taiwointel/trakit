@@ -16,19 +16,6 @@ import BalanceCard          from "@/components/investments/BalanceCard";
 import LifeAssuranceCard    from "@/components/investments/LifeAssuranceCard";
 import PensionCard          from "@/components/investments/PensionCard";
 
-function GroupHeader({ title, color = "var(--gold)" }) {
-  return (
-    <div className="flex items-center gap-2 mt-2">
-      <span style={{ width: 8, height: 8, borderRadius: "50%", background: color, boxShadow: `0 0 6px ${color}` }} />
-      <p
-        className="text-xs font-semibold uppercase tracking-widest"
-        style={{ color, fontFamily: "var(--font-sans)" }}
-      >
-        {title}
-      </p>
-    </div>
-  );
-}
 
 export default function CashPage() {
   const { entries, loading: entriesLoading } = useEntries();
@@ -55,105 +42,155 @@ export default function CashPage() {
   }
 
   return (
-    <div className="flex flex-col gap-4 p-4 max-w-4xl mx-auto w-full pb-12">
+    <div className="page-root">
 
-      {/* ── Cash balance ─────────────────────────────── */}
-      <CashSetup anchor={anchor} onSave={saveAnchor} />
-
-      <DailyNavigator entries={entries} anchor={anchor} />
-
-      {anchor.anchor_date && (
-        <BalanceTable entries={entries} anchor={anchor} />
-      )}
-
-      <LoanTracker />
-
-      {/* ── Investments ──────────────────────────────── */}
-      <div className="flex items-center justify-between mt-2">
-        <p
-          className="text-xs font-semibold uppercase tracking-widest"
-          style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}
-        >
-          Investments
-        </p>
+      {/* ── CASH BALANCE ──────────────────────────────────────────────── */}
+      <div className="section-divider">
+        <div className="section-divider-bar" />
+        <span className="section-divider-label">Cash Balance</span>
+        <div className="section-divider-rule" />
       </div>
 
-      {investments.length > 0 && (
-        <PortfolioSummary investments={investments} transactions={transactions} />
-      )}
+      <div className="section-body">
+        <CashSetup anchor={anchor} onSave={saveAnchor} />
+        <DailyNavigator entries={entries} anchor={anchor} />
+        {anchor.anchor_date && (
+          <BalanceTable entries={entries} anchor={anchor} />
+        )}
+      </div>
 
-      <LogInvestmentForm onAdd={addInvestment} />
+      {/* ── LOANS ─────────────────────────────────────────────────────── */}
+      <div className="section-divider">
+        <div className="section-divider-bar" style={{ background: "var(--blue-accent)" }} />
+        <span className="section-divider-label" style={{ color: "var(--blue-accent)" }}>Loans</span>
+        <div className="section-divider-rule" />
+      </div>
+
+      <div className="section-body">
+        <LoanTracker />
+      </div>
+
+      {/* ── INVESTMENTS ───────────────────────────────────────────────── */}
+      <div className="section-divider">
+        <div className="section-divider-bar" style={{ background: "var(--teal)" }} />
+        <span className="section-divider-label" style={{ color: "var(--teal)" }}>Investments</span>
+        <div className="section-divider-rule" />
+      </div>
+
+      <div className="section-body">
+        {investments.length > 0 && (
+          <PortfolioSummary investments={investments} transactions={transactions} />
+        )}
+
+        <LogInvestmentForm onAdd={addInvestment} />
+
+        {investments.length === 0 && (
+          <p style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", fontSize: 14 }}>
+            No investments logged yet. Use the form above to add one.
+          </p>
+        )}
+      </div>
 
       {/* Fixed-income & money market */}
       {maturityInvs.length > 0 && (
-        <div className="flex flex-col gap-3">
-          <GroupHeader title="Fixed-income & money market" color="var(--gold)" />
-          {maturityInvs.map((inv) => (
-            <MaturityCard
-              key={inv.id}
-              inv={inv}
-              onDelete={deleteInvestment}
-            />
-          ))}
-        </div>
+        <>
+          <div className="section-divider">
+            <div className="section-divider-bar" style={{ background: "var(--gold)", width: 2, height: 12 }} />
+            <span style={{ color: "var(--gold)", fontFamily: "var(--font-sans)", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em" }}>
+              Fixed-income &amp; Money Market
+            </span>
+            <div className="section-divider-rule" />
+          </div>
+          <div className="section-body" style={{ paddingTop: 0 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              {maturityInvs.map((inv) => (
+                <MaturityCard key={inv.id} inv={inv} onDelete={deleteInvestment} />
+              ))}
+            </div>
+          </div>
+        </>
       )}
 
       {/* Funds & holdings */}
       {balanceInvs.length > 0 && (
-        <div className="flex flex-col gap-3">
-          <GroupHeader title="Funds & holdings" color="var(--teal)" />
-          {balanceInvs.map((inv) => (
-            <BalanceCard
-              key={inv.id}
-              inv={inv}
-              txns={txnsFor(inv.id)}
-              onAddTxn={addTransaction}
-              onUpdate={updateInvestment}
-              onDelete={deleteInvestment}
-            />
-          ))}
-        </div>
+        <>
+          <div className="section-divider">
+            <div className="section-divider-bar" style={{ background: "var(--teal)", width: 2, height: 12 }} />
+            <span style={{ color: "var(--teal)", fontFamily: "var(--font-sans)", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em" }}>
+              Funds &amp; Holdings
+            </span>
+            <div className="section-divider-rule" />
+          </div>
+          <div className="section-body" style={{ paddingTop: 0 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              {balanceInvs.map((inv) => (
+                <BalanceCard
+                  key={inv.id}
+                  inv={inv}
+                  txns={txnsFor(inv.id)}
+                  onAddTxn={addTransaction}
+                  onUpdate={updateInvestment}
+                  onDelete={deleteInvestment}
+                />
+              ))}
+            </div>
+          </div>
+        </>
       )}
 
       {/* Life assurance */}
       {lifeInvs.length > 0 && (
-        <div className="flex flex-col gap-3">
-          <GroupHeader title="Life assurance" color="var(--rose)" />
-          {lifeInvs.map((inv) => (
-            <LifeAssuranceCard
-              key={inv.id}
-              inv={inv}
-              txns={txnsFor(inv.id)}
-              onAddTxn={addTransaction}
-              onBulkAddTxn={bulkAddTransactions}
-              onUpdate={updateInvestment}
-              onDelete={deleteInvestment}
-            />
-          ))}
-        </div>
+        <>
+          <div className="section-divider">
+            <div className="section-divider-bar" style={{ background: "var(--rose)", width: 2, height: 12 }} />
+            <span style={{ color: "var(--rose)", fontFamily: "var(--font-sans)", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em" }}>
+              Life Assurance
+            </span>
+            <div className="section-divider-rule" />
+          </div>
+          <div className="section-body" style={{ paddingTop: 0 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              {lifeInvs.map((inv) => (
+                <LifeAssuranceCard
+                  key={inv.id}
+                  inv={inv}
+                  txns={txnsFor(inv.id)}
+                  onAddTxn={addTransaction}
+                  onBulkAddTxn={bulkAddTransactions}
+                  onUpdate={updateInvestment}
+                  onDelete={deleteInvestment}
+                />
+              ))}
+            </div>
+          </div>
+        </>
       )}
 
       {/* Pension */}
       {pensionInvs.length > 0 && (
-        <div className="flex flex-col gap-3">
-          <GroupHeader title="Pension" color="var(--violet)" />
-          {pensionInvs.map((inv) => (
-            <PensionCard
-              key={inv.id}
-              inv={inv}
-              txns={txnsFor(inv.id)}
-              onUpdate={updateInvestment}
-              onAddTxn={addTransaction}
-              onDelete={deleteInvestment}
-            />
-          ))}
-        </div>
-      )}
-
-      {investments.length === 0 && (
-        <p className="text-sm" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>
-          No investments logged yet. Add one above.
-        </p>
+        <>
+          <div className="section-divider">
+            <div className="section-divider-bar" style={{ background: "var(--violet)", width: 2, height: 12 }} />
+            <span style={{ color: "var(--violet)", fontFamily: "var(--font-sans)", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em" }}>
+              Pension
+            </span>
+            <div className="section-divider-rule" />
+          </div>
+          <div className="section-body" style={{ paddingTop: 0 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              {pensionInvs.map((inv) => (
+                <PensionCard
+                  key={inv.id}
+                  inv={inv}
+                  txns={txnsFor(inv.id)}
+                  onUpdate={updateInvestment}
+                  onAddTxn={addTransaction}
+                  onDelete={deleteInvestment}
+                />
+              ))}
+            </div>
+          </div>
+        </>
       )}
 
     </div>
