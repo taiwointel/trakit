@@ -13,6 +13,8 @@ export default function TelegramBotSetup() {
   const [checkResult,  setCheckResult]  = useState(null); // null | "linked" | "not_yet"
   const [reregistering, setReregistering] = useState(false);
   const [reregisterMsg, setReregisterMsg] = useState("");
+  const [diagnosing,    setDiagnosing]    = useState(false);
+  const [diagnoseResult, setDiagnoseResult] = useState(null);
 
   useEffect(() => { fetchStatus(); }, []);
 
@@ -40,6 +42,20 @@ export default function TelegramBotSetup() {
       setCheckResult("not_yet");
     } finally {
       setChecking(false);
+    }
+  }
+
+  async function handleDiagnose() {
+    setDiagnosing(true);
+    setDiagnoseResult(null);
+    try {
+      const res  = await fetch("/api/telegram/diagnose");
+      const data = await res.json();
+      setDiagnoseResult(data);
+    } catch {
+      setDiagnoseResult({ error: "Network error — could not reach diagnostic endpoint." });
+    } finally {
+      setDiagnosing(false);
     }
   }
 
@@ -256,25 +272,75 @@ export default function TelegramBotSetup() {
         {checkResult === "not_yet" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             <p style={{ color: "var(--amber)", fontFamily: "var(--font-sans)", fontSize: 12, lineHeight: 1.5 }}>
-              Not linked yet. Make sure you sent <code style={{ fontFamily: "var(--font-mono)", background: "var(--ink-3)", padding: "1px 5px", borderRadius: 4 }}>/start</code> to <strong>@{status.botUsername}</strong> on Telegram. If you did and it still fails, the webhook URL may be stale — click below to fix it.
+              Not linked yet. Make sure you sent <code style={{ fontFamily: "var(--font-mono)", background: "var(--ink-3)", padding: "1px 5px", borderRadius: 4 }}>/start</code> to <strong>@{status.botUsername}</strong> on Telegram.
             </p>
-            <button
-              onClick={handleReregisterWebhook}
-              disabled={reregistering}
-              style={{
-                alignSelf: "flex-start",
-                padding: "7px 14px", borderRadius: 8,
-                background: "var(--ink-3)", border: "1px solid var(--rule)",
-                color: "var(--ink-text)", fontFamily: "var(--font-sans)", fontSize: 12,
-                cursor: reregistering ? "default" : "pointer", opacity: reregistering ? 0.6 : 1,
-              }}
-            >
-              {reregistering ? "Re-registering…" : "Re-register webhook"}
-            </button>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <button
+                onClick={handleReregisterWebhook}
+                disabled={reregistering}
+                style={{
+                  padding: "7px 14px", borderRadius: 8,
+                  background: "var(--ink-3)", border: "1px solid var(--rule)",
+                  color: "var(--ink-text)", fontFamily: "var(--font-sans)", fontSize: 12,
+                  cursor: reregistering ? "default" : "pointer", opacity: reregistering ? 0.6 : 1,
+                }}
+              >
+                {reregistering ? "Re-registering…" : "Re-register webhook"}
+              </button>
+              <button
+                onClick={handleDiagnose}
+                disabled={diagnosing}
+                style={{
+                  padding: "7px 14px", borderRadius: 8,
+                  background: "var(--ink-3)", border: "1px solid var(--gold)",
+                  color: "var(--gold)", fontFamily: "var(--font-sans)", fontSize: 12,
+                  cursor: diagnosing ? "default" : "pointer", opacity: diagnosing ? 0.6 : 1,
+                }}
+              >
+                {diagnosing ? "Diagnosing…" : "🔍 Diagnose issue"}
+              </button>
+            </div>
             {reregisterMsg && (
               <p style={{ color: reregisterMsg.startsWith("Webhook") ? "var(--green)" : "var(--red)", fontFamily: "var(--font-sans)", fontSize: 12 }}>
                 {reregisterMsg}
               </p>
+            )}
+          </div>
+        )}
+
+        {/* Diagnostic results */}
+        {diagnoseResult && (
+          <div style={{
+            background: "var(--ink-3)", border: "1px solid var(--rule)",
+            borderRadius: 10, padding: "14px 16px",
+            display: "flex", flexDirection: "column", gap: 10,
+          }}>
+            <p style={{ fontFamily: "var(--font-sans)", fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.1em", color: "var(--ink-text-dim)", margin: 0 }}>
+              Diagnostic results
+            </p>
+            {diagnoseResult.error ? (
+              <p style={{ color: "var(--red)", fontFamily: "var(--font-sans)", fontSize: 12 }}>{diagnoseResult.error}</p>
+            ) : (
+              diagnoseResult.checks?.map((check, i) => (
+                <div key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                  <span style={{ flexShrink: 0, fontSize: 14, marginTop: 1 }}>
+                    {check.ok ? "✅" : "❌"}
+                  </span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ fontFamily: "var(--font-sans)", fontSize: 12, fontWeight: 600, color: "var(--ink-text)", margin: 0 }}>
+                      {check.name}
+                    </p>
+                    <p style={{
+                      fontFamily: "var(--font-mono)", fontSize: 11,
+                      color: check.ok ? "var(--ink-text-dim)" : "var(--amber)",
+                      margin: "2px 0 0",
+                      whiteSpace: "pre-wrap", wordBreak: "break-word", lineHeight: 1.5,
+                    }}>
+                      {check.detail}
+                    </p>
+                  </div>
+                </div>
+              ))
             )}
           </div>
         )}

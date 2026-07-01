@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { useEntries }  from "@/hooks/useEntries";
+import { useGoals }    from "@/hooks/useGoals";
 import MonthNav        from "@/components/entries/MonthNav";
 import StatsStrip      from "@/components/entries/StatsStrip";
 import DayStrip        from "@/components/entries/DayStrip";
@@ -66,6 +67,8 @@ export default function EntriesPage() {
   const [toolsOpen,     setToolsOpen]     = useState(false);
 
   const { entries, budgets, loading, addEntry, updateEntry, deleteEntry, saveBudget } = useEntries();
+  const { goals } = useGoals();
+  const salary = goals.salary || null;
 
   const monthStr = `${year}-${String(month).padStart(2, "0")}`;
 
@@ -267,12 +270,12 @@ export default function EntriesPage() {
             onClick={() => setBudgetsOpen((v) => !v)}
             className="section-toggle"
           >
-            <span className="section-toggle-label">Budget caps by category</span>
+            <span className="section-toggle-label">Budget plan</span>
             <span className="section-toggle-arrow">
               {budgetsOpen ? "▲ Collapse" : "▼ Show"}
             </span>
           </button>
-          {budgetsOpen && <BudgetsGrid entries={monthEntries} budgets={budgets} onSave={saveBudget} />}
+          {budgetsOpen && <BudgetsGrid entries={monthEntries} budgets={budgets} onSave={saveBudget} salary={salary} />}
         </div>
       </div>
 
