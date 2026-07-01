@@ -9,6 +9,7 @@ import EntryForm       from "@/components/entries/EntryForm";
 import LedgerTable     from "@/components/entries/LedgerTable";
 import BudgetsGrid     from "@/components/entries/BudgetsGrid";
 import { formatNaira } from "@/lib/format";
+import CsvImport      from "@/components/entries/CsvImport";
 
 export default function EntriesPage() {
   const today  = new Date();
@@ -124,6 +125,9 @@ export default function EntriesPage() {
           </button>
         </div>
       )}
+
+      {/* CSV Import */}
+      <CsvImport onImported={() => window.location.reload()} />
 
       {/* Entry form */}
       <div style={{ background: "var(--ink-2)", borderBottom: "1px solid var(--rule)" }}>

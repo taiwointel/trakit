@@ -16,6 +16,12 @@ import WhereItWent       from "@/components/summary/WhereItWent";
 import CategoryExplorer  from "@/components/summary/CategoryExplorer";
 import AnalyticsRow      from "@/components/summary/AnalyticsRow";
 import SpendTrendChart   from "@/components/summary/SpendTrendChart";
+import { useInvestments } from "@/hooks/useInvestments";
+import ForecastBanner    from "@/components/summary/ForecastBanner";
+import NetWorthCard      from "@/components/summary/NetWorthCard";
+import AnomalyAlerts     from "@/components/summary/AnomalyAlerts";
+import RecurringPanel    from "@/components/summary/RecurringPanel";
+import FXWidget          from "@/components/summary/FXWidget";
 
 const GREETINGS = {
   latenight: (n) => [
@@ -65,6 +71,7 @@ export default function SummaryPage() {
   const { goals,   loading: goalsLoading   } = useGoals();
   const { anchor,  loading: cashLoading    } = useCashBalance();
   const { name }                             = useUser();
+  const { investments, transactions }        = useInvestments();
 
   const today     = new Date().toISOString().slice(0, 10);
   const thisMonth = today.slice(0, 7);
@@ -168,8 +175,20 @@ export default function SummaryPage() {
         </p>
       </div>
 
+      {/* FX rates widget */}
+      <FXWidget />
+
       {/* Payday widget — clicking takes you to Goals to adjust */}
       <PaydayWidget paydayDay={goals.payday_day} salary={goals.salary} href="/goals" />
+
+      {/* End-of-cycle spend forecast */}
+      <ForecastBanner
+        cycleStart={cycleStart}
+        cycleEnd={cycle?.end || today}
+        salary={goals.salary}
+        entries={entries}
+        today={today}
+      />
 
       {/* Headline panel */}
       <div
@@ -210,6 +229,21 @@ export default function SummaryPage() {
         sparkRows={sparkRows}
       />
 
+      {/* Net worth */}
+      <NetWorthCard
+        cashBalance={currentBalance}
+        investments={investments}
+        transactions={transactions}
+      />
+
+      {/* Spending anomalies */}
+      <AnomalyAlerts
+        entries={entries}
+        cycleStart={cycleStart}
+        cycle={cycle}
+        today={today}
+      />
+
       {/* Coach RBC */}
       <CoachRBCPanel
         entries={entries}
@@ -232,6 +266,9 @@ export default function SummaryPage() {
 
       {/* Spending trend — use salary cycle range, fall back to 30 days */}
       <SpendTrendChart entries={entries} from={cycleStart} to={today} />
+
+      {/* Recurring committed spend */}
+      <RecurringPanel entries={entries} />
 
     </div>
   );
