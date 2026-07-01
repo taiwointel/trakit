@@ -19,6 +19,7 @@ export default function EntriesPage() {
   const [selectedDay,   setSelectedDay]   = useState(null);
   const [ledgerOpen,    setLedgerOpen]    = useState(true);
   const [budgetsOpen,   setBudgetsOpen]   = useState(false);
+  const [toolsOpen,     setToolsOpen]     = useState(false);
 
   const { entries, budgets, loading, addEntry, updateEntry, deleteEntry, saveBudget } = useEntries();
 
@@ -36,7 +37,6 @@ export default function EntriesPage() {
     return monthEntries.filter((e) => e.date === dayStr);
   }, [monthEntries, selectedDay, monthStr]);
 
-  // Daily summary for selected day
   const dayStr = selectedDay
     ? `${monthStr}-${String(selectedDay).padStart(2, "0")}`
     : null;
@@ -71,10 +71,8 @@ export default function EntriesPage() {
         <MonthNav year={year} month={month} onChange={(y, m) => { setYear(y); setMonth(m); setSelectedDay(null); }} />
       </div>
 
-      {/* Stats strip */}
       <StatsStrip entries={entries} year={year} month={month} selectedDay={selectedDay} />
 
-      {/* Day RAG strip */}
       <div style={{ background: "var(--ink-2)", borderBottom: "1px solid var(--rule)" }}>
         <DayStrip
           entries={entries}
@@ -125,7 +123,8 @@ export default function EntriesPage() {
         </div>
       )}
 
-      {/* ── LOG AN ENTRY ──────────────────────────────────────────────── */}
+      {/* ── 1. LOG AN ENTRY ───────────────────────────────────────────────
+          Primary action — sits at the top so the user can act immediately. */}
       <div className="section-divider">
         <div className="section-divider-bar" />
         <span className="section-divider-label">Log an Entry</span>
@@ -138,25 +137,9 @@ export default function EntriesPage() {
         </div>
       </div>
 
-      {/* ── TOOLS ─────────────────────────────────────────────────────── */}
-      <div className="section-divider">
-        <div className="section-divider-bar" style={{ background: "var(--teal)" }} />
-        <span className="section-divider-label" style={{ color: "var(--teal)" }}>Tools</span>
-        <div className="section-divider-rule" />
-      </div>
-
-      <div className="section-body">
-        <div className="grid-2">
-          <div style={{ background: "var(--ink-2)", border: "1px solid var(--rule)", borderRadius: 16, overflow: "hidden" }}>
-            <BillTracker onLogEntry={addEntry} />
-          </div>
-          <div style={{ background: "var(--ink-2)", border: "1px solid var(--rule)", borderRadius: 16, overflow: "hidden" }}>
-            <CsvImport onImported={() => window.location.reload()} />
-          </div>
-        </div>
-      </div>
-
-      {/* ── LEDGER ────────────────────────────────────────────────────── */}
+      {/* ── 2. LEDGER ─────────────────────────────────────────────────────
+          Review follows action — see what was just logged and fix anything
+          inline without switching context. */}
       <div className="section-divider">
         <div className="section-divider-bar" style={{ background: "var(--amber)" }} />
         <span className="section-divider-label" style={{ color: "var(--amber)" }}>Ledger</span>
@@ -180,7 +163,9 @@ export default function EntriesPage() {
         </div>
       </div>
 
-      {/* ── BUDGETS ───────────────────────────────────────────────────── */}
+      {/* ── 3. MONTHLY BUDGETS ────────────────────────────────────────────
+          Check caps after reviewing entries — natural "log → check"
+          workflow without having to scroll past import tools. */}
       <div className="section-divider">
         <div className="section-divider-bar" style={{ background: "var(--violet)" }} />
         <span className="section-divider-label" style={{ color: "var(--violet)" }}>Monthly Budgets</span>
@@ -199,6 +184,38 @@ export default function EntriesPage() {
             </span>
           </button>
           {budgetsOpen && <BudgetsGrid entries={monthEntries} budgets={budgets} onSave={saveBudget} />}
+        </div>
+      </div>
+
+      {/* ── 4. IMPORT & BILLS ─────────────────────────────────────────────
+          Power tools — used less frequently than logging or reviewing.
+          Collapsed by default so they don't visually compete with the
+          primary workflow above. */}
+      <div className="section-divider">
+        <div className="section-divider-bar" style={{ background: "var(--teal)" }} />
+        <span className="section-divider-label" style={{ color: "var(--teal)" }}>Import &amp; Bills</span>
+        <div className="section-divider-rule" />
+      </div>
+
+      <div className="section-body">
+        <div style={{ background: "var(--ink-2)", border: "1px solid var(--rule)", borderRadius: 16, overflow: "hidden" }}>
+          <button
+            onClick={() => setToolsOpen((v) => !v)}
+            className="section-toggle"
+          >
+            <span className="section-toggle-label">CSV / PDF import &amp; bill tracker</span>
+            <span className="section-toggle-arrow">
+              {toolsOpen ? "▲ Collapse" : "▼ Show"}
+            </span>
+          </button>
+          {toolsOpen && (
+            <div style={{ padding: "20px", display: "flex", flexDirection: "column", gap: 16 }}>
+              <div className="grid-2">
+                <BillTracker onLogEntry={addEntry} />
+                <CsvImport onImported={() => window.location.reload()} />
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

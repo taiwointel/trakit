@@ -78,7 +78,6 @@ export default function SummaryPage() {
   const today     = new Date().toISOString().slice(0, 10);
   const thisMonth = today.slice(0, 7);
 
-  // Salary cycle — use as the "this period" baseline when payday is configured
   const cycle = useMemo(
     () => getSalaryCycle(goals.payday_day),
     [goals.payday_day],
@@ -90,13 +89,11 @@ export default function SummaryPage() {
     [entries, cycleStart, today],
   );
 
-  // Cash balance
   const currentBalance = useMemo(
     () => closingBalance(entries, anchor.anchor_date, anchor.anchor_amount, today),
     [entries, anchor, today],
   );
 
-  // Liquidity
   const avgEssential = useMemo(() => {
     const now = new Date();
     const samples = [];
@@ -114,7 +111,6 @@ export default function SummaryPage() {
   const months     = useMemo(() => liquidityCoverage(entries, currentBalance), [entries, currentBalance]);
   const sparkRows  = useMemo(() => last14Days(entries, anchor.anchor_date, anchor.anchor_amount), [entries, anchor]);
 
-  // Headline: this cycle's total out + biggest category
   const monthOut   = cycleEntries.filter((e) => e.flow === "out").reduce((s, e) => s + Number(e.amount), 0);
   const byCategory = useMemo(() => {
     const m = {};
@@ -125,7 +121,6 @@ export default function SummaryPage() {
   }, [cycleEntries]);
   const biggestCat = byCategory[0];
 
-  // Prior cycle delta
   const prevOut = useMemo(() => {
     if (!cycle) {
       const d = new Date(); d.setMonth(d.getMonth() - 1);
@@ -133,7 +128,6 @@ export default function SummaryPage() {
       return entries.filter((e) => e.date?.startsWith(pm) && e.flow === "out")
                     .reduce((s, e) => s + Number(e.amount), 0);
     }
-    // Previous cycle: same length, ending day before cycleStart
     const cs = new Date(cycle.start + "T00:00:00");
     const ce = new Date(cs); ce.setDate(ce.getDate() - 1);
     const ps = new Date(cs); ps.setDate(ps.getDate() - (new Date(cycle.end + "T00:00:00") - cs) / 86400000 - 1);
@@ -168,57 +162,47 @@ export default function SummaryPage() {
         }
       `}</style>
 
-      {/* ── HERO ──────────────────────────────────────────────────────── */}
+      {/* ── HERO: greeting + payday ──────────────────────────────────────
+          Two things only. Greeting sets the emotional tone; payday is the
+          most time-sensitive number the user cares about on first load.
+      ── */}
       <div style={{ padding: "24px 24px 4px" }} className="sm:p-8 sm:pb-1">
         <div className="grid-hero">
-          {/* Left column: greeting + FX strip + forecast + anomalies */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            <div
-              style={{
-                background: "linear-gradient(135deg, rgba(212,160,48,0.10) 0%, rgba(155,114,214,0.08) 100%)",
-                border: "1px solid rgba(212,160,48,0.18)",
-                borderRadius: 16,
-                padding: "20px 24px",
-              }}
-            >
-              <p style={{ color: "var(--ink-text)", fontFamily: "var(--font-serif)", fontSize: "1.1rem", fontWeight: 600, lineHeight: 1.5 }}>
-                {getGreeting(name)}
-              </p>
-            </div>
-
-            <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-              <FXWidget />
-              <AnnualWrapped
-                entries={entries}
-                investments={investments}
-                transactions={transactions}
-                currentBalance={currentBalance}
-                salary={goals.salary}
-              />
-            </div>
-
-            <ForecastBanner
-              cycleStart={cycleStart}
-              cycleEnd={cycle?.end || today}
-              salary={goals.salary}
-              entries={entries}
-              today={today}
-            />
-
-            <AnomalyAlerts
-              entries={entries}
-              cycleStart={cycleStart}
-              cycle={cycle}
-              today={today}
-            />
+          {/* Left: greeting */}
+          <div
+            style={{
+              background: "linear-gradient(135deg, rgba(212,160,48,0.10) 0%, rgba(155,114,214,0.08) 100%)",
+              border: "1px solid rgba(212,160,48,0.18)",
+              borderRadius: 16,
+              padding: "20px 24px",
+              display: "flex",
+              alignItems: "center",
+            }}
+          >
+            <p style={{ color: "var(--ink-text)", fontFamily: "var(--font-serif)", fontSize: "1.1rem", fontWeight: 600, lineHeight: 1.5 }}>
+              {getGreeting(name)}
+            </p>
           </div>
 
-          {/* Right column: payday widget */}
+          {/* Right: payday widget */}
           <PaydayWidget paydayDay={goals.payday_day} salary={goals.salary} href="/goals" />
         </div>
       </div>
 
-      {/* ── YOUR NUMBERS ──────────────────────────────────────────────── */}
+      {/* Anomaly alerts sit right below the hero — urgent items need
+          to be the first thing the eye catches after orientation. */}
+      <div style={{ padding: "12px 24px 0" }} className="sm:px-8">
+        <AnomalyAlerts
+          entries={entries}
+          cycleStart={cycleStart}
+          cycle={cycle}
+          today={today}
+        />
+      </div>
+
+      {/* ── YOUR NUMBERS ──────────────────────────────────────────────────
+          Status first: what is my current financial position?
+      ── */}
       <div className="section-divider">
         <div className="section-divider-bar" />
         <span className="section-divider-label">Your Numbers</span>
@@ -226,9 +210,8 @@ export default function SummaryPage() {
       </div>
 
       <div className="section-body">
-        {/* Headline card + Liquidity side by side */}
         <div className="grid-2">
-          {/* Headline */}
+          {/* Headline spend */}
           <div
             style={{
               background: "var(--ink-2)",
@@ -284,7 +267,42 @@ export default function SummaryPage() {
         />
       </div>
 
-      {/* ── COACH RBC ─────────────────────────────────────────────────── */}
+      {/* ── OUTLOOK ───────────────────────────────────────────────────────
+          Forward-looking tools: cycle forecast, FX rates for context,
+          and the annual year-in-review. Grouped together because they
+          all answer "what's ahead / what's the bigger picture?"
+      ── */}
+      <div className="section-divider">
+        <div className="section-divider-bar" style={{ background: "var(--violet)" }} />
+        <span className="section-divider-label" style={{ color: "var(--violet)" }}>Outlook</span>
+        <div className="section-divider-rule" />
+      </div>
+
+      <div className="section-body">
+        <ForecastBanner
+          cycleStart={cycleStart}
+          cycleEnd={cycle?.end || today}
+          salary={goals.salary}
+          entries={entries}
+          today={today}
+        />
+
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
+          <FXWidget />
+          <AnnualWrapped
+            entries={entries}
+            investments={investments}
+            transactions={transactions}
+            currentBalance={currentBalance}
+            salary={goals.salary}
+          />
+        </div>
+      </div>
+
+      {/* ── COACH RBC ─────────────────────────────────────────────────────
+          Advice follows status + outlook. Users want to understand their
+          position before they're ready to hear recommendations.
+      ── */}
       <div className="section-divider">
         <div className="section-divider-bar" />
         <span className="section-divider-label">Coach RBC</span>
@@ -301,10 +319,14 @@ export default function SummaryPage() {
         <AskSpending entries={entries} />
       </div>
 
-      {/* ── SPEND ANALYSIS ────────────────────────────────────────────── */}
+      {/* ── SPEND BREAKDOWN ───────────────────────────────────────────────
+          Where did money go? Charts and category drill-downs.
+          Separate from "History" because this is current-period analysis,
+          not long-run pattern recognition.
+      ── */}
       <div className="section-divider">
-        <div className="section-divider-bar" />
-        <span className="section-divider-label">Spend Analysis</span>
+        <div className="section-divider-bar" style={{ background: "var(--teal)" }} />
+        <span className="section-divider-label" style={{ color: "var(--teal)" }}>Spend Breakdown</span>
         <div className="section-divider-rule" />
       </div>
 
@@ -317,16 +339,20 @@ export default function SummaryPage() {
         <AnalyticsRow entries={entries} />
       </div>
 
-      {/* ── PATTERNS & HISTORY ────────────────────────────────────────── */}
+      {/* ── HISTORY & PATTERNS ────────────────────────────────────────────
+          Long-run patterns: recurring charges, heatmap of activity.
+          Last because it rewards the curious user who scrolls further,
+          not something everyone needs on every visit.
+      ── */}
       <div className="section-divider">
-        <div className="section-divider-bar" />
-        <span className="section-divider-label">Patterns &amp; History</span>
+        <div className="section-divider-bar" style={{ background: "var(--amber)" }} />
+        <span className="section-divider-label" style={{ color: "var(--amber)" }}>History &amp; Patterns</span>
         <div className="section-divider-rule" />
       </div>
 
       <div className="section-body">
-        <SpendHeatmap entries={entries} />
         <RecurringPanel entries={entries} />
+        <SpendHeatmap entries={entries} />
       </div>
     </div>
   );
