@@ -283,19 +283,15 @@ export default function LedgerTable({ entries, onUpdate, onDelete, onClearAll })
 
                 {/* Actions */}
                 <td className="px-3 py-2 whitespace-nowrap">
-                  <div className="flex gap-2">
+                  <div className="flex flex-col gap-1">
                     <button
                       onClick={() => setEditingId(entry.id)}
-                      className="text-xs"
-                      style={{ color: "var(--paper-text-dim)" }}
-                      title="Edit"
-                    >✎</button>
+                      style={{ background: "none", border: "none", cursor: "pointer", color: "var(--paper-text-dim)", fontFamily: "var(--font-sans)", fontSize: 11, textAlign: "left", padding: 0 }}
+                    >Edit entry</button>
                     <button
                       onClick={() => { if (confirm("Delete this entry?")) onDelete(entry.id); }}
-                      className="text-xs"
-                      style={{ color: "var(--red)" }}
-                      title="Delete"
-                    >✕</button>
+                      style={{ background: "none", border: "none", cursor: "pointer", color: "var(--red)", fontFamily: "var(--font-sans)", fontSize: 11, textAlign: "left", padding: 0 }}
+                    >Delete</button>
                   </div>
                 </td>
               </tr>
