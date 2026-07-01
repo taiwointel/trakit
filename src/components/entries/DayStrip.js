@@ -35,7 +35,7 @@ export default function DayStrip({ entries, budgets, year, month, selectedDay, o
   return (
     <div
       ref={stripRef}
-      className="flex gap-1 overflow-x-auto py-2 px-3"
+      className="flex gap-1 overflow-x-auto py-2 px-6"
       style={{ scrollbarWidth: "none" }}
     >
       {dates.map((date) => {

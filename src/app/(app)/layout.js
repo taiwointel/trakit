@@ -273,13 +273,14 @@ export default function AppLayout({ children }) {
                 key={tab.href}
                 href={tab.href}
                 data-tour={`tab-${tab.href.slice(1)}`}
-                className="flex-shrink-0 flex flex-col items-center justify-center gap-0.5 px-4 py-2 transition-colors"
+                className="flex flex-col items-center justify-center gap-0.5 py-2 transition-colors"
                 style={{
+                  flex:          "1 1 0",
+                  minWidth:      56,
                   color:         active ? tab.color : "var(--ink-text-dim)",
                   fontFamily:    "var(--font-sans)",
                   minHeight:     48,
                   borderBottom:  active ? `2px solid ${tab.color}` : "2px solid transparent",
-                  minWidth:      64,
                 }}
               >
                 <span style={{ opacity: active ? 1 : 0.55 }}>{tab.icon}</span>

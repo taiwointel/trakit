@@ -100,7 +100,7 @@ export default function EntriesPage() {
   }
 
   return (
-    <div className="page-root" style={{ maxWidth: 1000 }}>
+    <div className="page-root">
 
       {/* ── NAVIGATION HEADER ─────────────────────────────────────────── */}
       <div
@@ -134,7 +134,7 @@ export default function EntriesPage() {
           style={{
             background: "var(--ink-3)",
             borderBottom: "1px solid var(--rule)",
-            padding: "12px 20px",
+            padding: "12px 24px",
             display: "flex",
             alignItems: "center",
             gap: 20,
