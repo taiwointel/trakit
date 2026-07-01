@@ -38,11 +38,13 @@ export default function SettingsDrawer({ open, onClose, onStartTour }) {
   const [passStatus,      setPassStatus]      = useState("");
 
   // ── AI connection state ───────────────────────────────────
-  const [key,        setKey]        = useState("");
-  const [keyWarning, setKeyWarning] = useState("");
-  const [hasKey,     setHasKey]     = useState(false);
-  const [status,     setStatus]     = useState("");
-  const [testing,    setTesting]    = useState(false);
+  const [selectedProvider, setSelectedProvider] = useState("groq");
+  const [key,              setKey]              = useState("");
+  const [keyWarning,       setKeyWarning]       = useState("");
+  const [hasGroqKey,       setHasGroqKey]       = useState(false);
+  const [hasGeminiKey,     setHasGeminiKey]     = useState(false);
+  const [status,           setStatus]           = useState("");
+  const [testing,          setTesting]          = useState(false);
 
   // ── Telegram state ────────────────────────────────────────
   const [tgToken, setTgToken] = useState("");
@@ -70,7 +72,11 @@ export default function SettingsDrawer({ open, onClose, onStartTour }) {
       // Load AI key status
       fetch("/api/ai/settings")
         .then((r) => r.json())
-        .then((d) => setHasKey(!!d.hasKey))
+        .then((d) => {
+          setHasGroqKey(!!d.hasGroqKey);
+          setHasGeminiKey(!!d.hasGeminiKey);
+          setSelectedProvider(d.provider || "groq");
+        })
         .catch(() => {});
     }
     loadSettings();
@@ -111,17 +117,23 @@ export default function SettingsDrawer({ open, onClose, onStartTour }) {
 
   async function saveKey() {
     const clean = key.replace(/[^\x20-\x7E]/g, "").trim();
-    if (!clean) { setStatus("Paste a Groq API key first."); return; }
+    if (!clean) { setStatus(`Paste a ${selectedProvider === "gemini" ? "Gemini" : "Groq"} API key first.`); return; }
     setStatus("Saving...");
     try {
       const res = await fetch("/api/ai/settings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider: "groq", key: clean }),
+        body: JSON.stringify({ provider: selectedProvider, key: clean }),
       });
       const data = await res.json();
-      if (res.ok) { setStatus("Saved."); setHasKey(true); setKey(""); }
-      else setStatus(data.error || "Save failed.");
+      if (res.ok) {
+        setStatus("Saved.");
+        if (selectedProvider === "groq")    setHasGroqKey(true);
+        if (selectedProvider === "gemini")  setHasGeminiKey(true);
+        setKey("");
+      } else {
+        setStatus(data.error || "Save failed.");
+      }
     } catch { setStatus("Network error."); }
   }
 
@@ -324,46 +336,92 @@ export default function SettingsDrawer({ open, onClose, onStartTour }) {
 
           {/* ── AI Connection ────────────────────────── */}
           <Section title="AI Connection" color="var(--blue-accent)">
+
+            {/* Provider toggle: Groq | Gemini */}
+            <div
+              className="flex rounded-lg overflow-hidden"
+              style={{ border: "1px solid var(--rule)", background: "var(--ink-3)" }}
+            >
+              {[
+                { id: "groq",   label: "Groq",   hasKey: hasGroqKey },
+                { id: "gemini", label: "Gemini", hasKey: hasGeminiKey },
+              ].map(({ id, label, hasKey }) => (
+                <button
+                  key={id}
+                  onClick={() => { setSelectedProvider(id); setKey(""); setStatus(""); setKeyWarning(""); }}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold transition-all"
+                  style={{
+                    background:  selectedProvider === id ? "var(--ink-2)" : "transparent",
+                    color:       selectedProvider === id ? "var(--ink-text)" : "var(--ink-text-dim)",
+                    fontFamily:  "var(--font-sans)",
+                    borderRight: id === "groq" ? "1px solid var(--rule)" : "none",
+                  }}
+                >
+                  {label}
+                  <span
+                    style={{
+                      width: 6, height: 6, borderRadius: "50%",
+                      background: hasKey ? "var(--green)" : "var(--ink-text-dim)",
+                      opacity: hasKey ? 1 : 0.4,
+                      display: "inline-block",
+                    }}
+                  />
+                </button>
+              ))}
+            </div>
+
+            {/* Provider-specific info */}
+            <div
+              className="px-3 py-2.5 rounded-xl"
+              style={{ background: "rgba(91,143,168,0.08)", border: "1px solid rgba(91,143,168,0.2)" }}
+            >
+              {selectedProvider === "groq" ? (
+                <p className="text-xs leading-relaxed" style={{ color: "var(--blue-accent)", fontFamily: "var(--font-sans)" }}>
+                  Free key at{" "}
+                  <a href="https://console.groq.com" target="_blank" rel="noopener noreferrer" style={{ color: "var(--gold)", textDecoration: "underline" }}>
+                    console.groq.com
+                  </a>
+                  {" "}→ API Keys → Create. Key starts with{" "}
+                  <span style={{ fontFamily: "var(--font-mono)" }}>gsk_</span>.
+                </p>
+              ) : (
+                <p className="text-xs leading-relaxed" style={{ color: "var(--blue-accent)", fontFamily: "var(--font-sans)" }}>
+                  Free key at{" "}
+                  <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" style={{ color: "var(--gold)", textDecoration: "underline" }}>
+                    aistudio.google.com/apikey
+                  </a>
+                  {" "}→ Create API key. Key starts with{" "}
+                  <span style={{ fontFamily: "var(--font-mono)" }}>AIza</span>.
+                </p>
+              )}
+            </div>
+
+            {/* Key status + input */}
             <div className="flex items-center justify-between">
               <span className="text-xs" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>
-                Groq (free tier)
+                {selectedProvider === "groq" ? "Groq" : "Gemini"} key
               </span>
               <span
                 className="text-xs font-semibold px-2 py-0.5 rounded-full"
                 style={{
-                  background: hasKey ? "rgba(47,122,86,0.2)" : "rgba(184,57,43,0.15)",
-                  color:      hasKey ? "var(--green)" : "var(--red)",
+                  background: (selectedProvider === "groq" ? hasGroqKey : hasGeminiKey) ? "rgba(47,122,86,0.2)" : "rgba(184,57,43,0.15)",
+                  color:      (selectedProvider === "groq" ? hasGroqKey : hasGeminiKey) ? "var(--green)" : "var(--red)",
                   fontFamily: "var(--font-sans)",
                 }}
               >
-                {hasKey ? "Connected" : "Not connected"}
+                {(selectedProvider === "groq" ? hasGroqKey : hasGeminiKey) ? "Connected" : "Not connected"}
               </span>
             </div>
 
-            <div
-              className="px-3 py-2.5 rounded-xl flex items-start gap-2.5"
-              style={{ background: "rgba(91,143,168,0.08)", border: "1px solid rgba(91,143,168,0.2)" }}
-            >
-              <p className="text-xs leading-relaxed" style={{ color: "var(--blue-accent)", fontFamily: "var(--font-sans)" }}>
-                Get a free key at{" "}
-                <a
-                  href="https://console.groq.com"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{ color: "var(--gold)", textDecoration: "underline" }}
-                >
-                  console.groq.com
-                </a>
-              </p>
-            </div>
-
             <div className="flex flex-col gap-1.5">
-              <label style={labelStyle}>{hasKey ? "Update API Key" : "Paste your Groq API key"}</label>
+              <label style={labelStyle}>
+                {(selectedProvider === "groq" ? hasGroqKey : hasGeminiKey) ? "Update API key" : `Paste your ${selectedProvider === "gemini" ? "Gemini" : "Groq"} API key`}
+              </label>
               <input
                 type="password"
                 value={key}
                 onChange={(e) => handleKeyInput(e.target.value)}
-                placeholder={hasKey ? "Paste to replace..." : "gsk_..."}
+                placeholder={(selectedProvider === "groq" ? hasGroqKey : hasGeminiKey) ? "Paste to replace..." : selectedProvider === "groq" ? "gsk_..." : "AIza..."}
                 className="w-full px-3 py-2.5 rounded-lg text-sm"
                 style={{ ...inputStyle, fontFamily: "var(--font-mono)" }}
               />
@@ -391,14 +449,14 @@ export default function SettingsDrawer({ open, onClose, onStartTour }) {
               </button>
               <button
                 onClick={testConnection}
-                disabled={testing || !hasKey}
+                disabled={testing || (!hasGroqKey && !hasGeminiKey)}
                 className="flex-1 py-2.5 rounded-lg text-sm font-medium"
                 style={{
                   background: "var(--ink-3)",
                   border:     "1px solid var(--rule)",
                   color:      "var(--blue-accent)",
                   fontFamily: "var(--font-sans)",
-                  opacity:    (!hasKey || testing) ? 0.45 : 1,
+                  opacity:    (testing || (!hasGroqKey && !hasGeminiKey)) ? 0.45 : 1,
                 }}
               >
                 {testing ? "Testing..." : "Test"}
@@ -409,7 +467,7 @@ export default function SettingsDrawer({ open, onClose, onStartTour }) {
               <p
                 className="text-xs"
                 style={{
-                  color:      status.includes("Saved") || status.includes("OK") ? "var(--green)" : "var(--ink-text-dim)",
+                  color:      status.includes("Saved") || status.includes("OK") || status.includes("ok") || status.includes("Groq:") || status.includes("Gemini:") ? "var(--green)" : "var(--ink-text-dim)",
                   fontFamily: "var(--font-mono)",
                 }}
               >

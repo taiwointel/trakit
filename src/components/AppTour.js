@@ -1,116 +1,104 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 
 const STEPS = [
   {
-    icon: (
-      <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
-        <circle cx="24" cy="24" r="10" fill="var(--gold)" opacity="0.9">
-          <animate attributeName="r" values="10;12;10" dur="2s" repeatCount="indefinite" />
-          <animate attributeName="opacity" values="0.9;0.6;0.9" dur="2s" repeatCount="indefinite" />
-        </circle>
-        <line x1="24" y1="4"  x2="24" y2="10" stroke="var(--gold)" strokeWidth="2.5" strokeLinecap="round" />
-        <line x1="24" y1="38" x2="24" y2="44" stroke="var(--gold)" strokeWidth="2.5" strokeLinecap="round" />
-        <line x1="4"  y1="24" x2="10" y2="24" stroke="var(--gold)" strokeWidth="2.5" strokeLinecap="round" />
-        <line x1="38" y1="24" x2="44" y2="24" stroke="var(--gold)" strokeWidth="2.5" strokeLinecap="round" />
-        <line x1="9.4"  y1="9.4"  x2="13.7" y2="13.7" stroke="var(--gold)" strokeWidth="2.5" strokeLinecap="round" />
-        <line x1="34.3" y1="34.3" x2="38.6" y2="38.6" stroke="var(--gold)" strokeWidth="2.5" strokeLinecap="round" />
-        <line x1="38.6" y1="9.4"  x2="34.3" y2="13.7" stroke="var(--gold)" strokeWidth="2.5" strokeLinecap="round" />
-        <line x1="13.7" y1="34.3" x2="9.4"  y2="38.6" stroke="var(--gold)" strokeWidth="2.5" strokeLinecap="round" />
-      </svg>
-    ),
-    title: "Welcome to Trakit7",
-    body: "Your personal finance tracker built for the Nigerian professional. Let's take a 60-second tour of what you can do here.",
+    target:  "settings-btn",
+    label:   "⚙ Settings — top right",
+    title:   "Step 1 of 5 — Connect your AI key",
+    body:    "Tap the gear icon to open Settings. Paste your Groq or Gemini API key here. Coach RBC, auto-categorization, and spend analysis all need it.",
+    arrowUp: true,
   },
   {
-    icon: (
-      <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
-        <rect x="6"  y="28" width="9"  height="14" rx="2" fill="var(--gold)" opacity="0.5" />
-        <rect x="19" y="20" width="9"  height="22" rx="2" fill="var(--gold)" opacity="0.75" />
-        <rect x="33" y="10" width="9"  height="32" rx="2" fill="var(--gold)" />
-      </svg>
-    ),
-    title: "Summary — your command center",
-    body: "See your salary cycle spend, liquidity coverage, Coach RBC's analysis, spending trends, and anomaly alerts all in one place.",
+    target:  "tab-entries",
+    label:   "Expense Entry tab",
+    title:   "Step 2 of 5 — Log your first transaction",
+    body:    "Go to Expense Entry to record money in or out. Type a description, amount, and hit Add — the AI categorizes it instantly.",
+    arrowUp: true,
   },
   {
-    icon: (
-      <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
-        <rect x="10" y="6" width="28" height="36" rx="3" stroke="var(--gold)" strokeWidth="2.5" fill="none" />
-        <line x1="16" y1="16" x2="32" y2="16" stroke="var(--gold)" strokeWidth="2" strokeLinecap="round" />
-        <line x1="16" y1="22" x2="32" y2="22" stroke="var(--gold)" strokeWidth="2" strokeLinecap="round" />
-        <line x1="16" y1="28" x2="24" y2="28" stroke="var(--gold)" strokeWidth="2" strokeLinecap="round" />
-        <circle cx="35" cy="35" r="8" fill="var(--ink-2)" stroke="var(--gold)" strokeWidth="2" />
-        <line x1="35" y1="31" x2="35" y2="39" stroke="var(--gold)" strokeWidth="2" strokeLinecap="round" />
-        <line x1="31" y1="35" x2="39" y2="35" stroke="var(--gold)" strokeWidth="2" strokeLinecap="round" />
-      </svg>
-    ),
-    title: "Log every naira",
-    body: "Add transactions manually with AI auto-categorization, or import directly from your bank statement (CSV, PDF, or screenshot).",
+    target:  "tab-goals",
+    label:   "Goals tab",
+    title:   "Step 3 of 5 — Set your salary",
+    body:    "Open Goals and enter your monthly salary. This unlocks the 50/30/20 budget tracker, emergency fund target, and payday countdown.",
+    arrowUp: true,
   },
   {
-    icon: (
-      <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
-        <circle cx="24" cy="24" r="18" stroke="var(--gold)" strokeWidth="2.5" fill="none" />
-        <circle cx="24" cy="24" r="11" stroke="var(--gold)" strokeWidth="2" fill="none" opacity="0.6" />
-        <circle cx="24" cy="24" r="4"  fill="var(--gold)" />
-      </svg>
-    ),
-    title: "Hit your 50/30/20 targets",
-    body: "Track your Needs, Wants, and Savings against your salary. Manage your emergency fund and savings goals with payoff timelines.",
+    target:  "tab-summary",
+    label:   "Summary tab",
+    title:   "Step 4 of 5 — Your financial dashboard",
+    body:    "After a few entries, Summary shows total spend, cash balance, liquidity score, Coach RBC's analysis, and trend charts — all in one view.",
+    arrowUp: true,
   },
   {
-    icon: (
-      <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
-        <rect x="8" y="18" width="32" height="22" rx="3" stroke="var(--gold)" strokeWidth="2.5" fill="none" />
-        <path d="M16 18V14a8 8 0 0 1 16 0v4" stroke="var(--gold)" strokeWidth="2.5" strokeLinecap="round" fill="none" />
-        <line x1="24" y1="27" x2="24" y2="31" stroke="var(--gold)" strokeWidth="2.5" strokeLinecap="round" />
-        <circle cx="24" cy="25.5" r="1.5" fill="var(--gold)" />
-      </svg>
-    ),
-    title: "Your full portfolio",
-    body: "Track T-Bills, fixed deposits, equities, savings accounts, life assurance, and pension. Monitor maturities and your net worth.",
-  },
-  {
-    icon: (
-      <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
-        <path d="M40 8H8a3 3 0 0 0-3 3v20a3 3 0 0 0 3 3h10l6 8 6-8h10a3 3 0 0 0 3-3V11a3 3 0 0 0-3-3z" stroke="var(--gold)" strokeWidth="2.5" fill="none" strokeLinejoin="round" />
-        <line x1="16" y1="20" x2="32" y2="20" stroke="var(--gold)" strokeWidth="2" strokeLinecap="round" />
-        <line x1="16" y1="26" x2="26" y2="26" stroke="var(--gold)" strokeWidth="2" strokeLinecap="round" />
-      </svg>
-    ),
-    title: "Coach RBC — your AI advisor",
-    body: "Ask anything about your spending, get personalized coaching, search for investment rates, and get actionable cut recommendations.",
-  },
-  {
-    icon: (
-      <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
-        <polygon points="24,6 28,18 42,18 31,26 35,38 24,30 13,38 17,26 6,18 20,18" fill="var(--gold)" opacity="0.85" />
-      </svg>
-    ),
-    title: "Built-in intelligence",
-    body: "Spend forecasts, anomaly alerts (when a category spikes vs your average), recurring spend detection, FX rates, and multi-currency entry.",
-  },
-  {
-    icon: (
-      <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
-        <circle cx="24" cy="24" r="18" fill="var(--green)" opacity="0.15" />
-        <circle cx="24" cy="24" r="18" stroke="var(--green)" strokeWidth="2.5" fill="none" />
-        <polyline points="14,24 21,31 34,17" stroke="var(--green)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    ),
-    title: "You're ready, Taiwo!",
-    body: "Start by logging today's expenses. The more data you add, the smarter Coach RBC gets. Your financial clarity starts now.",
+    target:  "tab-chat",
+    label:   "Ask Coach RBC tab",
+    title:   "Step 5 of 5 — Ask Coach RBC anything",
+    body:    "Chat with your AI advisor anytime. She already knows your numbers. Ask 'Where should I cut?' or 'What's my liquidity ratio?' and get a real answer.",
+    arrowUp: true,
   },
 ];
 
+const TOOLTIP_W = 328;
+const SPOT_PAD  = 8;
+
+function findVisibleRect(tourId) {
+  const els = document.querySelectorAll(`[data-tour="${tourId}"]`);
+  for (const el of els) {
+    const r = el.getBoundingClientRect();
+    if (r.width > 0 && r.height > 0) return r;
+  }
+  return null;
+}
+
 export default function AppTour({ open, onClose }) {
-  const [step, setStep] = useState(0);
+  const [step,       setStep]       = useState(0);
+  const [spotRect,   setSpotRect]   = useState(null);
+  const [tipStyle,   setTipStyle]   = useState({});
+  const [arrowLeft,  setArrowLeft]  = useState(TOOLTIP_W / 2 - 8);
+  const [tipAbove,   setTipAbove]   = useState(false);
+
+  const measure = useCallback(() => {
+    if (!open) return;
+    const r = findVisibleRect(STEPS[step].target);
+    setSpotRect(r ? { top: r.top, left: r.left, width: r.width, height: r.height } : null);
+
+    if (!r) return;
+
+    const W  = window.innerWidth;
+    const H  = window.innerHeight;
+    const cx = r.left + r.width / 2;
+
+    // Horizontal: center on target, clamped to screen edges
+    const rawLeft = cx - TOOLTIP_W / 2;
+    const left    = Math.max(12, Math.min(rawLeft, W - TOOLTIP_W - 12));
+
+    // Arrow offset relative to tooltip
+    const arrow = Math.max(16, Math.min(cx - left - 8, TOOLTIP_W - 32));
+
+    // Vertical: below if target in top half, above if bottom half
+    const above = r.top > H * 0.55;
+    const top   = above
+      ? r.top  - SPOT_PAD - 12 - 200  // 200 ≈ tooltip height; might clip, refined by browser
+      : r.bottom + SPOT_PAD + 12;
+
+    setTipStyle({ top: Math.max(8, top), left });
+    setArrowLeft(arrow);
+    setTipAbove(above);
+  }, [open, step]);
 
   useEffect(() => {
     if (open) setStep(0);
   }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    // Small delay so the DOM settles after step change
+    const t = setTimeout(measure, 40);
+    window.addEventListener("resize", measure);
+    return () => { clearTimeout(t); window.removeEventListener("resize", measure); };
+  }, [measure, open]);
 
   if (!open) return null;
 
@@ -118,96 +106,199 @@ export default function AppTour({ open, onClose }) {
   const isLast  = step === STEPS.length - 1;
 
   function next() {
-    if (isLast) {
-      onClose();
-    } else {
-      setStep((s) => s + 1);
-    }
+    if (isLast) onClose();
+    else setStep((s) => s + 1);
   }
 
   return (
-    <div
-      className="fixed inset-0 z-[60] flex items-center justify-center px-4"
-      style={{ background: "rgba(0,0,0,0.96)" }}
-    >
+    <>
+      <style>{`
+        @keyframes tour-spot-pulse {
+          0%, 100% { box-shadow: 0 0 0 3px var(--gold),      0 0 0 9999px rgba(0,0,0,0.78); }
+          50%       { box-shadow: 0 0 0 5px var(--gold-deep), 0 0 0 9999px rgba(0,0,0,0.84); }
+        }
+        @keyframes tour-tip-in {
+          from { opacity: 0; transform: translateY(6px); }
+          to   { opacity: 1; transform: translateY(0);   }
+        }
+      `}</style>
+
+      {/* Background click-blocker (sits BEHIND spotlight) */}
       <div
-        className="w-full max-w-md rounded-2xl flex flex-col items-center text-center"
+        style={{ position: "fixed", inset: 0, zIndex: 58, pointerEvents: "all" }}
+        onClick={onClose}
+        aria-hidden="true"
+      />
+
+      {/* Spotlight hole — transparent div whose box-shadow darkens everything else */}
+      {spotRect && (
+        <div
+          style={{
+            position:     "fixed",
+            top:          spotRect.top    - SPOT_PAD,
+            left:         spotRect.left   - SPOT_PAD,
+            width:        spotRect.width  + SPOT_PAD * 2,
+            height:       spotRect.height + SPOT_PAD * 2,
+            borderRadius: 10,
+            zIndex:       59,
+            pointerEvents:"none",
+            animation:    "tour-spot-pulse 2.4s ease-in-out infinite",
+          }}
+        />
+      )}
+
+      {/* Tooltip card */}
+      <div
+        key={step}
         style={{
-          background: "var(--ink-2)",
-          border: "1px solid var(--rule)",
-          padding: "32px 28px 28px",
-          boxShadow: "0 24px 80px rgba(0,0,0,0.7)",
+          position:    "fixed",
+          width:       TOOLTIP_W,
+          zIndex:      60,
+          pointerEvents: "all",
+          animation:   "tour-tip-in 0.22s ease forwards",
+          ...tipStyle,
         }}
       >
-        <div className="flex gap-2 mb-8">
-          {STEPS.map((_, i) => (
+        {/* Arrow pointing toward the highlighted element */}
+        {spotRect && !tipAbove && (
+          <div
+            style={{
+              position:    "absolute",
+              top:         -8,
+              left:        arrowLeft,
+              width:       0,
+              height:      0,
+              borderLeft:  "8px solid transparent",
+              borderRight: "8px solid transparent",
+              borderBottom:"8px solid var(--ink-2)",
+              pointerEvents: "none",
+              zIndex:      1,
+            }}
+          />
+        )}
+        {spotRect && tipAbove && (
+          <div
+            style={{
+              position:    "absolute",
+              bottom:      -8,
+              left:        arrowLeft,
+              width:       0,
+              height:      0,
+              borderLeft:  "8px solid transparent",
+              borderRight: "8px solid transparent",
+              borderTop:   "8px solid var(--ink-2)",
+              pointerEvents: "none",
+              zIndex:      1,
+            }}
+          />
+        )}
+
+        <div
+          style={{
+            background:   "var(--ink-2)",
+            border:       "1px solid var(--rule)",
+            borderTop:    `3px solid var(--gold)`,
+            borderRadius: 14,
+            padding:      "18px 20px 16px",
+            boxShadow:    "0 20px 64px rgba(0,0,0,0.65)",
+          }}
+        >
+          {/* Progress pips */}
+          <div style={{ display: "flex", gap: 5, marginBottom: 14, alignItems: "center" }}>
+            {STEPS.map((_, i) => (
+              <div
+                key={i}
+                onClick={() => setStep(i)}
+                style={{
+                  width:        i === step ? 20 : 6,
+                  height:       6,
+                  borderRadius: 3,
+                  background:   i < step ? "var(--green)" : i === step ? "var(--gold)" : "var(--ink-3)",
+                  transition:   "all 0.3s ease",
+                  cursor:       "pointer",
+                  flexShrink:   0,
+                }}
+              />
+            ))}
+            <span style={{ marginLeft: "auto", color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", fontSize: 10 }}>
+              {step + 1} / {STEPS.length}
+            </span>
+          </div>
+
+          {/* Label chip */}
+          <div style={{ marginBottom: 8 }}>
+            <span style={{
+              display:      "inline-block",
+              fontSize:     10,
+              fontWeight:   700,
+              textTransform:"uppercase",
+              letterSpacing:"0.07em",
+              color:        "var(--gold)",
+              fontFamily:   "var(--font-sans)",
+              background:   "rgba(169,133,79,0.12)",
+              borderRadius: 4,
+              padding:      "2px 7px",
+            }}>
+              ↑ {current.label}
+            </span>
+          </div>
+
+          <h3 style={{
+            color:       "var(--ink-text)",
+            fontFamily:  "var(--font-serif)",
+            fontSize:    "1.05rem",
+            fontWeight:  700,
+            lineHeight:  1.3,
+            marginBottom: 8,
+          }}>
+            {current.title}
+          </h3>
+
+          <p style={{
+            color:       "var(--ink-text-dim)",
+            fontFamily:  "var(--font-sans)",
+            fontSize:    "0.85rem",
+            lineHeight:  1.65,
+            marginBottom: 16,
+          }}>
+            {current.body}
+          </p>
+
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <button
-              key={i}
-              onClick={() => setStep(i)}
+              onClick={onClose}
               style={{
-                width:        i === step ? 8 : 6,
-                height:       i === step ? 8 : 6,
-                borderRadius: "50%",
-                background:   i === step ? "var(--gold)" : "var(--ink-3)",
-                border:       "none",
-                cursor:       "pointer",
-                transition:   "all 0.2s",
-                padding:      0,
+                color:      "var(--ink-text-dim)",
+                fontFamily: "var(--font-sans)",
+                fontSize:   12,
+                background: "none",
+                border:     "none",
+                cursor:     "pointer",
+                padding:    "6px 0",
               }}
-              aria-label={`Go to step ${i + 1}`}
-            />
-          ))}
-        </div>
+            >
+              Skip tour
+            </button>
 
-        <div className="mb-6" style={{ minHeight: 52 }}>
-          {current.icon}
-        </div>
-
-        <h2
-          className="text-xl font-bold mb-3"
-          style={{ color: "var(--ink-text)", fontFamily: "var(--font-serif)", lineHeight: 1.3 }}
-        >
-          {current.title}
-        </h2>
-
-        <p
-          className="text-sm leading-relaxed mb-8"
-          style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", maxWidth: 340 }}
-        >
-          {current.body}
-        </p>
-
-        <div className="flex items-center justify-between w-full">
-          <button
-            onClick={onClose}
-            className="text-sm"
-            style={{
-              color:      "var(--ink-text-dim)",
-              fontFamily: "var(--font-sans)",
-              background: "none",
-              border:     "none",
-              cursor:     "pointer",
-              padding:    "8px 0",
-            }}
-          >
-            Skip tour
-          </button>
-
-          <button
-            onClick={next}
-            className="px-5 py-2.5 rounded-xl text-sm font-semibold"
-            style={{
-              background: "linear-gradient(135deg, var(--gold-deep), var(--gold))",
-              color:      "#fff",
-              fontFamily: "var(--font-sans)",
-              border:     "none",
-              cursor:     "pointer",
-            }}
-          >
-            {isLast ? "Start tracking →" : "Next →"}
-          </button>
+            <button
+              onClick={next}
+              style={{
+                background:  "linear-gradient(135deg, var(--gold-deep), var(--gold))",
+                color:       "#fff",
+                fontFamily:  "var(--font-sans)",
+                fontSize:    13,
+                fontWeight:  600,
+                border:      "none",
+                borderRadius:8,
+                padding:     "8px 20px",
+                cursor:      "pointer",
+              }}
+            >
+              {isLast ? "Let's go! →" : "Next →"}
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }

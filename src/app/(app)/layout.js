@@ -190,6 +190,7 @@ export default function AppLayout({ children }) {
                 <Link
                   key={tab.href}
                   href={tab.href}
+                  data-tour={`tab-${tab.href.slice(1)}`}
                   className="px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-all border-b-2"
                   style={{
                     background:  active ? "var(--ink-3)" : "transparent",
@@ -242,6 +243,7 @@ export default function AppLayout({ children }) {
         {/* Settings gear */}
         <button
           onClick={() => setSettingsOpen(true)}
+          data-tour="settings-btn"
           className="shrink-0 w-9 h-9 flex items-center justify-center rounded-lg transition-colors"
           style={{ color: "var(--ink-text-dim)", background: "var(--ink-3)", border: "1px solid var(--rule)" }}
           aria-label="Open settings"
@@ -273,6 +275,7 @@ export default function AppLayout({ children }) {
             <Link
               key={tab.href}
               href={tab.href}
+              data-tour={`tab-${tab.href.slice(1)}`}
               className="flex-1 flex flex-col items-center justify-center py-2 gap-0.5 transition-colors"
               style={{
                 color:      active ? tab.color : "var(--ink-text-dim)",
