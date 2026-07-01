@@ -5,34 +5,55 @@ import { createClient } from "@/lib/supabase/server";
 
 export const maxDuration = 60;
 
-const EXTRACT_PROMPT = `Extract all bank transactions from this Nigerian bank statement.
-Return ONLY valid JSON, no markdown fences, no extra text:
-
-{"transactions":[{"date":"YYYY-MM-DD","description":"narration text","amount":1234.56,"flow":"out"}]}
+const JSONL_RULES = `Output format — JSONL: one compact JSON object per line, NO wrapper array or object, NO markdown:
+{"date":"YYYY-MM-DD","description":"narration","amount":1234.56,"flow":"out"}
+{"date":"YYYY-MM-DD","description":"narration","amount":500.00,"flow":"in"}
 
 Rules:
-- date: YYYY-MM-DD format. If date is DD/MM/YYYY, convert it. If year is missing, use the statement year.
-- description: the narration, reference or remarks for the transaction
-- amount: positive number only, no commas or currency symbols
-- flow: "out" for debits/withdrawals/charges/transfers out; "in" for credits/deposits/payments received
-- Skip: opening balance rows, closing balance rows, totals, subtotals, header rows
-- Return ONLY the JSON object, nothing else`;
+- date: YYYY-MM-DD. Convert DD/MM/YYYY or DD-Mon-YYYY. Infer year from context if missing.
+- description: the narration/reference text. CRITICAL: strip all double-quote characters from it; replace with single quotes or remove.
+- amount: positive number, no commas or currency symbols
+- flow: "out" for debits/withdrawals/charges; "in" for credits/deposits/payments received
+- Skip opening balance, closing balance, totals, subtotals, header/footer rows
+- Return ONLY the raw JSONL lines — no markdown fences, no extra text`;
+
+const EXTRACT_PROMPT = `Extract all bank transactions from this Nigerian bank statement.\n${JSONL_RULES}`;
 
 function textExtractPrompt(text) {
-  return `Below is raw text extracted from a Nigerian bank statement PDF. Parse every transaction and return ONLY valid JSON, no markdown fences, no extra text:
+  return `Extract all bank transactions from the Nigerian bank statement text below.\n${JSONL_RULES}\n\nSTATEMENT TEXT:\n${text}`;
+}
 
-{"transactions":[{"date":"YYYY-MM-DD","description":"narration text","amount":1234.56,"flow":"out"}]}
+// Robust parser: handles JSONL (one object per line), full JSON array/object,
+// and strips markdown fences. Skips malformed lines instead of throwing.
+function parseAIResponse(raw) {
+  const text = raw.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/i, "").trim();
 
-Rules:
-- date: YYYY-MM-DD format. Convert DD/MM/YYYY or DD-Mon-YYYY as needed. If year is missing, infer from surrounding context.
-- description: the narration, reference or remarks for the transaction
-- amount: positive number only (no commas or currency symbols)
-- flow: "out" for debits/withdrawals/charges; "in" for credits/deposits/payments received
-- Skip: opening balance, closing balance, totals, subtotals, header/footer lines
-- Return ONLY the JSON object, nothing else
+  // 1. Try JSONL — one JSON object per line (preferred path)
+  const lines = text.split(/\r?\n/);
+  const jsonlRows = [];
+  for (const line of lines) {
+    const t = line.trim();
+    if (!t.startsWith("{")) continue;
+    try { jsonlRows.push(JSON.parse(t)); } catch { /* skip bad line */ }
+  }
+  if (jsonlRows.length > 0) return jsonlRows;
 
-STATEMENT TEXT:
-${text}`;
+  // 2. Try full JSON object/array
+  try {
+    const parsed = JSON.parse(text);
+    if (Array.isArray(parsed)) return parsed;
+    if (parsed.transactions && Array.isArray(parsed.transactions)) return parsed.transactions;
+    if (parsed.rows && Array.isArray(parsed.rows)) return parsed.rows;
+  } catch { /* fall through */ }
+
+  // 3. Extract all {...} blocks via regex and parse each individually
+  const blocks = [];
+  const re = /\{[^{}]+\}/g;
+  let m;
+  while ((m = re.exec(text)) !== null) {
+    try { blocks.push(JSON.parse(m[0])); } catch { /* skip */ }
+  }
+  return blocks;
 }
 
 export async function POST(request) {
@@ -102,17 +123,15 @@ export async function POST(request) {
       if (!res.ok) throw new Error(data.error?.message || "Groq error");
 
       const rawText = data.choices?.[0]?.message?.content || "";
-      const clean   = rawText.trim().replace(/^```json\n?/, "").replace(/\n?```$/, "");
-      const result  = JSON.parse(clean);
-      const transactions = result.transactions || result;
+      const transactions = parseAIResponse(rawText);
 
-      const rows = (Array.isArray(transactions) ? transactions : [])
-        .filter((t) => t.date && t.description && Number(t.amount) > 0)
+      const rows = transactions
+        .filter((t) => t.date && (t.description || t.desc) && Number(t.amount || t.amt) > 0)
         .map((t) => ({
           date:        String(t.date).trim(),
-          desc:        String(t.description).trim(),
-          amount:      Number(t.amount),
-          flow:        t.flow === "in" ? "in" : "out",
+          desc:        String(t.description || t.desc || "").trim(),
+          amount:      Number(t.amount || t.amt),
+          flow:        (t.flow || t.fl) === "in" ? "in" : "out",
           beneficiary: null,
         }));
 
@@ -173,17 +192,15 @@ export async function POST(request) {
       rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
     }
 
-    const clean       = rawText.trim().replace(/^```json\n?/, "").replace(/\n?```$/, "");
-    const result      = JSON.parse(clean);
-    const transactions = result.transactions || result;
+    const transactions = parseAIResponse(rawText);
 
-    const rows = (Array.isArray(transactions) ? transactions : [])
-      .filter((t) => t.date && t.description && Number(t.amount) > 0)
+    const rows = transactions
+      .filter((t) => t.date && (t.description || t.desc) && Number(t.amount || t.amt) > 0)
       .map((t) => ({
         date:        String(t.date).trim(),
-        desc:        String(t.description).trim(),
-        amount:      Number(t.amount),
-        flow:        t.flow === "in" ? "in" : "out",
+        desc:        String(t.description || t.desc || "").trim(),
+        amount:      Number(t.amount || t.amt),
+        flow:        (t.flow || t.fl) === "in" ? "in" : "out",
         beneficiary: null,
       }));
 
