@@ -130,6 +130,7 @@ export async function POST(request) {
 
       const txnRows = [
         ...balanceTxns.map((t) => ({
+          user_id:       uid,
           investment_id: newId,
           date:          t.date || null,
           type:          t.type || "deposit",
@@ -137,6 +138,7 @@ export async function POST(request) {
           month:         t.month || null,
         })),
         ...lifeTxns.map((t) => ({
+          user_id:       uid,
           investment_id: newId,
           date:          null,
           month:         t.month,
@@ -144,6 +146,7 @@ export async function POST(request) {
           amount:        num(t.amount) ?? num(inv.monthlyPremium ?? inv.monthly_premium) ?? 0,
         })),
         ...pensionTxns.map((t) => ({
+          user_id:       uid,
           investment_id: newId,
           date:          t.date || null,
           month:         t.month,
