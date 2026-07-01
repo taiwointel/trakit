@@ -8,7 +8,7 @@ const TGAPI = (token) => `https://api.telegram.org/bot${token}`;
 // The uid path param + the webhook secret header together verify legitimacy.
 
 export async function POST(request, { params }) {
-  const { uid } = params;
+  const { uid } = await params;
   const secretHeader = request.headers.get("x-telegram-bot-api-secret-token");
 
   const db = createAdminClient();
