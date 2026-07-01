@@ -35,16 +35,16 @@ export default function MonthNav({ year, month, onChange }) {
         ‹
       </button>
 
-      <div style={{ display: "flex", alignItems: "baseline", gap: 10, userSelect: "none" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, userSelect: "none" }}>
         <span style={{
-          fontFamily: "var(--font-serif)", fontSize: 18, fontWeight: 700,
-          color: "var(--ink-text)", letterSpacing: "0.04em", textTransform: "uppercase",
+          fontFamily: "var(--font-sans)", fontSize: 14, fontWeight: 700,
+          color: "var(--ink-text)", letterSpacing: "0.08em", textTransform: "uppercase",
         }}>
           {MONTHS[month - 1]}
         </span>
         <span style={{
-          fontFamily: "var(--font-mono)", fontSize: 12, fontWeight: 500,
-          color: "var(--ink-text-dim)", letterSpacing: "0.12em",
+          fontFamily: "var(--font-sans)", fontSize: 14, fontWeight: 400,
+          color: "var(--ink-text-dim)", letterSpacing: "0.06em",
         }}>
           {year}
         </span>

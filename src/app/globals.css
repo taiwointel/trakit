@@ -80,7 +80,7 @@ body {
     var(--ink);
   background-attachment: fixed;
   color: var(--ink-text);
-  font-family: 'IBM Plex Sans', sans-serif;
+  font-family: var(--font-sans), 'Inter', sans-serif;
 }
 
 /* Custom select chevron — never use the raw browser default */
@@ -101,7 +101,7 @@ select {
 
 /* Monospace for all money/number display */
 .mono {
-  font-family: 'IBM Plex Mono', monospace;
+  font-family: var(--font-mono), 'JetBrains Mono', monospace;
 }
 
 /* Landing page slide animations */
@@ -344,4 +344,59 @@ select {
   font-size: 11px;
   color: var(--ink-text-dim);
   font-family: var(--font-mono);
+}
+
+/* ── Mobile responsive utilities ─────────────────────────── */
+
+/* Panel inner — smaller padding on mobile */
+.panel-inner {
+  padding: 20px 24px;
+}
+@media (max-width: 640px) {
+  .panel-inner { padding: 14px 16px; }
+}
+
+/* Analytics row — 3-up grid that stacks on mobile */
+.analytics-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+@media (max-width: 767px) {
+  .analytics-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Pie chart layout — side by side on desktop, stacked on mobile */
+.pie-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  align-items: center;
+}
+@media (min-width: 560px) {
+  .pie-layout {
+    flex-direction: row;
+    align-items: center;
+    gap: 24px;
+  }
+}
+
+/* Stats strip — horizontal scroll on mobile */
+.stats-strip-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.stats-strip-scroll::-webkit-scrollbar { display: none; }
+.stats-strip-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(110px, 1fr));
+  gap: 8px;
+  min-width: 600px;
+}
+@media (min-width: 700px) {
+  .stats-strip-grid { min-width: 0; }
 }

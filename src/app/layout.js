@@ -1,19 +1,19 @@
-import { IBM_Plex_Sans, IBM_Plex_Mono, Source_Serif_4 } from "next/font/google";
+import { Inter, Playfair_Display, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 
-const ibmPlexSans = IBM_Plex_Sans({
+const inter = Inter({
   variable: "--font-sans",
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  variable: "--font-mono",
   subsets: ["latin"],
   weight: ["400", "500", "600"],
 });
 
-const ibmPlexMono = IBM_Plex_Mono({
-  variable: "--font-mono",
-  subsets: ["latin"],
-  weight: ["400", "500"],
-});
-
-const sourceSerif4 = Source_Serif_4({
+const playfairDisplay = Playfair_Display({
   variable: "--font-serif",
   subsets: ["latin"],
   weight: ["400", "600", "700"],
@@ -28,7 +28,7 @@ export default function RootLayout({ children }) {
   return (
     <html
       lang="en"
-      className={`${ibmPlexSans.variable} ${ibmPlexMono.variable} ${sourceSerif4.variable} h-full`}
+      className={`${inter.variable} ${jetbrainsMono.variable} ${playfairDisplay.variable} h-full`}
     >
       <body className="min-h-full flex flex-col">{children}</body>
     </html>

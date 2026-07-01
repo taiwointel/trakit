@@ -6,8 +6,8 @@ import { formatNaira } from "@/lib/format";
 function Card({ title, accent, icon, children }) {
   return (
     <div
-      className="flex-1 rounded-xl flex flex-col overflow-hidden"
-      style={{ background: "var(--ink-2)", border: "1px solid var(--rule)", borderTop: `3px solid ${accent}`, minWidth: 0 }}
+      className="rounded-xl flex flex-col overflow-hidden"
+      style={{ background: "var(--ink-2)", border: "1px solid var(--rule)", borderTop: `3px solid ${accent}` }}
     >
       <div className="px-4 py-3 border-b shrink-0 flex items-center gap-2" style={{ borderColor: "var(--rule)" }}>
         <span style={{ fontSize: 13 }}>{icon}</span>
@@ -60,7 +60,7 @@ export default function AnalyticsRow({ entries, from, to }) {
   }, [outEntries]);
 
   return (
-    <div className="flex gap-3 flex-wrap">
+    <div className="analytics-row">
       {/* Biggest Movers */}
       <Card title="Biggest Movers" accent="var(--violet)" icon="📊">
         {movers.length === 0 ? (

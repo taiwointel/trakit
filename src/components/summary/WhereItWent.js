@@ -27,9 +27,11 @@ function PieChart({ slices, size = 260 }) {
     return { ...s, startAngle, endAngle, sweep, start, end, largeArc, labelPt, color: CATEGORY_COLORS[i % CATEGORY_COLORS.length] };
   });
 
+  const svgStyle = { width: "100%", maxWidth: size, height: "auto", display: "block" };
+
   if (slices.length === 1) {
     return (
-      <svg width={size} height={size}>
+      <svg viewBox={`0 0 ${size} ${size}`} style={svgStyle}>
         <circle cx={cx} cy={cy} r={r} fill={CATEGORY_COLORS[0]} />
         <text x={cx} y={cy} textAnchor="middle" dominantBaseline="central" fill="#fff" fontSize={14} fontFamily="var(--font-mono)" fontWeight={600}>
           100%
@@ -39,7 +41,7 @@ function PieChart({ slices, size = 260 }) {
   }
 
   return (
-    <svg width={size} height={size}>
+    <svg viewBox={`0 0 ${size} ${size}`} style={svgStyle}>
       {arcs.map((arc) => {
         const d = `M ${cx} ${cy} L ${arc.start.x} ${arc.start.y} A ${r} ${r} 0 ${arc.largeArc} 1 ${arc.end.x} ${arc.end.y} Z`;
         return (
@@ -158,10 +160,12 @@ export default function WhereItWent({ entries }) {
       </div>
 
       {mode === "pie" ? (
-        <div className="flex gap-6 items-center flex-wrap">
-          <PieChart slices={slices} size={220} />
+        <div className="pie-layout">
+          <div style={{ width: "100%", maxWidth: 220, flexShrink: 0 }}>
+            <PieChart slices={slices} size={220} />
+          </div>
           {/* Legend */}
-          <div className="flex flex-col gap-2 flex-1 min-w-0">
+          <div className="flex flex-col gap-2 w-full min-w-0">
             {slices.map((s, i) => (
               <div key={s.category} className="flex items-center gap-2 min-w-0">
                 <div style={{ width: 10, height: 10, borderRadius: 2, background: CATEGORY_COLORS[i % CATEGORY_COLORS.length], flexShrink: 0 }} />
