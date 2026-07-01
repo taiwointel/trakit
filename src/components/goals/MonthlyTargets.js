@@ -62,17 +62,17 @@ export default function MonthlyTargets({ entries, salary, customGoals = [], user
     [monthOut],
   );
 
-  const extraFromGoals = useMemo(() =>
-    customGoals.reduce((sum, g) => {
+  const extraFromGoals = useMemo(() => {
+    const now = new Date();
+    return customGoals.reduce((sum, g) => {
       if (!g.target_date) return sum;
       const target = new Date(g.target_date + "T00:00:00");
       const months = Math.max(1,
-        (target.getFullYear() - today.getFullYear()) * 12 + (target.getMonth() - today.getMonth()),
+        (target.getFullYear() - now.getFullYear()) * 12 + (target.getMonth() - now.getMonth()),
       );
       return sum + Math.max(0, Number(g.target_amount) - Number(g.saved_so_far)) / months;
-    }, 0),
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  [customGoals]);
+    }, 0);
+  }, [customGoals]);
 
   if (!salary) {
     return (
