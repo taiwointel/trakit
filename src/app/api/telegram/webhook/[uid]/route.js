@@ -105,7 +105,7 @@ export async function POST(request, { params }) {
 
   // ── Write to entries ──────────────────────────────────────────────────
   const today = new Date().toISOString().slice(0, 10);
-  const { error } = await db.from("entries").insert({
+  let { error } = await db.from("entries").insert({
     user_id:     uid,
     date:        today,
     desc:        parsed.description,
@@ -115,6 +115,19 @@ export async function POST(request, { params }) {
     source:      "telegram",
     status:      "pending",
   });
+
+  // If source column doesn't exist yet (migration pending), retry without it
+  if (error?.code === "42703") {
+    ({ error } = await db.from("entries").insert({
+      user_id:     uid,
+      date:        today,
+      desc:        parsed.description,
+      amount:      parsed.amount,
+      flow:        parsed.flow,
+      beneficiary: null,
+      status:      "pending",
+    }));
+  }
 
   if (error) {
     await reply(settings.bot_token_encrypted, chatId,

@@ -75,11 +75,21 @@ export function useEntries() {
     }
 
     if (userId && supabase) {
-      const { data, error } = await supabase
+      let { data, error } = await supabase
         .from("entries")
         .insert({ ...categorized, user_id: userId })
         .select()
         .single();
+
+      // If the source column doesn't exist yet (migration pending), retry without it
+      if (error?.code === "42703") {
+        const { source: _s, ...withoutSource } = categorized;
+        ({ data, error } = await supabase
+          .from("entries")
+          .insert({ ...withoutSource, user_id: userId })
+          .select()
+          .single());
+      }
 
       if (!error && data) {
         setEntries((prev) => prev.map((e) => (e.id === tempId ? data : e)));

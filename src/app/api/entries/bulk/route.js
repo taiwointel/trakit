@@ -37,7 +37,14 @@ export async function POST(request) {
     };
   });
 
-  const { data, error } = await supabase.from("entries").insert(toInsert).select("id");
+  let { data, error } = await supabase.from("entries").insert(toInsert).select("id");
+
+  // If source column doesn't exist yet (migration pending), retry without it
+  if (error?.code === "42703") {
+    const withoutSource = toInsert.map(({ source: _s, ...r }) => r);
+    ({ data, error } = await supabase.from("entries").insert(withoutSource).select("id"));
+  }
+
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
