@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { formatAmountInput, parseAmount, todayISO, formatNaira } from "@/lib/format";
 
 const SYMBOLS   = { NGN: "₦", USD: "$", EUR: "€", GBP: "£" };
@@ -18,10 +18,9 @@ export default function EntryForm({ entries, onAdd }) {
   const [fxRates,     setFxRates]     = useState(null);
   const toRef = useRef(null);
 
-  // Lazy-load FX rates on first mount
-  useState(() => {
+  useEffect(() => {
     fetch("/api/fx").then(r => r.json()).then(d => { if (!d.error) setFxRates(d); }).catch(() => {});
-  });
+  }, []);
 
   function toNgn(raw) {
     const parsed = parseAmount(raw);
@@ -30,10 +29,10 @@ export default function EntryForm({ entries, onAdd }) {
     return rate ? Math.round(parsed * rate) : parsed;
   }
 
-  const outNames  = [...new Set(entries.filter((e) => e.flow === "out" && e.beneficiary).map((e) => e.beneficiary))];
-  const inNames   = [...new Set(entries.filter((e) => e.flow === "in"  && e.beneficiary).map((e) => e.beneficiary))];
+  const outNames  = [...new Set(entries.filter(e => e.flow === "out" && e.beneficiary).map(e => e.beneficiary))];
+  const inNames   = [...new Set(entries.filter(e => e.flow === "in"  && e.beneficiary).map(e => e.beneficiary))];
   const suggestions = (flow === "out" ? outNames : inNames).filter(
-    (n) => to && n.toLowerCase().includes(to.toLowerCase()),
+    n => to && n.toLowerCase().includes(to.toLowerCase()),
   );
 
   async function handleSubmit(e) {
@@ -45,67 +44,110 @@ export default function EntryForm({ entries, onAdd }) {
       : desc.trim();
     setBusy(true);
     await onAdd({ date, desc: finalDesc, amount: ngnAmount, flow, beneficiary: to.trim() || null });
-    setDesc("");
-    setAmount("");
-    setTo("");
-    setCurrency("NGN");
+    setDesc(""); setAmount(""); setTo(""); setCurrency("NGN");
     setBusy(false);
   }
 
-  const isOut = flow === "out";
-
-  const inputBase = {
-    background: "var(--ink-3)",
-    border:     "1px solid var(--rule)",
-    color:      "var(--ink-text)",
-    fontFamily: "var(--font-sans)",
-    outline:    "none",
-  };
+  const isOut      = flow === "out";
+  const accentColor = isOut ? "rgba(184,57,43,0.45)" : "rgba(47,122,86,0.45)";
+  const valueColor  = isOut ? "var(--red)" : "var(--green)";
 
   return (
     <form onSubmit={handleSubmit}>
-      <div className="px-4 pt-4 pb-3 flex flex-col gap-3" style={{ background: "var(--ink-2)" }}>
+      <div
+        style={{
+          background: "var(--ink-2)",
+          padding: "16px 16px 14px",
+          display: "flex",
+          flexDirection: "column",
+          gap: 12,
+        }}
+      >
 
-        {/* Row 1: Description */}
+        {/* ── Row 1: Description ── */}
         <input
           type="text"
           value={desc}
-          onChange={(e) => setDesc(e.target.value)}
+          onChange={e => setDesc(e.target.value)}
           placeholder="What was this for? (e.g. Fuel at Oando)"
           required
-          className="w-full px-4 py-2.5 rounded-xl text-sm"
-          style={inputBase}
+          style={{
+            width:       "100%",
+            padding:     "11px 14px",
+            borderRadius: 10,
+            background:  "var(--ink-3)",
+            border:      "1px solid var(--rule)",
+            color:       "var(--ink-text)",
+            fontFamily:  "var(--font-sans)",
+            fontSize:    14,
+            outline:     "none",
+            boxSizing:   "border-box",
+          }}
         />
 
-        {/* Row 2: Currency | Amount | Out/In */}
-        <div className="flex gap-2 items-stretch">
-
-          {/* Currency selector — standalone flex child */}
-          <select
-            value={currency}
-            onChange={(e) => { setCurrency(e.target.value); }}
-            className="shrink-0 rounded-xl text-xs outline-none px-2"
-            style={{
-              background:  "var(--ink-3)",
-              border:      "1px solid var(--rule)",
-              color:       "var(--ink-text-dim)",
-              fontFamily:  "var(--font-mono)",
-              cursor:      "pointer",
-            }}
-          >
-            <option value="NGN">NGN</option>
-            <option value="USD">USD</option>
-            <option value="EUR">EUR</option>
-            <option value="GBP">GBP</option>
-          </select>
-
-          {/* Amount input with currency symbol inside */}
-          <div className="relative flex-1">
-            <span
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold pointer-events-none select-none"
+        {/* ── Row 2: Unified amount group [Out/In | ₦ Amount | Currency] ── */}
+        <div
+          style={{
+            display:      "flex",
+            borderRadius: 10,
+            overflow:     "hidden",
+            border:       `1.5px solid ${accentColor}`,
+            background:   "var(--ink-3)",
+          }}
+        >
+          {/* Flow toggle — left */}
+          <div style={{ display: "flex", flexShrink: 0, borderRight: "1px solid var(--rule)" }}>
+            <button
+              type="button"
+              onClick={() => setFlow("out")}
               style={{
-                color:      isOut ? "var(--red)" : "var(--green)",
+                padding:    "0 12px",
+                background: isOut ? "var(--red)" : "transparent",
+                color:      isOut ? "#fff" : "var(--ink-text-dim)",
+                fontFamily: "var(--font-sans)",
+                fontSize:   12,
+                fontWeight: 700,
+                border:     "none",
+                borderRight:"1px solid var(--rule)",
+                cursor:     "pointer",
+                whiteSpace: "nowrap",
+              }}
+            >
+              Out ↑
+            </button>
+            <button
+              type="button"
+              onClick={() => setFlow("in")}
+              style={{
+                padding:    "0 12px",
+                background: !isOut ? "var(--green)" : "transparent",
+                color:      !isOut ? "#fff" : "var(--ink-text-dim)",
+                fontFamily: "var(--font-sans)",
+                fontSize:   12,
+                fontWeight: 700,
+                border:     "none",
+                cursor:     "pointer",
+                whiteSpace: "nowrap",
+              }}
+            >
+              In ↓
+            </button>
+          </div>
+
+          {/* Amount — center, flex-1 */}
+          <div style={{ position: "relative", flex: 1 }}>
+            <span
+              style={{
+                position:   "absolute",
+                left:       12,
+                top:        "50%",
+                transform:  "translateY(-50%)",
+                color:      valueColor,
                 fontFamily: "var(--font-mono)",
+                fontWeight: 700,
+                fontSize:   14,
+                pointerEvents: "none",
+                userSelect: "none",
               }}
             >
               {SYMBOLS[currency]}
@@ -114,105 +156,138 @@ export default function EntryForm({ entries, onAdd }) {
               type="text"
               inputMode="decimal"
               value={amount}
-              onChange={(e) => setAmount(formatAmountInput(e.target.value))}
+              onChange={e => setAmount(formatAmountInput(e.target.value))}
               placeholder="0.00"
-              className="w-full py-2.5 pr-3 rounded-xl text-sm"
               style={{
-                background:  "var(--ink-3)",
-                border:      `1px solid ${isOut ? "rgba(184,57,43,0.4)" : "rgba(47,122,86,0.4)"}`,
-                color:       isOut ? "var(--red)" : "var(--green)",
-                fontFamily:  "var(--font-mono)",
-                fontWeight:  600,
+                width:       "100%",
+                height:      "100%",
+                minHeight:   44,
                 paddingLeft: 28,
+                paddingRight: 8,
+                background:  "transparent",
+                border:      "none",
                 outline:     "none",
+                color:       valueColor,
+                fontFamily:  "var(--font-mono)",
+                fontWeight:  700,
+                fontSize:    15,
+                boxSizing:   "border-box",
               }}
             />
           </div>
 
-          {/* Out / In pill toggle */}
-          <div
-            className="flex rounded-xl overflow-hidden shrink-0"
-            style={{ border: "1px solid var(--rule)", background: "var(--ink-3)" }}
+          {/* Currency select — right */}
+          <select
+            value={currency}
+            onChange={e => setCurrency(e.target.value)}
+            style={{
+              flexShrink:  0,
+              padding:     "0 8px",
+              background:  "transparent",
+              border:      "none",
+              borderLeft:  "1px solid var(--rule)",
+              color:       "var(--ink-text-dim)",
+              fontFamily:  "var(--font-mono)",
+              fontSize:    11,
+              outline:     "none",
+              cursor:      "pointer",
+            }}
           >
-            <button
-              type="button"
-              onClick={() => setFlow("out")}
-              className="px-4 text-xs font-semibold transition-all"
-              style={{
-                background: isOut  ? "var(--red)"   : "transparent",
-                color:      isOut  ? "#fff"          : "var(--ink-text-dim)",
-                fontFamily: "var(--font-sans)",
-              }}
-            >
-              Out ↑
-            </button>
-            <button
-              type="button"
-              onClick={() => setFlow("in")}
-              className="px-4 text-xs font-semibold transition-all"
-              style={{
-                background: !isOut ? "var(--green)" : "transparent",
-                color:      !isOut ? "#fff"          : "var(--ink-text-dim)",
-                fontFamily: "var(--font-sans)",
-              }}
-            >
-              In ↓
-            </button>
-          </div>
+            <option value="NGN">NGN</option>
+            <option value="USD">USD</option>
+            <option value="EUR">EUR</option>
+            <option value="GBP">GBP</option>
+          </select>
         </div>
 
-        {/* FX conversion hint */}
+        {/* FX hint */}
         {currency !== "NGN" && amount && (
-          <p className="text-xs" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-mono)", marginTop: -4 }}>
+          <p style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-mono)", fontSize: 11, marginTop: -4 }}>
             {fxRates
               ? `≈ ${formatNaira(toNgn(amount))} at ₦${Number(fxRates[RATE_KEYS[currency]]).toLocaleString()}/${currency}`
               : "≈ ₦? (loading rates…)"}
           </p>
         )}
 
-        {/* Row 3: Date | To/From | Add */}
-        <div className="flex gap-2 items-center">
+        {/* ── Row 3: Date | To/From | Add ── */}
+        <div style={{ display: "flex", gap: 8, alignItems: "stretch" }}>
 
           <input
             type="date"
             value={date}
-            onChange={(e) => setDate(e.target.value)}
-            className="shrink-0 px-3 py-2.5 rounded-xl text-xs outline-none"
+            onChange={e => setDate(e.target.value)}
             style={{
+              flexShrink:  0,
+              padding:     "10px 10px",
+              borderRadius: 10,
               background:  "var(--ink-3)",
               border:      "1px solid var(--rule)",
               color:       "var(--ink-text-dim)",
               fontFamily:  "var(--font-mono)",
+              fontSize:    12,
               colorScheme: "dark",
+              outline:     "none",
             }}
           />
 
           {/* To / From with autocomplete */}
-          <div className="relative flex-1">
+          <div style={{ position: "relative", flex: 1 }}>
             <input
               ref={toRef}
               type="text"
               value={to}
-              onChange={(e) => { setTo(e.target.value); setShowSuggest(true); }}
+              onChange={e => { setTo(e.target.value); setShowSuggest(true); }}
               onBlur={() => setTimeout(() => setShowSuggest(false), 150)}
               onFocus={() => setShowSuggest(true)}
               placeholder={isOut ? "To (optional)" : "From (optional)"}
               autoComplete="off"
-              className="w-full px-3 py-2.5 rounded-xl text-sm outline-none"
-              style={inputBase}
+              style={{
+                width:       "100%",
+                padding:     "10px 12px",
+                borderRadius: 10,
+                background:  "var(--ink-3)",
+                border:      "1px solid var(--rule)",
+                color:       "var(--ink-text)",
+                fontFamily:  "var(--font-sans)",
+                fontSize:    13,
+                outline:     "none",
+                boxSizing:   "border-box",
+              }}
             />
             {showSuggest && suggestions.length > 0 && (
               <ul
-                className="absolute top-full left-0 mt-1 rounded-xl shadow-xl z-20 overflow-hidden w-full"
-                style={{ background: "var(--ink-3)", border: "1px solid var(--rule)" }}
+                style={{
+                  position:   "absolute",
+                  top:        "calc(100% + 4px)",
+                  left:       0,
+                  width:      "100%",
+                  background: "var(--ink-3)",
+                  border:     "1px solid var(--rule)",
+                  borderRadius: 10,
+                  overflow:   "hidden",
+                  zIndex:     20,
+                  boxShadow:  "0 8px 24px rgba(0,0,0,0.4)",
+                  listStyle:  "none",
+                  margin:     0,
+                  padding:    0,
+                }}
               >
-                {suggestions.slice(0, 5).map((s) => (
+                {suggestions.slice(0, 5).map(s => (
                   <li key={s}>
                     <button
                       type="button"
                       onClick={() => { setTo(s); setShowSuggest(false); }}
-                      className="w-full text-left px-4 py-2 text-sm"
-                      style={{ color: "var(--ink-text)", fontFamily: "var(--font-sans)", background: "transparent" }}
+                      style={{
+                        width:      "100%",
+                        textAlign:  "left",
+                        padding:    "9px 14px",
+                        background: "transparent",
+                        border:     "none",
+                        color:      "var(--ink-text)",
+                        fontFamily: "var(--font-sans)",
+                        fontSize:   13,
+                        cursor:     "pointer",
+                      }}
                     >
                       {s}
                     </button>
@@ -225,14 +300,20 @@ export default function EntryForm({ entries, onAdd }) {
           <button
             type="submit"
             disabled={busy || !desc.trim() || !amount}
-            className="shrink-0 px-5 py-2.5 rounded-xl text-sm font-bold transition-all"
             style={{
-              background: busy || !desc.trim() || !amount
+              flexShrink:  0,
+              padding:     "10px 20px",
+              borderRadius: 10,
+              background:  busy || !desc.trim() || !amount
                 ? "var(--ink-3)"
                 : "linear-gradient(135deg, var(--gold-deep), var(--gold))",
-              color:      busy || !desc.trim() || !amount ? "var(--ink-text-dim)" : "#fff",
-              fontFamily: "var(--font-sans)",
-              border:     "1px solid " + (busy || !desc.trim() || !amount ? "var(--rule)" : "transparent"),
+              color:       busy || !desc.trim() || !amount ? "var(--ink-text-dim)" : "#fff",
+              fontFamily:  "var(--font-sans)",
+              fontSize:    13,
+              fontWeight:  700,
+              border:      "1px solid " + (busy || !desc.trim() || !amount ? "var(--rule)" : "transparent"),
+              cursor:      busy || !desc.trim() || !amount ? "default" : "pointer",
+              whiteSpace:  "nowrap",
             }}
           >
             {busy ? "…" : "+ Add"}
