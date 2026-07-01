@@ -267,41 +267,29 @@ export default function SummaryPage() {
         />
       </div>
 
-      {/* ── OUTLOOK ───────────────────────────────────────────────────────
-          Forward-looking tools: cycle forecast, FX rates for context,
-          and the annual year-in-review. Grouped together because they
-          all answer "what's ahead / what's the bigger picture?"
+      {/* ── SPEND BREAKDOWN ───────────────────────────────────────────────
+          Charts come before the coach analysis — visuals give instant
+          gratification with no click/wait. Users see where money went,
+          then naturally want the coach's take on it.
       ── */}
       <div className="section-divider">
-        <div className="section-divider-bar" style={{ background: "var(--violet)" }} />
-        <span className="section-divider-label" style={{ color: "var(--violet)" }}>Outlook</span>
+        <div className="section-divider-bar" style={{ background: "var(--teal)" }} />
+        <span className="section-divider-label" style={{ color: "var(--teal)" }}>Spend Breakdown</span>
         <div className="section-divider-rule" />
       </div>
 
       <div className="section-body">
-        <ForecastBanner
-          cycleStart={cycleStart}
-          cycleEnd={cycle?.end || today}
-          salary={goals.salary}
-          entries={entries}
-          today={today}
-        />
-
-        <div style={{ display: "flex", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
-          <FXWidget />
-          <AnnualWrapped
-            entries={entries}
-            investments={investments}
-            transactions={transactions}
-            currentBalance={currentBalance}
-            salary={goals.salary}
-          />
+        <div className="grid-2">
+          <WhereItWent entries={cycleEntries} />
+          <SpendTrendChart entries={entries} from={cycleStart} to={today} />
         </div>
+        <CategoryExplorer entries={cycleEntries} />
+        <AnalyticsRow entries={entries} />
       </div>
 
       {/* ── COACH RBC ─────────────────────────────────────────────────────
-          Advice follows status + outlook. Users want to understand their
-          position before they're ready to hear recommendations.
+          Advice follows the visual breakdown — users have already seen
+          where money went, so they're primed to hear what to do about it.
       ── */}
       <div className="section-divider">
         <div className="section-divider-bar" />
@@ -319,30 +307,39 @@ export default function SummaryPage() {
         <AskSpending entries={entries} />
       </div>
 
-      {/* ── SPEND BREAKDOWN ───────────────────────────────────────────────
-          Where did money go? Charts and category drill-downs.
-          Separate from "History" because this is current-period analysis,
-          not long-run pattern recognition.
+      {/* ── OUTLOOK ───────────────────────────────────────────────────────
+          Forward-looking tools: cycle forecast, FX rates, annual review.
+          Below the coach because they require deliberate engagement
+          (clicking "Generate forecast", checking FX rates manually).
       ── */}
       <div className="section-divider">
-        <div className="section-divider-bar" style={{ background: "var(--teal)" }} />
-        <span className="section-divider-label" style={{ color: "var(--teal)" }}>Spend Breakdown</span>
+        <div className="section-divider-bar" style={{ background: "var(--violet)" }} />
+        <span className="section-divider-label" style={{ color: "var(--violet)" }}>Outlook</span>
         <div className="section-divider-rule" />
       </div>
 
       <div className="section-body">
-        <div className="grid-2">
-          <WhereItWent entries={cycleEntries} />
-          <SpendTrendChart entries={entries} from={cycleStart} to={today} />
+        <ForecastBanner
+          cycleStart={cycleStart}
+          cycleEnd={cycle?.end || today}
+          salary={goals.salary}
+          entries={entries}
+          today={today}
+        />
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
+          <FXWidget />
+          <AnnualWrapped
+            entries={entries}
+            investments={investments}
+            transactions={transactions}
+            currentBalance={currentBalance}
+            salary={goals.salary}
+          />
         </div>
-        <CategoryExplorer entries={cycleEntries} />
-        <AnalyticsRow entries={entries} />
       </div>
 
       {/* ── HISTORY & PATTERNS ────────────────────────────────────────────
-          Long-run patterns: recurring charges, heatmap of activity.
-          Last because it rewards the curious user who scrolls further,
-          not something everyone needs on every visit.
+          Long-run patterns for users who want to go deeper.
       ── */}
       <div className="section-divider">
         <div className="section-divider-bar" style={{ background: "var(--amber)" }} />

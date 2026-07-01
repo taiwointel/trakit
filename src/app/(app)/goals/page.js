@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useState, useMemo } from "react";
 import { getSalaryCycle } from "@/lib/format";
 import { useEntries }        from "@/hooks/useEntries";
 import { useGoals }          from "@/hooks/useGoals";
@@ -20,15 +20,14 @@ export default function GoalsPage() {
   const { transactions, balance, loading: efLoading, addTransaction } = useEmergencyFund();
   const { goals: customGoals, loading: cgLoading, addGoal, updateSavedSoFar, deleteGoal } = useCustomGoals();
   const { name: userName } = useUser();
+  const [setupOpen, setSetupOpen] = useState(false);
 
   const today     = new Date().toISOString().slice(0, 10);
   const thisMonth = today.slice(0, 7);
 
-  // Use salary cycle if configured, else calendar month
   const cycle = useMemo(() => getSalaryCycle(goals.payday_day), [goals.payday_day]);
   const cycleStart = cycle?.start || `${thisMonth}-01`;
 
-  // Emergency fund target = 6 × this cycle's essential spend (or manual override)
   const essentialThisMonth = useMemo(
     () => entries
       .filter((e) => e.date >= cycleStart && e.date <= today && e.flow === "out" && e.essentiality === "Essential")
@@ -45,15 +44,14 @@ export default function GoalsPage() {
   if (entriesLoading || goalsLoading || efLoading || cgLoading) {
     return (
       <div className="flex items-center justify-center h-48">
-        <span
-          className="text-sm"
-          style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}
-        >
+        <span className="text-sm" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>
           Loading…
         </span>
       </div>
     );
   }
+
+  const hasSalary = !!goals.salary;
 
   return (
     <div className="page-root">
@@ -63,22 +61,26 @@ export default function GoalsPage() {
         <PaydayWidget paydayDay={goals.payday_day} salary={goals.salary} />
       </div>
 
-      {/* ── SETUP ─────────────────────────────────────────────────────── */}
-      <div className="section-divider">
-        <div className="section-divider-bar" />
-        <span className="section-divider-label">Salary &amp; Payday</span>
-        <div className="section-divider-rule" />
-      </div>
+      {/* ── SALARY SETUP — shown prominently when not yet configured ──────
+          Once salary is set, this collapses to a bottom "Edit" section so
+          the monitoring content (targets, fund, goals) can take priority. */}
+      {!hasSalary && (
+        <>
+          <div className="section-divider">
+            <div className="section-divider-bar" />
+            <span className="section-divider-label">Salary &amp; Payday</span>
+            <div className="section-divider-rule" />
+          </div>
+          <div className="section-body">
+            <SalarySetup salary={goals.salary} paydayDay={goals.payday_day} onSave={saveGoals} />
+          </div>
+        </>
+      )}
 
-      <div className="section-body">
-        <SalarySetup
-          salary={goals.salary}
-          paydayDay={goals.payday_day}
-          onSave={saveGoals}
-        />
-      </div>
-
-      {/* ── MONTHLY TARGETS ───────────────────────────────────────────── */}
+      {/* ── MONTHLY TARGETS (50/30/20) ────────────────────────────────────
+          The most visually compelling view — progress bars, breach badges,
+          and the 50/30/20 reallocation. Promoted to top when salary is set
+          so users see their financial health immediately on every visit. */}
       <div className="section-divider">
         <div className="section-divider-bar" style={{ background: "var(--violet)" }} />
         <span className="section-divider-label" style={{ color: "var(--violet)" }}>Monthly Targets (50/30/20)</span>
@@ -96,7 +98,9 @@ export default function GoalsPage() {
         />
       </div>
 
-      {/* ── EMERGENCY FUND ────────────────────────────────────────────── */}
+      {/* ── EMERGENCY FUND ────────────────────────────────────────────────
+          Progress bar towards the 6-month safety net — frequently checked
+          and motivating to see growing. */}
       <div className="section-divider">
         <div className="section-divider-bar" style={{ background: "var(--blue-accent)" }} />
         <span className="section-divider-label" style={{ color: "var(--blue-accent)" }}>Emergency Fund</span>
@@ -114,10 +118,12 @@ export default function GoalsPage() {
         />
       </div>
 
-      {/* ── SAVINGS GOALS ─────────────────────────────────────────────── */}
+      {/* ── CUSTOM SAVINGS GOALS ──────────────────────────────────────────
+          Progress towards specific targets — enticing because each card
+          shows how close you are and whether you're on track. */}
       <div className="section-divider">
         <div className="section-divider-bar" style={{ background: "var(--teal)" }} />
-        <span className="section-divider-label" style={{ color: "var(--teal)" }}>Custom Savings Goals</span>
+        <span className="section-divider-label" style={{ color: "var(--teal)" }}>Savings Goals</span>
         <div className="section-divider-rule" />
       </div>
 
@@ -130,6 +136,37 @@ export default function GoalsPage() {
           onDelete={deleteGoal}
         />
       </div>
+
+      {/* ── SALARY & PAYDAY SETUP — edit mode ─────────────────────────────
+          Once configured, this becomes a collapsible edit section at the
+          bottom. Configuration is a one-off task, not a daily check. */}
+      {hasSalary && (
+        <>
+          <div className="section-divider">
+            <div className="section-divider-bar" />
+            <span className="section-divider-label">Salary &amp; Payday</span>
+            <div className="section-divider-rule" />
+          </div>
+          <div className="section-body">
+            <div style={{ background: "var(--ink-2)", border: "1px solid var(--rule)", borderRadius: 16, overflow: "hidden" }}>
+              <button
+                onClick={() => setSetupOpen((v) => !v)}
+                className="section-toggle"
+              >
+                <span className="section-toggle-label">Edit salary &amp; payday</span>
+                <span className="section-toggle-arrow">
+                  {setupOpen ? "▲ Collapse" : "▼ Show"}
+                </span>
+              </button>
+              {setupOpen && (
+                <div style={{ padding: "16px 20px" }}>
+                  <SalarySetup salary={goals.salary} paydayDay={goals.payday_day} onSave={saveGoals} />
+                </div>
+              )}
+            </div>
+          </div>
+        </>
+      )}
 
     </div>
   );
