@@ -12,8 +12,8 @@ import { useEntries } from "@/hooks/useEntries";
 
 const TABS = [
   {
-    label: "Summary",
-    shortLabel: "Summary",
+    label: "Financial Dashboard",
+    shortLabel: "Dashboard",
     href: "/summary",
     color: "var(--sky)",
     icon: (

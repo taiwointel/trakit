@@ -29,7 +29,7 @@ const GREETINGS = {
   latenight: (n) => [
     `It's late, ${n}. Logging expenses before bed? Respect.`,
     `Still up, ${n}? Your budget never sleeps either.`,
-    `Late night check-in, ${n}. The kobo don't care what time it is.`,
+    `Late night check-in, ${n}. The kobo do not care what time it is.`,
     `${n}, it's practically tomorrow. Tomorrow's budget starts in a few hours.`,
     `Grinding late, ${n}? Make sure the spending doesn't grind just as hard.`,
     `Night shift vibe detected, ${n}. The ledger is always clocking in.`,
@@ -63,7 +63,7 @@ const GREETINGS = {
     `Afternoon check-in, ${n}! No judgment. Log the shawarma. It counts.`,
     `Hey ${n}! How is the pocket holding up this afternoon?`,
     `Good afternoon, ${n}! Productivity peaks in the afternoon. So does impulse buying.`,
-    `${n}, traffic is bad either way — might as well review the budget.`,
+    `${n}, traffic is bad either way. Might as well review the budget.`,
     `Good afternoon, ${n}! The government cannot fix the economy, but you can fix this budget.`,
     `Afternoon, ${n}! People who check their spending midday spend less. You're doing the right thing.`,
     `Good afternoon, ${n}! Is the account balance where you expected it? Let's find out.`,
@@ -89,11 +89,11 @@ const GREETINGS = {
     `Still at it, ${n}? Log the damage and get some rest.`,
     `Night shift vibes, ${n}. The budget is always clocking in.`,
     `${n}, almost midnight. How did the kobo move today?`,
-    `Late evening check, ${n}! Better late than never — log those expenses.`,
+    `Late evening check, ${n}! Better late than never. Log those expenses.`,
     `${n}, the day is done. Let's see if the budget survived intact.`,
     `Night energy, ${n}! Future you will thank present you for opening this app tonight.`,
     `${n}, the street is quiet. Your spending history? Less quiet.`,
-    `Good night soon, ${n}. But first — let's look at the receipts.`,
+    `Good night soon, ${n}. But first, let's look at the receipts.`,
     `${n}, logging expenses before sleep is peak financial maturity. We see you.`,
   ],
 };
@@ -108,66 +108,66 @@ function getGreeting(name, idx) {
 
 /* ── Financial fun facts — rotates every 15s ─────────────────── */
 const FIN_FACTS = [
-  "The word 'salary' comes from Latin 'salarium' — Roman soldiers were partly paid in salt.",
-  "Compound interest doubles money in 72 ÷ interest-rate years. At 18%, that's just 4 years.",
-  "Nigeria's pension fund assets exceeded ₦17 trillion in 2023 — and growing.",
+  "The word 'salary' comes from Latin 'salarium'. Roman soldiers were partly paid in salt.",
+  "Compound interest doubles money in 72 divided by your interest rate years. At 18%, that's just 4 years.",
+  "Nigeria's pension fund assets exceeded 17 trillion naira in 2023, and it keeps growing.",
   "People who track expenses spend an average of 15% less than those who don't.",
   "Treasury bills have been Nigeria's safest short-term investment since 1959.",
   "The average Nigerian household spends about 56% of income on food and food-related costs.",
   "Writing down financial goals makes you 42% more likely to achieve them.",
   "The Naira was introduced on 1 January 1973, replacing the Nigerian pound.",
-  "A ₦500 daily saving at 15% annual return grows to over ₦20M in 30 years.",
+  "A 500 naira daily saving at 15% annual return grows to over 20 million naira in 30 years.",
   "70% of lottery winners go bankrupt within 5 years. Habits outlast windfalls.",
   "The first ATM in Nigeria was installed in 1989 by Societe Generale Bank.",
-  "Emergency funds should cover 3–6 months of essential expenses — not total income.",
-  "Nigeria's informal economy is estimated at 60%+ of GDP — making budgeting harder for most.",
-  "Inflation in 2024 eroded Nigerian purchasing power by over 30% — idle cash loses real value.",
+  "Emergency funds should cover 3 to 6 months of essential expenses, not total income.",
+  "Nigeria's informal economy is estimated at 60%+ of GDP, which makes budgeting harder for most people.",
+  "Inflation in 2024 eroded Nigerian purchasing power by over 30%. Idle cash loses real value.",
   "The 50/30/20 rule was popularised by US Senator Elizabeth Warren in her 2005 book.",
   "Investors who check their portfolio daily earn less than those who check quarterly.",
   "The average person makes over 35,000 financial micro-decisions per year.",
   "Automating savings is the single most effective financial habit, per behavioural economists.",
-  "Nigerian banks pay 3–5% on savings accounts; treasury bills return 15–20%.",
+  "Nigerian banks pay 3 to 5% on savings accounts. Treasury bills return 15 to 20%.",
   "Less than 10% of Nigerians have any form of life insurance.",
   "A 1% difference in investment return over 30 years can mean a 35% difference in final wealth.",
   "The CBN's Monetary Policy Rate directly influences what banks pay on deposits.",
-  "Dollar cost averaging — investing fixed amounts regularly — outperforms market timing for most people.",
-  "Nigeria's GSM subscriber base grew from zero to over 200 million in 20 years — the fastest in Africa.",
+  "Dollar cost averaging, investing fixed amounts regularly, outperforms market timing for most people.",
+  "Nigeria's GSM subscriber base grew from zero to over 200 million in 20 years. The fastest in Africa.",
   "Discretionary spending is the highest-leverage area to cut when building savings.",
-  "The average Nigerian worker saves less than 5% of income; the recommended minimum is 20%.",
+  "The average Nigerian worker saves less than 5% of income. The recommended minimum is 20%.",
   "Mutual funds in Nigeria became accessible to retail investors in the early 2000s.",
   "A single missed credit payment can damage your score more than 6 months of on-time payments help.",
   "Less than 10 million Nigerians have active pension contributions.",
   "Consumer debt in Nigeria is concentrated in personal loans and credit cards, not mortgages.",
   "Studies show budgeters have 20% lower financial anxiety than non-budgeters.",
-  "The NGX Exchange (former NSE) has returned 12–15% annually on average over the last decade.",
+  "The NGX Exchange (formerly NSE) has returned 12 to 15% annually on average over the last decade.",
   "Financial stress is the number-one cause of workplace absenteeism globally.",
-  "Dollar subscriptions — Netflix, Spotify, iCloud — cost Nigerian households billions in FX annually.",
-  "Nigeria processes over ₦60 trillion in electronic transactions monthly through NIBSS.",
+  "Dollar subscriptions like Netflix, Spotify, and iCloud cost Nigerian households billions in FX annually.",
+  "Nigeria processes over 60 trillion naira in electronic transactions monthly through NIBSS.",
   "The average impulse purchase decision takes just 13 seconds to make.",
-  "Life assurance premiums are tax-deductible under Nigerian tax law — not many know this.",
+  "Life assurance premiums are tax-deductible under Nigerian tax law. Not many people know this.",
   "People who discuss money openly with their partners fight about it 40% less.",
-  "Waiting 48 hours before a purchase over ₦20,000 eliminates 70% of impulse buys.",
-  "The average Nigerian in Lagos spends ₦30,000–₦50,000 per month on fuel and generator costs.",
+  "Waiting 48 hours before a purchase over 20,000 naira eliminates 70% of impulse buys.",
+  "The average Nigerian in Lagos spends 30,000 to 50,000 naira per month on fuel and generator costs.",
   "Financial literacy correlates more strongly with wealth than IQ or formal education level.",
   "Housing is the single largest expense for 80% of Nigerians living in major cities.",
   "Equity markets historically outperform fixed income over any 10-year window.",
   "Less than 3% of working-age Nigerians invest in equities on the NGX.",
-  "Lifestyle inflation — spending more as you earn more — is the top wealth-killer for high earners.",
+  "Lifestyle inflation, spending more as you earn more, is the top wealth-killer for high earners.",
   "The Cowry shell was Nigeria's currency before colonial contact with Europeans.",
   "Research shows people underestimate their monthly spending by an average of 18%.",
   "A 30-minute financial review every Sunday correlates with better outcomes over 12 months.",
   "Nigeria's foreign exchange market trades over $1 billion daily at peak periods.",
   "Dollar-denominated Eurobonds offer Nigerians a hedge against naira depreciation.",
-  "Naming a savings account (e.g. 'School Fees 2026') increases deposits by 30%, studies show.",
-  "Pension contributions in Nigeria are split 8% employee and 10% employer under the CPS scheme.",
-  "Compound interest works both ways — credit card debt at 30% doubles every 2.4 years.",
-  "The CBN's FX policy directly affects how much imported goods cost — including your food.",
+  "Naming a savings account, for example 'School Fees 2026', increases deposits by 30% per studies.",
+  "Pension contributions in Nigeria are split: 8% employee and 10% employer under the CPS scheme.",
+  "Compound interest works both ways. Credit card debt at 30% doubles every 2.4 years.",
+  "The CBN's FX policy directly affects how much imported goods cost, including your food.",
   "Diversifying across equities, bonds, and cash reduces portfolio volatility significantly.",
   "FGN Bonds allow ordinary Nigerians to lend directly to the government at competitive rates.",
   "Over 60% of small business failures in Nigeria cite cash-flow problems as the primary cause.",
   "The stock market is the only place where things go on sale and everyone runs out of the store.",
-  "A ₦10,000 T-bill investment every month for 10 years at 18% grows to over ₦3.5 million.",
-  "Nigeria had over 50 commercial banks in the 1990s; consolidation reduced that to 25 today.",
+  "A 10,000 naira T-bill investment every month for 10 years at 18% grows to over 3.5 million naira.",
+  "Nigeria had over 50 commercial banks in the 1990s. Consolidation reduced that to 25 today.",
 ];
 
 function FinFunFact() {
@@ -187,19 +187,11 @@ function FinFunFact() {
 
   return (
     <div
-      className="flex items-start gap-3 px-4 py-3 rounded-xl"
-      style={{
-        background:  "rgba(212,160,48,0.06)",
-        border:      "1px solid rgba(212,160,48,0.14)",
-        transition:  "opacity 0.38s ease",
-        opacity:     visible ? 1 : 0,
-      }}
+      className="flex items-start gap-2"
+      style={{ transition: "opacity 0.38s ease", opacity: visible ? 1 : 0 }}
     >
-      <span style={{ fontSize: 15, flexShrink: 0, marginTop: 1 }}>💡</span>
-      <p style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", fontSize: 12.5, lineHeight: 1.65, margin: 0 }}>
-        <span style={{ color: "var(--gold)", fontWeight: 700, fontSize: 9.5, textTransform: "uppercase", letterSpacing: "0.1em", display: "block", marginBottom: 3 }}>
-          Financial fact · changes every 15s
-        </span>
+      <span style={{ fontSize: 13, flexShrink: 0, marginTop: 1, opacity: 0.7 }}>💡</span>
+      <p style={{ color: "rgba(236,233,225,0.55)", fontFamily: "var(--font-sans)", fontSize: 12, lineHeight: 1.6, margin: 0, fontStyle: "italic" }}>
         {FIN_FACTS[idx]}
       </p>
     </div>
@@ -337,28 +329,27 @@ export default function SummaryPage() {
               background: "linear-gradient(135deg, rgba(212,160,48,0.10) 0%, rgba(155,114,214,0.08) 100%)",
               border: "1px solid rgba(212,160,48,0.18)",
               borderRadius: 16,
-              padding: "20px 24px",
+              padding: "22px 24px",
               display: "flex",
-              alignItems: "flex-start",
+              flexDirection: "column",
               gap: 14,
+              justifyContent: "space-between",
             }}
           >
-            <div style={{ paddingTop: 3 }}>
-              <GreetingTimeIcon />
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 14 }}>
+              <div style={{ paddingTop: 4, flexShrink: 0 }}>
+                <GreetingTimeIcon />
+              </div>
+              <p style={{ color: "var(--ink-text)", fontFamily: "var(--font-serif)", fontSize: "clamp(1.1rem, 2.2vw, 1.35rem)", fontWeight: 700, lineHeight: 1.45, margin: 0 }}>
+                {getGreeting(name, greetingIdx)}
+              </p>
             </div>
-            <p style={{ color: "var(--ink-text)", fontFamily: "var(--font-serif)", fontSize: "1.1rem", fontWeight: 600, lineHeight: 1.5, margin: 0 }}>
-              {getGreeting(name, greetingIdx)}
-            </p>
+            <FinFunFact />
           </div>
 
           {/* Right: payday widget */}
           <PaydayWidget paydayDay={goals.payday_day} salary={goals.salary} href="/goals" />
         </div>
-      </div>
-
-      {/* Financial fun fact — sits between greeting and anomaly alerts */}
-      <div style={{ padding: "10px 24px 0" }} className="sm:px-8">
-        <FinFunFact />
       </div>
 
       {/* Anomaly alerts sit right below the hero — urgent items need
