@@ -3,12 +3,16 @@
 import { useState, useEffect } from "react";
 
 export default function TelegramBotSetup() {
-  const [status,    setStatus]    = useState(null);  // null | {connected, botUsername, chatLinked}
-  const [token,     setToken]     = useState("");
-  const [saving,    setSaving]    = useState(false);
-  const [error,     setError]     = useState("");
-  const [removing,  setRemoving]  = useState(false);
-  const [showToken, setShowToken] = useState(false);
+  const [status,       setStatus]       = useState(null);  // null | {connected, botUsername, chatLinked}
+  const [token,        setToken]        = useState("");
+  const [saving,       setSaving]       = useState(false);
+  const [error,        setError]        = useState("");
+  const [removing,     setRemoving]     = useState(false);
+  const [showToken,    setShowToken]    = useState(false);
+  const [checking,     setChecking]     = useState(false);
+  const [checkResult,  setCheckResult]  = useState(null); // null | "linked" | "not_yet"
+  const [reregistering, setReregistering] = useState(false);
+  const [reregisterMsg, setReregisterMsg] = useState("");
 
   useEffect(() => { fetchStatus(); }, []);
 
@@ -18,6 +22,43 @@ export default function TelegramBotSetup() {
       const data = await res.json();
       if (!data.error) setStatus(data);
     } catch { /* network error — leave status null */ }
+  }
+
+  async function handleCheckStatus() {
+    setChecking(true);
+    setCheckResult(null);
+    try {
+      const res  = await fetch("/api/telegram/settings");
+      const data = await res.json();
+      if (!data.error) {
+        setStatus(data);
+        setCheckResult(data.chatLinked ? "linked" : "not_yet");
+      } else {
+        setCheckResult("not_yet");
+      }
+    } catch {
+      setCheckResult("not_yet");
+    } finally {
+      setChecking(false);
+    }
+  }
+
+  async function handleReregisterWebhook() {
+    setReregistering(true);
+    setReregisterMsg("");
+    try {
+      const res  = await fetch("/api/telegram/reregister", { method: "POST" });
+      const data = await res.json();
+      if (data.ok) {
+        setReregisterMsg("Webhook re-registered. Now send /start to your bot again.");
+      } else {
+        setReregisterMsg(data.error || "Re-registration failed.");
+      }
+    } catch {
+      setReregisterMsg("Network error. Try again.");
+    } finally {
+      setReregistering(false);
+    }
   }
 
   async function handleConnect(e) {
@@ -168,7 +209,7 @@ export default function TelegramBotSetup() {
           </p>
         </div>
 
-        <div style={{ display: "flex", gap: 10 }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
           <a
             href={`https://t.me/${status.botUsername}`}
             target="_blank"
@@ -184,15 +225,18 @@ export default function TelegramBotSetup() {
             Open @{status.botUsername} &amp; send /start ↗
           </a>
           <button
-            onClick={fetchStatus}
+            onClick={handleCheckStatus}
+            disabled={checking}
             style={{
               padding: "8px 14px", borderRadius: 8,
               background: "var(--ink-3)", border: "1px solid var(--rule)",
-              color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)",
-              fontSize: 12, cursor: "pointer",
+              color: checking ? "var(--ink-text-dim)" : "var(--ink-text)",
+              fontFamily: "var(--font-sans)", fontSize: 12,
+              cursor: checking ? "default" : "pointer",
+              opacity: checking ? 0.7 : 1,
             }}
           >
-            I sent it, check status
+            {checking ? "Checking…" : "I sent it, check status"}
           </button>
           <button
             onClick={handleDisconnect}
@@ -207,6 +251,33 @@ export default function TelegramBotSetup() {
             {removing ? "…" : "Disconnect"}
           </button>
         </div>
+
+        {/* Check result feedback */}
+        {checkResult === "not_yet" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <p style={{ color: "var(--amber)", fontFamily: "var(--font-sans)", fontSize: 12, lineHeight: 1.5 }}>
+              Not linked yet. Make sure you sent <code style={{ fontFamily: "var(--font-mono)", background: "var(--ink-3)", padding: "1px 5px", borderRadius: 4 }}>/start</code> to <strong>@{status.botUsername}</strong> on Telegram. If you did and it still fails, the webhook URL may be stale — click below to fix it.
+            </p>
+            <button
+              onClick={handleReregisterWebhook}
+              disabled={reregistering}
+              style={{
+                alignSelf: "flex-start",
+                padding: "7px 14px", borderRadius: 8,
+                background: "var(--ink-3)", border: "1px solid var(--rule)",
+                color: "var(--ink-text)", fontFamily: "var(--font-sans)", fontSize: 12,
+                cursor: reregistering ? "default" : "pointer", opacity: reregistering ? 0.6 : 1,
+              }}
+            >
+              {reregistering ? "Re-registering…" : "Re-register webhook"}
+            </button>
+            {reregisterMsg && (
+              <p style={{ color: reregisterMsg.startsWith("Webhook") ? "var(--green)" : "var(--red)", fontFamily: "var(--font-sans)", fontSize: 12 }}>
+                {reregisterMsg}
+              </p>
+            )}
+          </div>
+        )}
       </div>
     );
   }
