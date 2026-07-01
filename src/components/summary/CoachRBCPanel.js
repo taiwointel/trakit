@@ -6,7 +6,7 @@ import { formatNaira, getSalaryCycle } from "@/lib/format";
 const BASE_PRESETS = [
   { label: "Today",         days: 0   },
   { label: "Last 7 days",   days: 7   },
-  { label: "This cycle",    days: -4  }, // salary cycle — shown only if paydayDay set
+  { label: "This salary cycle", days: -4 }, // shown only if paydayDay set
   { label: "This month",    days: -1  },
   { label: "Last month",    days: -3  },
   { label: "Last 3 months", days: 90  },
@@ -33,7 +33,7 @@ function getDateRange(preset, customFrom, customTo, paydayDay) {
     const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
     return { from: `${y}-${m}-01`, to: `${y}-${m}-${String(lastDay).padStart(2, "0")}` };
   }
-  if (p.days === -4) { // This cycle
+  if (p.days === -4) { // This salary cycle
     const cycle = getSalaryCycle(paydayDay);
     if (!cycle) { // fall back to this month
       const d = new Date(); const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, "0");
@@ -90,7 +90,7 @@ function buildContext(entries, from, to, cashBalance, salary) {
 }
 
 export default function CoachRBCPanel({ entries, cashBalance, salary, paydayDay }) {
-  const defaultPreset = paydayDay ? "This cycle" : "This month";
+  const defaultPreset = paydayDay ? "This salary cycle" : "This month";
   const [preset,     setPreset]     = useState(defaultPreset);
   const [customFrom, setCustomFrom] = useState("");
   const [customTo,   setCustomTo]   = useState("");

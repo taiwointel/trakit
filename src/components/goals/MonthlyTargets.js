@@ -160,7 +160,7 @@ export default function MonthlyTargets({ entries, salary, customGoals = [], user
           className="text-xs font-semibold uppercase tracking-widest flex items-center gap-1.5"
           style={{ color: "var(--teal)", fontFamily: "var(--font-sans)" }}
         >
-          {cycleLabel ? `Cycle targets · ${cycleLabel}` : "This month's targets"}
+          {cycleLabel ? `Salary cycle targets · ${cycleLabel}` : "This month's targets"}
           <InfoTooltip text="The 50/30/20 rule splits your salary: half for necessities (Needs), 30% for discretionary spending (Wants), and 20% for saving and investing. When you add a custom savings goal, the amount it needs each month is automatically moved from your Wants budget into Save & Invest." />
         </p>
 

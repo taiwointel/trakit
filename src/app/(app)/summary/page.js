@@ -137,7 +137,7 @@ export default function SummaryPage() {
   const delta      = monthOut - prevOut;
   const deltaDir   = delta > 0 ? "▲" : delta < 0 ? "▼" : "";
   const deltaColor = delta > 0 ? "var(--red)" : "var(--green)";
-  const periodLabel = cycle ? `Cycle: ${cycle.label}` : "This month";
+  const periodLabel = cycle ? `Salary cycle: ${cycle.label}` : "This month";
 
   if (entriesLoading || goalsLoading || cashLoading) {
     return (
