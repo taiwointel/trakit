@@ -38,10 +38,18 @@ export async function POST(request, { params }) {
 
   // ── /start — link this chat to the user's account ────────────────────
   if (text === "/start" || text.startsWith("/start ")) {
-    await db
+    const { error: linkErr } = await db
       .from("telegram_settings")
       .update({ chat_id: chatId, updated_at: new Date().toISOString() })
       .eq("user_id", uid);
+
+    if (linkErr) {
+      await reply(settings.bot_token_encrypted, chatId,
+        `⚠️ Telegram received your message but failed to link your account: ${linkErr.message}\n\n` +
+        `Please try the *Re-register webhook* button in the Trakit7 app and send /start again.`,
+      );
+      return NextResponse.json({ ok: true });
+    }
 
     await reply(settings.bot_token_encrypted, chatId,
       `👋 *Welcome to Trakit7!*\n\nYour account is now linked. Just send me a message like:\n\n` +

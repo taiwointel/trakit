@@ -117,7 +117,7 @@ export default function EntriesPage() {
 
       <StatsStrip entries={entries} year={year} month={month} selectedDay={selectedDay} />
 
-      <div style={{ background: "var(--ink-2)", borderBottom: "1px solid var(--rule)" }}>
+      <div style={{ background: "var(--ink-2)", borderBottom: "1px solid var(--rule)", overflow: "hidden", minWidth: 0 }}>
         <DayStrip
           entries={entries}
           budgets={budgets}

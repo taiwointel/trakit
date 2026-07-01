@@ -74,7 +74,6 @@ const labelStyle = {
 };
 
 export default function BillTracker({ onLogEntry }) {
-  const [open, setOpen] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [amountRaw, setAmountRaw] = useState("");
   const [form, setForm] = useState({ name: "", due_day: "", category: "", notes: "" });
@@ -115,28 +114,14 @@ export default function BillTracker({ onLogEntry }) {
   return (
     <div style={{ borderBottom: "1px solid var(--rule)", background: "var(--ink-2)" }}>
 
-      <button
-        onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center justify-between px-4 py-2.5"
-        style={{ background: "var(--ink-2)" }}
+      <div
+        style={{
+          borderTop: "3px solid var(--amber)",
+          background: "var(--ink-2)",
+          padding: "12px 16px 16px",
+        }}
       >
-        <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>
-          Bills & subscriptions
-        </span>
-        <span className="text-xs" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-mono)" }}>
-          {open ? "▲ Collapse" : "▼ Show"}
-        </span>
-      </button>
-
-      {open && (
-        <div
-          style={{
-            borderTop: "3px solid var(--amber)",
-            background: "var(--ink-2)",
-            padding: "12px 16px 16px",
-          }}
-        >
-          {loading ? (
+        {loading ? (
             <p className="text-sm" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>Loading…</p>
           ) : bills.length === 0 && !formOpen ? (
             <p className="text-sm" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>
@@ -312,7 +297,6 @@ export default function BillTracker({ onLogEntry }) {
             )}
           </div>
         </div>
-      )}
     </div>
   );
 }

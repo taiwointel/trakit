@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { useEntries }       from "@/hooks/useEntries";
 import { useGoals }         from "@/hooks/useGoals";
 import { useCashBalance }   from "@/hooks/useCashBalance";
@@ -198,6 +198,75 @@ function FinFunFact() {
   );
 }
 
+/* ── Live FX rates — polls every 5 min, shows ▲/▼ on change ─────── */
+function FXRatesInline() {
+  const ratesRef = useRef(null);
+  const [rates, setRates]   = useState(null);
+  const [prev,  setPrev]    = useState(null);
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const res  = await fetch("/api/fx-rates");
+        const data = await res.json();
+        if (data?.usdNgn) {
+          setPrev(ratesRef.current);
+          ratesRef.current = data;
+          setRates(data);
+        }
+      } catch { /* silent — widget just stays empty */ }
+    }
+    load();
+    const t = setInterval(load, 300_000); // 5 min
+    return () => clearInterval(t);
+  }, []);
+
+  if (!rates) return null;
+
+  const pairs = [
+    { label: "USD", value: rates.usdNgn, prevVal: prev?.usdNgn, symbol: "$" },
+    { label: "EUR", value: rates.eurNgn, prevVal: prev?.eurNgn, symbol: "€" },
+    { label: "GBP", value: rates.gbpNgn, prevVal: prev?.gbpNgn, symbol: "£" },
+  ];
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <span style={{
+          width: 5, height: 5, borderRadius: "50%",
+          background: "var(--green)", display: "inline-block",
+          boxShadow: "0 0 4px var(--green)",
+        }} />
+        <span style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em" }}>
+          Live rates (NGN)
+        </span>
+      </div>
+      <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
+        {pairs.map(({ label, value, prevVal }) => {
+          const diff = prevVal ? value - prevVal : 0;
+          const arrow = diff > 0.5 ? "▲" : diff < -0.5 ? "▼" : null;
+          const arrowColor = diff > 0.5 ? "var(--red)" : "var(--green)";
+          return (
+            <div key={label} style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
+              <span style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", fontSize: 10, fontWeight: 700 }}>
+                {label}
+              </span>
+              <span style={{ color: "var(--ink-text)", fontFamily: "var(--font-mono)", fontSize: 14, fontWeight: 700 }}>
+                {Math.round(value).toLocaleString("en-NG")}
+              </span>
+              {arrow && (
+                <span style={{ color: arrowColor, fontFamily: "var(--font-mono)", fontSize: 9, fontWeight: 700 }}>
+                  {arrow}
+                </span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function GreetingTimeIcon() {
   const h = new Date().getHours();
   const isNight = h < 6 || h >= 21;
@@ -344,6 +413,7 @@ export default function SummaryPage() {
                 {getGreeting(name, greetingIdx)}
               </p>
             </div>
+            <FXRatesInline />
             <FinFunFact />
           </div>
 
