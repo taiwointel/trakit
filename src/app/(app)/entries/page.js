@@ -10,6 +10,7 @@ import LedgerTable     from "@/components/entries/LedgerTable";
 import BudgetsGrid     from "@/components/entries/BudgetsGrid";
 import { formatNaira } from "@/lib/format";
 import CsvImport      from "@/components/entries/CsvImport";
+import BillTracker    from "@/components/entries/BillTracker";
 
 export default function EntriesPage() {
   const today  = new Date();
@@ -125,6 +126,9 @@ export default function EntriesPage() {
           </button>
         </div>
       )}
+
+      {/* Bill Tracker */}
+      <BillTracker onLogEntry={addEntry} />
 
       {/* CSV Import */}
       <CsvImport onImported={() => window.location.reload()} />

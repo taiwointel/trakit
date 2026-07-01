@@ -8,6 +8,7 @@ import { useInvestments }   from "@/hooks/useInvestments";
 import CashSetup            from "@/components/cash/CashSetup";
 import DailyNavigator       from "@/components/cash/DailyNavigator";
 import BalanceTable         from "@/components/cash/BalanceTable";
+import LoanTracker          from "@/components/cash/LoanTracker";
 import PortfolioSummary     from "@/components/investments/PortfolioSummary";
 import LogInvestmentForm    from "@/components/investments/LogInvestmentForm";
 import MaturityCard         from "@/components/investments/MaturityCard";
@@ -64,6 +65,8 @@ export default function CashPage() {
       {anchor.anchor_date && (
         <BalanceTable entries={entries} anchor={anchor} />
       )}
+
+      <LoanTracker />
 
       {/* ── Investments ──────────────────────────────── */}
       <div className="flex items-center justify-between mt-2">

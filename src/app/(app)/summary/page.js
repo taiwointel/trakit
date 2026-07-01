@@ -22,6 +22,8 @@ import NetWorthCard      from "@/components/summary/NetWorthCard";
 import AnomalyAlerts     from "@/components/summary/AnomalyAlerts";
 import RecurringPanel    from "@/components/summary/RecurringPanel";
 import FXWidget          from "@/components/summary/FXWidget";
+import SpendHeatmap      from "@/components/summary/SpendHeatmap";
+import AnnualWrapped     from "@/components/summary/AnnualWrapped";
 
 const GREETINGS = {
   latenight: (n) => [
@@ -158,6 +160,13 @@ export default function SummaryPage() {
 
   return (
     <div className="flex flex-col gap-4 p-4 max-w-4xl mx-auto w-full pb-12">
+      <style>{`
+        @media print {
+          .app-topbar, .app-bottom-nav, [data-no-print] { display: none !important; }
+          body { background: #fff !important; }
+          :root { --ink-text: #000 !important; }
+        }
+      `}</style>
 
       {/* Greeting */}
       <div
@@ -174,6 +183,14 @@ export default function SummaryPage() {
           {getGreeting(name)}
         </p>
       </div>
+
+      <AnnualWrapped
+        entries={entries}
+        investments={investments}
+        transactions={transactions}
+        currentBalance={currentBalance}
+        salary={goals.salary}
+      />
 
       {/* FX rates widget */}
       <FXWidget />
@@ -195,9 +212,18 @@ export default function SummaryPage() {
         className="rounded-lg p-5 flex flex-col gap-2"
         style={{ background: "var(--ink-2)", border: "1px solid var(--rule)" }}
       >
-        <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>
-          {periodLabel}
-        </p>
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>
+            {periodLabel}
+          </p>
+          <button
+            onClick={() => window.print()}
+            className="text-xs px-2.5 py-1 rounded-lg"
+            style={{ background: "var(--ink-3)", border: "1px solid var(--rule)", color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}
+          >
+            Print / PDF
+          </button>
+        </div>
         <div
           className="text-4xl font-bold"
           style={{ color: "var(--ink-text)", fontFamily: "var(--font-serif)" }}
@@ -266,6 +292,9 @@ export default function SummaryPage() {
 
       {/* Spending trend — use salary cycle range, fall back to 30 days */}
       <SpendTrendChart entries={entries} from={cycleStart} to={today} />
+
+      {/* Spending heatmap */}
+      <SpendHeatmap entries={entries} />
 
       {/* Recurring committed spend */}
       <RecurringPanel entries={entries} />

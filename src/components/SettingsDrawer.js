@@ -22,7 +22,7 @@ function Divider() {
   return <div style={{ height: 1, background: "var(--rule)", margin: "4px 0" }} />;
 }
 
-export default function SettingsDrawer({ open, onClose }) {
+export default function SettingsDrawer({ open, onClose, onStartTour }) {
   const router   = useRouter();
   const supabase = createClient();
 
@@ -43,6 +43,9 @@ export default function SettingsDrawer({ open, onClose }) {
   const [hasKey,     setHasKey]     = useState(false);
   const [status,     setStatus]     = useState("");
   const [testing,    setTesting]    = useState(false);
+
+  // ── Telegram state ────────────────────────────────────────
+  const [tgToken, setTgToken] = useState("");
 
   // ── Account actions state ─────────────────────────────────
   const [signingOut,       setSigningOut]       = useState(false);
@@ -413,6 +416,45 @@ export default function SettingsDrawer({ open, onClose }) {
                 {status}
               </p>
             )}
+          </Section>
+
+          <Divider />
+
+          {/* ── Help & resources ─────────────────────── */}
+          <Section title="Help & resources" color="var(--blue-accent)">
+            <button
+              onClick={() => { onClose(); onStartTour?.(); }}
+              className="w-full py-2.5 rounded-lg text-sm font-medium text-left px-3"
+              style={{ background: "var(--ink-3)", border: "1px solid var(--rule)", color: "var(--ink-text)", fontFamily: "var(--font-sans)" }}
+            >
+              🗺 Take the app tour
+            </button>
+
+            <div className="flex flex-col gap-2">
+              <p className="text-xs font-semibold" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>
+                Telegram quick-log
+              </p>
+              <p className="text-xs leading-relaxed" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>
+                Log expenses by sending messages to your own Telegram bot. Create a bot via @BotFather, then enter your token below and send <code>/start</code> to your bot to link your account.
+              </p>
+              <input
+                type="text"
+                value={tgToken}
+                onChange={(e) => setTgToken(e.target.value)}
+                placeholder="Telegram bot token (from @BotFather)"
+                className="w-full px-3 py-2.5 rounded-lg text-sm"
+                style={{ background: "var(--ink-3)", border: "1px solid var(--rule)", color: "var(--ink-text)", fontFamily: "var(--font-mono)", fontSize: 11, outline: "none" }}
+              />
+              <p className="text-xs" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>
+                Set webhook URL in Telegram to:{" "}
+                <span
+                  className="select-all"
+                  style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--gold)" }}
+                >
+                  {typeof window !== "undefined" ? window.location.origin : ""}/api/telegram/webhook
+                </span>
+              </p>
+            </div>
           </Section>
 
           <Divider />

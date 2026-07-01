@@ -5,7 +5,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import SettingsDrawer from "@/components/SettingsDrawer";
 import OnboardingFlow from "@/components/OnboardingFlow";
+import SearchModal from "@/components/SearchModal";
+import AppTour     from "@/components/AppTour";
 import { useUser } from "@/hooks/useUser";
+import { useEntries } from "@/hooks/useEntries";
 
 const TABS = [
   {
@@ -125,13 +128,24 @@ function MoonIcon() {
 export default function AppLayout({ children }) {
   const pathname = usePathname();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [searchOpen,   setSearchOpen]   = useState(false);
+  const [tourOpen,     setTourOpen]     = useState(false);
   const [theme, setTheme] = useState("dark");
   const { name } = useUser();
+  const { entries } = useEntries();
 
   useEffect(() => {
     const saved = localStorage.getItem("trakit7-theme") || "dark";
     setTheme(saved);
     document.documentElement.setAttribute("data-theme", saved);
+  }, []);
+
+  useEffect(() => {
+    const seen = localStorage.getItem("trakit7:tourSeen");
+    if (!seen) {
+      const t = setTimeout(() => setTourOpen(true), 1200);
+      return () => clearTimeout(t);
+    }
   }, []);
 
   function toggleTheme() {
@@ -143,7 +157,8 @@ export default function AppLayout({ children }) {
 
   useEffect(() => {
     function onKey(e) {
-      if (e.key === "Escape") setSettingsOpen(false);
+      if (e.key === "Escape") { setSettingsOpen(false); setSearchOpen(false); }
+      if ((e.ctrlKey || e.metaKey) && e.key === "k") { e.preventDefault(); setSearchOpen(true); }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -199,6 +214,19 @@ export default function AppLayout({ children }) {
             {activeTab?.label ?? "Trakit7"}
           </span>
         </div>
+
+        {/* Search */}
+        <button
+          onClick={() => setSearchOpen(true)}
+          className="shrink-0 w-9 h-9 flex items-center justify-center rounded-lg transition-colors"
+          style={{ color: "var(--ink-text-dim)", background: "var(--ink-3)", border: "1px solid var(--rule)" }}
+          aria-label="Search transactions"
+          title="Search transactions (Ctrl+K)"
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+        </button>
 
         {/* Theme toggle */}
         <button
@@ -267,10 +295,23 @@ export default function AppLayout({ children }) {
       </nav>
 
       {/* Settings drawer */}
-      <SettingsDrawer open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <SettingsDrawer
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        onStartTour={() => { setSettingsOpen(false); setTourOpen(true); }}
+      />
 
       {/* Onboarding — shown when user has no Groq key */}
       <OnboardingFlow userName={name} />
+
+      <SearchModal open={searchOpen} onClose={() => setSearchOpen(false)} entries={entries} />
+      <AppTour
+        open={tourOpen}
+        onClose={() => {
+          setTourOpen(false);
+          localStorage.setItem("trakit7:tourSeen", "1");
+        }}
+      />
     </div>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useRef } from "react";
-import { formatAmountInput, parseAmount, todayISO } from "@/lib/format";
+import { useState, useRef, useEffect } from "react";
+import { formatAmountInput, parseAmount, todayISO, formatNaira } from "@/lib/format";
 
 export default function EntryForm({ entries, onAdd }) {
   const [date,   setDate]   = useState(todayISO());
@@ -11,7 +11,23 @@ export default function EntryForm({ entries, onAdd }) {
   const [flow,   setFlow]   = useState("out");
   const [busy,   setBusy]   = useState(false);
   const [showSuggest, setShowSuggest] = useState(false);
+  const [currency, setCurrency] = useState("NGN");
+  const [fxRates, setFxRates] = useState(null);
   const toRef = useRef(null);
+
+  useEffect(() => {
+    fetch("/api/fx").then(r => r.json()).then(d => { if (!d.error) setFxRates(d); }).catch(() => {});
+  }, []);
+
+  const SYMBOLS = { NGN: "₦", USD: "$", EUR: "€", GBP: "£" };
+  const RATE_KEYS = { USD: "usdNgn", EUR: "eurNgn", GBP: "gbpNgn" };
+
+  function toNgn(raw) {
+    const parsed = parseAmount(raw);
+    if (!parsed || currency === "NGN") return parsed;
+    const rate = fxRates?.[RATE_KEYS[currency]];
+    return rate ? Math.round(parsed * rate) : parsed;
+  }
 
   const outNames = [...new Set(entries.filter((e) => e.flow === "out" && e.beneficiary).map((e) => e.beneficiary))];
   const inNames  = [...new Set(entries.filter((e) => e.flow === "in"  && e.beneficiary).map((e) => e.beneficiary))];
@@ -21,13 +37,17 @@ export default function EntryForm({ entries, onAdd }) {
 
   async function handleSubmit(e) {
     e.preventDefault();
-    const parsed = parseAmount(amount);
-    if (!desc.trim() || parsed <= 0) return;
+    const ngnAmount = toNgn(amount);
+    if (!desc.trim() || !ngnAmount || ngnAmount <= 0) return;
+    const finalDesc = currency !== "NGN"
+      ? `${desc.trim()} (${currency} ${parseAmount(amount).toLocaleString("en-NG", { maximumFractionDigits: 2 })})`
+      : desc.trim();
     setBusy(true);
-    await onAdd({ date, desc: desc.trim(), amount: parsed, flow, beneficiary: to.trim() || null });
+    await onAdd({ date, desc: finalDesc, amount: ngnAmount, flow, beneficiary: to.trim() || null });
     setDesc("");
     setAmount("");
     setTo("");
+    setCurrency("NGN");
     setBusy(false);
   }
 
@@ -61,11 +81,30 @@ export default function EntryForm({ entries, onAdd }) {
         <div className="flex gap-2">
           {/* Amount */}
           <div className="relative flex-1">
-            <span
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold pointer-events-none"
-              style={{ color: isOut ? "var(--red)" : "var(--green)", fontFamily: "var(--font-mono)" }}
+            <select
+              value={currency}
+              onChange={(e) => setCurrency(e.target.value)}
+              className="shrink-0 rounded-lg text-xs outline-none"
+              style={{
+                background: "var(--ink-3)",
+                border: "1px solid var(--rule)",
+                color: "var(--ink-text-dim)",
+                fontFamily: "var(--font-mono)",
+                padding: "4px 6px",
+                marginRight: 6,
+                height: "100%",
+              }}
             >
-              ₦
+              <option value="NGN">NGN</option>
+              <option value="USD">USD</option>
+              <option value="EUR">EUR</option>
+              <option value="GBP">GBP</option>
+            </select>
+            <span
+              className="absolute top-1/2 -translate-y-1/2 text-sm font-semibold pointer-events-none"
+              style={{ color: isOut ? "var(--red)" : "var(--green)", fontFamily: "var(--font-mono)", left: 90 }}
+            >
+              {SYMBOLS[currency]}
             </span>
             <input
               type="text"
@@ -73,13 +112,14 @@ export default function EntryForm({ entries, onAdd }) {
               value={amount}
               onChange={(e) => setAmount(formatAmountInput(e.target.value))}
               placeholder="0.00"
-              className="w-full pl-8 pr-3 py-2.5 rounded-xl text-sm outline-none"
+              className="w-full pr-3 py-2.5 rounded-xl text-sm outline-none"
               style={{
                 background: "var(--ink-3)",
                 border:     `1px solid ${isOut ? "rgba(184,57,43,0.35)" : "rgba(47,122,86,0.35)"}`,
                 color:      isOut ? "var(--red)" : "var(--green)",
                 fontFamily: "var(--font-mono)",
                 fontWeight: 600,
+                paddingLeft: 106,
               }}
             />
           </div>
@@ -115,6 +155,13 @@ export default function EntryForm({ entries, onAdd }) {
             </button>
           </div>
         </div>
+        {currency !== "NGN" && amount && (
+          <p className="text-xs" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-mono)", paddingLeft: 2 }}>
+            {fxRates
+              ? `≈ ${formatNaira(toNgn(amount))} at ₦${Number(fxRates[RATE_KEYS[currency]]).toLocaleString()}/${currency}`
+              : "≈ ₦? (loading rates…)"}
+          </p>
+        )}
 
         {/* Row 3: Date + To/From + Submit */}
         <div className="flex gap-2 items-center">
