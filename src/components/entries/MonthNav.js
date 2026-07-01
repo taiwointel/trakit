@@ -25,7 +25,7 @@ export default function MonthNav({ year, month, onChange }) {
   return (
     <div style={{
       display: "flex", alignItems: "center", justifyContent: "space-between",
-      padding: "10px 20px",
+      padding: "10px 24px",
       background: "linear-gradient(180deg, rgba(255,255,255,0.025) 0%, transparent 100%)",
     }}>
       <button onClick={prev} style={btnStyle}

@@ -564,6 +564,14 @@ export default function SettingsDrawer({ open, onClose, onStartTour }) {
               🗺 Take the app tour
             </button>
 
+            <button
+              onClick={() => { onClose(); router.push("/summary#annual-wrapped"); }}
+              className="w-full py-2.5 rounded-lg text-sm font-medium text-left px-3"
+              style={{ background: "var(--ink-3)", border: "1px solid var(--rule)", color: "var(--ink-text)", fontFamily: "var(--font-sans)" }}
+            >
+              📊 Year in Review
+            </button>
+
             <div className="px-3 py-2.5 rounded-xl flex flex-col gap-1" style={{ background: "rgba(91,143,168,0.07)", border: "1px solid rgba(91,143,168,0.2)" }}>
               <div className="flex justify-between items-center">
                 <span className="text-xs" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>Version</span>
