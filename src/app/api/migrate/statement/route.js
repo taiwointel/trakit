@@ -75,7 +75,10 @@ export async function POST(request) {
     if (!key) return NextResponse.json({ error: "No Groq key configured. Add one in Settings." }, { status: 400 });
 
     try {
-      const { default: pdfParse } = await import("pdf-parse");
+      // Import lib/pdf-parse.js directly to bypass index.js which reads a
+      // test file at load time — that file doesn't exist in serverless envs.
+      const mod    = await import("pdf-parse/lib/pdf-parse.js");
+      const pdfParse = mod.default ?? mod;
       const parsed = await pdfParse(buffer);
       const text   = parsed.text?.trim();
       if (!text || text.length < 50) {
