@@ -115,8 +115,38 @@ function EditRow({ entry, onSave, onCancel }) {
   );
 }
 
-export default function LedgerTable({ entries, onUpdate, onDelete }) {
-  const [editingId, setEditingId] = useState(null);
+export default function LedgerTable({ entries, onUpdate, onDelete, onClearAll }) {
+  const [editingId,      setEditingId]      = useState(null);
+  const [recatProgress,  setRecatProgress]  = useState(null); // null | { done, total }
+
+  async function handleRecategorizeAll() {
+    const targets = entries.filter(e => e.flow === "out" && e.status !== "done");
+    if (!targets.length) return;
+    setRecatProgress({ done: 0, total: targets.length });
+    for (let i = 0; i < targets.length; i++) {
+      const e = targets[i];
+      try {
+        const res = await fetch("/api/ai/categorize", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ description: e.desc, amount: e.amount }),
+        });
+        if (res.ok) {
+          const ai = await res.json();
+          onUpdate(e.id, ai);
+        }
+      } catch { /* skip failed entries */ }
+      setRecatProgress({ done: i + 1, total: targets.length });
+    }
+    setRecatProgress(null);
+  }
+
+  function handleClearAll() {
+    if (!onClearAll) return;
+    if (confirm("Delete ALL entries permanently? This cannot be undone.")) {
+      onClearAll();
+    }
+  }
 
   if (entries.length === 0) {
     return (
@@ -127,7 +157,8 @@ export default function LedgerTable({ entries, onUpdate, onDelete }) {
   }
 
   return (
-    <div className="overflow-x-auto" style={{ background: "var(--paper)" }}>
+    <div style={{ background: "var(--paper)" }}>
+    <div className="overflow-x-auto">
       <table className="w-full text-sm border-collapse">
         <thead>
           <tr style={{ background: "var(--paper-2)", borderBottom: "1px solid var(--rule-paper)" }}>
@@ -272,6 +303,49 @@ export default function LedgerTable({ entries, onUpdate, onDelete }) {
           })}
         </tbody>
       </table>
+    </div>
+
+      {/* ── Footer actions ─────────────────────────────────────── */}
+      <div style={{
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        padding: "10px 14px", borderTop: "1px solid var(--rule-paper)",
+        background: "var(--paper-2)", flexWrap: "wrap", gap: 8,
+      }}>
+        {/* Re-categorize with AI */}
+        <button
+          onClick={handleRecategorizeAll}
+          disabled={!!recatProgress}
+          style={{
+            background: "none", border: "none", cursor: recatProgress ? "default" : "pointer",
+            color: recatProgress ? "var(--paper-text-dim)" : "var(--blue-accent)",
+            fontFamily: "var(--font-sans)", fontSize: 12, fontWeight: 600, padding: 0,
+            display: "flex", alignItems: "center", gap: 5,
+          }}
+        >
+          {recatProgress ? (
+            <>
+              <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: "var(--amber)", animation: "pulse 1s infinite" }} />
+              Categorizing {recatProgress.done}/{recatProgress.total}…
+            </>
+          ) : (
+            <>✦ Auto-categorize all with AI</>
+          )}
+        </button>
+
+        {/* Clear all */}
+        {onClearAll && (
+          <button
+            onClick={handleClearAll}
+            style={{
+              background: "none", border: "none", cursor: "pointer",
+              color: "var(--paper-text-dim)", fontFamily: "var(--font-sans)",
+              fontSize: 12, padding: 0,
+            }}
+          >
+            Clear all entries
+          </button>
+        )}
+      </div>
     </div>
   );
 }

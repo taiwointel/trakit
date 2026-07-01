@@ -127,5 +127,12 @@ export function useEntries() {
     }
   }, [userId, supabase]);
 
-  return { entries, budgets, loading, addEntry, updateEntry, deleteEntry, saveBudget };
+  const clearAllEntries = useCallback(async () => {
+    setEntries([]);
+    if (userId && supabase) {
+      await supabase.from("entries").delete().eq("user_id", userId);
+    }
+  }, [userId, supabase]);
+
+  return { entries, budgets, loading, addEntry, updateEntry, deleteEntry, saveBudget, clearAllEntries };
 }

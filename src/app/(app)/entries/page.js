@@ -66,7 +66,7 @@ export default function EntriesPage() {
   const [budgetsOpen,   setBudgetsOpen]   = useState(false);
   const [toolsOpen,     setToolsOpen]     = useState(false);
 
-  const { entries, budgets, loading, addEntry, updateEntry, deleteEntry, saveBudget } = useEntries();
+  const { entries, budgets, loading, addEntry, updateEntry, deleteEntry, saveBudget, clearAllEntries } = useEntries();
   const { goals } = useGoals();
   const salary = goals.salary || null;
 
@@ -248,7 +248,7 @@ export default function EntriesPage() {
               {ledgerOpen ? "▲ Collapse" : "▼ Show"}
             </span>
           </button>
-          {ledgerOpen && <LedgerTable entries={displayEntries} onUpdate={updateEntry} onDelete={deleteEntry} />}
+          {ledgerOpen && <LedgerTable entries={displayEntries} onUpdate={updateEntry} onDelete={deleteEntry} onClearAll={clearAllEntries} />}
         </div>
       </div>
 
