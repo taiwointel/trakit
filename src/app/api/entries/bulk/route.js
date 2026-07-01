@@ -26,6 +26,7 @@ export async function POST(request) {
       amount:       Number(row.amount) || 0,
       flow:         row.flow || "out",
       beneficiary:  row.beneficiary || null,
+      source:       "import",
       category:     cats.category,
       essentiality: cats.essentiality,
       nature:       cats.nature,

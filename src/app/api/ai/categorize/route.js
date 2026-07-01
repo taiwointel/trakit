@@ -96,7 +96,8 @@ export async function POST(request) {
       text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
     }
 
-    const result = JSON.parse(text.trim());
+    const cleaned = text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/, "");
+    const result = JSON.parse(cleaned);
     return NextResponse.json({ ...result, status: "done" });
 
   } catch {

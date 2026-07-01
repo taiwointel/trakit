@@ -49,7 +49,7 @@ export function useEntries() {
     setEntries((prev) => [pending, ...prev]);
 
     // AI categorization for money-out
-    let categorized = { ...draft };
+    let categorized = { ...draft, source: "manual" };
     if (draft.flow === "out") {
       try {
         const res = await fetch("/api/ai/categorize", {
@@ -59,9 +59,9 @@ export function useEntries() {
         });
         if (res.ok) {
           const ai = await res.json();
-          categorized = { ...categorized, ...ai, status: "done" };
+          categorized = { ...categorized, ...ai }; // ai already carries status ('done' or 'fallback')
         } else {
-          throw new Error("AI error");
+          throw new Error(`AI error ${res.status}`);
         }
       } catch {
         const fb = fallbackCategorize(draft.desc);

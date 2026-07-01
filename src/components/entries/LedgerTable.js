@@ -14,6 +14,28 @@ function fmtDate(iso) {
 const ESSENTIALITIES = ["Essential", "Discretionary", "—"];
 const NATURES        = ["Fixed", "Variable", "—"];
 
+const SOURCE_META = {
+  manual:   { label: "Manual",   color: "#A9854F", bg: "rgba(169,133,79,0.14)",  icon: "✏" },
+  telegram: { label: "Telegram", color: "#5B8FA8", bg: "rgba(91,143,168,0.14)",  icon: "✈" },
+  import:   { label: "Import",   color: "#2F7A56", bg: "rgba(47,122,86,0.14)",   icon: "📄" },
+};
+
+function SourceTag({ source }) {
+  const m = SOURCE_META[source];
+  if (!m) return null;
+  return (
+    <span style={{
+      display: "inline-flex", alignItems: "center", gap: 3,
+      fontSize: 9, fontFamily: "var(--font-sans)", fontWeight: 700,
+      textTransform: "uppercase", letterSpacing: "0.07em",
+      color: m.color, background: m.bg,
+      padding: "1px 5px", borderRadius: 8, flexShrink: 0,
+    }}>
+      {m.icon} {m.label}
+    </span>
+  );
+}
+
 function ConfidenceDot({ status, confidence }) {
   if (status === "pending") return <span className="text-xs" style={{ color: "var(--ink-text-dim)" }}>…</span>;
   if (status === "fallback") return (
@@ -153,12 +175,11 @@ export default function LedgerTable({ entries, onUpdate, onDelete }) {
                       <div className="font-medium" style={{ color: "var(--paper-text)", fontFamily: "var(--font-sans)" }}>
                         {entry.desc}
                       </div>
-                      {(entry.subcategory || entry.note || entry.beneficiary) && (
-                        <div className="text-xs mt-0.5" style={{ color: "var(--paper-text-dim)", fontFamily: "var(--font-sans)" }}>
-                          {[entry.subcategory, entry.note, entry.beneficiary && `${entry.flow === "out" ? "To" : "From"} ${entry.beneficiary}`]
-                            .filter(Boolean).join(" · ")}
-                        </div>
-                      )}
+                      <div className="text-xs mt-0.5 flex items-center gap-1.5 flex-wrap" style={{ color: "var(--paper-text-dim)", fontFamily: "var(--font-sans)" }}>
+                        {[entry.subcategory, entry.note, entry.beneficiary && `${entry.flow === "out" ? "To" : "From"} ${entry.beneficiary}`]
+                          .filter(Boolean).join(" · ")}
+                        {entry.source && <SourceTag source={entry.source} />}
+                      </div>
                     </div>
                   </div>
                 </td>

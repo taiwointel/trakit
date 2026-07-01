@@ -112,6 +112,7 @@ export async function POST(request, { params }) {
     amount:      parsed.amount,
     flow:        parsed.flow,
     beneficiary: null,
+    source:      "telegram",
     status:      "pending",
   });
 
