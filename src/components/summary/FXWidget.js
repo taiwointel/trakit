@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-function formatRate(n) {
+function fmt(n) {
   if (!n || isNaN(n)) return "—";
   return "₦" + Number(n).toLocaleString("en-NG", { maximumFractionDigits: 0 });
 }
@@ -10,81 +10,63 @@ function formatRate(n) {
 export default function FXWidget() {
   const [data,    setData]    = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error,   setError]   = useState(false);
 
   useEffect(() => {
     fetch("/api/fx")
       .then((r) => r.json())
-      .then((d) => {
-        if (d.error) { setError(true); }
-        else         { setData(d); }
-        setLoading(false);
-      })
-      .catch(() => { setError(true); setLoading(false); });
+      .then((d) => { if (!d.error) setData(d); setLoading(false); })
+      .catch(() => setLoading(false));
   }, []);
 
+  if (!loading && !data) return null;
+
   const pairs = [
-    { label: "USD/NGN", value: data?.usdNgn },
-    { label: "EUR/NGN", value: data?.eurNgn },
-    { label: "GBP/NGN", value: data?.gbpNgn },
+    { label: "USD", value: data?.usdNgn },
+    { label: "EUR", value: data?.eurNgn },
+    { label: "GBP", value: data?.gbpNgn },
   ];
 
   return (
     <div
-      className="rounded-xl p-3 flex flex-col gap-2"
+      className="flex items-center gap-2 px-3 py-1.5 rounded-lg"
       style={{ background: "var(--ink-2)", border: "1px solid var(--rule)" }}
     >
-      <div className="grid grid-cols-3 gap-2">
-        {loading
-          ? pairs.map((p) => (
-              <div key={p.label} className="flex flex-col gap-1">
-                <span
-                  className="text-xs"
-                  style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}
-                >
-                  {p.label}
-                </span>
-                <div
-                  className="h-4 rounded animate-pulse"
-                  style={{ background: "var(--ink-3)", width: "70%" }}
-                />
-              </div>
-            ))
-          : error
-          ? (
-              <div className="col-span-3">
-                <span
-                  className="text-xs"
-                  style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}
-                >
-                  Rates unavailable
-                </span>
-              </div>
-            )
-          : pairs.map((p) => (
-              <div key={p.label} className="flex flex-col gap-0.5">
-                <span
-                  className="text-xs"
-                  style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}
-                >
-                  {p.label}
-                </span>
-                <span
-                  className="text-sm font-semibold"
-                  style={{ color: "var(--ink-text)", fontFamily: "var(--font-mono)" }}
-                >
-                  {formatRate(p.value)}
-                </span>
-              </div>
-            ))
-        }
-      </div>
-      <p
-        className="text-xs"
-        style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-mono)" }}
-      >
-        Source: open.er-api.com · official rate
-      </p>
+      <span className="text-xs" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>
+        💱
+      </span>
+      {loading ? (
+        <div className="flex gap-4">
+          {[60, 60, 60].map((w, i) => (
+            <div
+              key={i}
+              className="h-3 rounded animate-pulse"
+              style={{ width: w, background: "var(--ink-3)" }}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="flex items-center gap-3 flex-wrap">
+          {pairs.map((p, i, arr) => (
+            <span key={p.label} className="flex items-center gap-1.5">
+              <span
+                className="text-xs"
+                style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}
+              >
+                {p.label}
+              </span>
+              <span
+                className="text-xs font-semibold"
+                style={{ color: "var(--ink-text)", fontFamily: "var(--font-mono)" }}
+              >
+                {fmt(p.value)}
+              </span>
+              {i < arr.length - 1 && (
+                <span style={{ color: "var(--rule)", marginLeft: 2 }}>·</span>
+              )}
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
