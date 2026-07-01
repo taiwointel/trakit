@@ -177,7 +177,7 @@ export default function CsvImport({ onImported }) {
       if (!res.ok) {
         setStatus({ type: "error", msg: data.error || "Import failed." });
       } else {
-        setStatus({ type: "success", msg: `${data.inserted} entries imported. Categories were auto-assigned — review in the ledger below.` });
+        setStatus({ type: "success", msg: `${data.inserted} entries imported. Categories were auto-assigned. Review them in the ledger below to confirm accuracy before relying on the totals.` });
         setRows([]);
         if (onImported) onImported();
       }
@@ -233,7 +233,7 @@ export default function CsvImport({ onImported }) {
                   <span style={{ color: "var(--gold)" }}>click to select</span>
                 </span>
                 <span className="text-xs" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", opacity: 0.7 }}>
-                  CSV · PDF · JPG · PNG — GTBank, Access, Zenith, UBA (max 4 MB)
+                  CSV · PDF · JPG · PNG, GTBank, Access, Zenith, UBA (max 4 MB)
                 </span>
               </>
             )}
@@ -252,7 +252,7 @@ export default function CsvImport({ onImported }) {
             <div className="flex flex-col gap-2">
               <div className="flex items-center justify-between">
                 <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>
-                  {rows.length} transactions — edit or delete before importing
+                  {rows.length} transactions detected. Edit or remove rows before importing.
                 </p>
                 <button
                   onClick={() => setRows([])}

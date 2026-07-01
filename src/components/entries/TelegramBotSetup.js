@@ -192,7 +192,7 @@ export default function TelegramBotSetup() {
               fontSize: 12, cursor: "pointer",
             }}
           >
-            I've sent it — refresh
+            I sent it, check status
           </button>
           <button
             onClick={handleDisconnect}

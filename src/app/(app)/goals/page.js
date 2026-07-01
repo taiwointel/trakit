@@ -71,6 +71,9 @@ export default function GoalsPage() {
             <span className="section-divider-label">Salary &amp; Payday</span>
             <div className="section-divider-rule" />
           </div>
+          <p className="section-desc">
+            Your salary is the anchor for every key metric in Trakit7. The 50/30/20 split, goal feasibility checks, and your emergency fund benchmark all derive from this number. Set it once and every calculation updates automatically. Update it here whenever your income changes.
+          </p>
           <div className="section-body">
             <SalarySetup salary={goals.salary} paydayDay={goals.payday_day} onSave={saveGoals} />
           </div>
@@ -86,6 +89,9 @@ export default function GoalsPage() {
         <span className="section-divider-label" style={{ color: "var(--violet)" }}>Monthly Targets (50/30/20)</span>
         <div className="section-divider-rule" />
       </div>
+      <p className="section-desc">
+        The 50/30/20 rule is the most widely used personal budgeting framework endorsed by certified financial planners: 50% of your salary for essential needs, 30% for wants, and 20% directly to savings and investments. Your actual spending is tracked against these targets every salary cycle, not just at month end.
+      </p>
 
       <div className="section-body">
         <MonthlyTargets
@@ -106,6 +112,9 @@ export default function GoalsPage() {
         <span className="section-divider-label" style={{ color: "var(--blue-accent)" }}>Emergency Fund</span>
         <div className="section-divider-rule" />
       </div>
+      <p className="section-desc">
+        Financial planners consistently recommend keeping 3 to 6 months of essential living expenses in a liquid emergency fund before pursuing other investments. This panel tracks your progress toward that target and logs every contribution separately from your investment portfolio, so your savings-rate calculation is always accurate.
+      </p>
 
       <div className="section-body">
         <EmergencyFundPanel
@@ -126,6 +135,9 @@ export default function GoalsPage() {
         <span className="section-divider-label" style={{ color: "var(--teal)" }}>Savings Goals</span>
         <div className="section-divider-rule" />
       </div>
+      <p className="section-desc">
+        Each goal here calculates the exact monthly saving required to hit your target on time and shows you whether that amount is feasible against your salary. Every naira a goal needs is visibly pulled from the 30% Wants budget and added to Save and Invest, so the trade-off is explicit and not hidden.
+      </p>
 
       <div className="section-body">
         <CustomGoalsPanel
@@ -147,6 +159,9 @@ export default function GoalsPage() {
             <span className="section-divider-label">Salary &amp; Payday</span>
             <div className="section-divider-rule" />
           </div>
+          <p className="section-desc">
+            Update your salary and payday date here whenever they change. Every metric in Trakit7 that references your income recalculates immediately: your 50/30/20 split, goal feasibility, and emergency fund benchmark all derive from this single figure.
+          </p>
           <div className="section-body">
             <div style={{ background: "var(--ink-2)", border: "1px solid var(--rule)", borderRadius: 16, overflow: "hidden" }}>
               <button

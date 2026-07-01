@@ -207,11 +207,11 @@ export default function OnboardingFlow({ userName }) {
     if (!clean) { setStatus("Paste your API key above."); return; }
 
     if (provider === "groq" && !clean.startsWith("gsk_")) {
-      setStatus("Groq keys start with gsk_ — double-check you copied the right one.");
+      setStatus("Groq keys start with gsk_. Double-check you copied the full key correctly.");
       return;
     }
     if (provider === "gemini" && !clean.startsWith("AIza")) {
-      setStatus("Gemini keys start with AIza — double-check you copied the right one.");
+      setStatus("Gemini keys start with AIza. Double-check you copied the full key correctly.");
       return;
     }
 
@@ -257,7 +257,7 @@ export default function OnboardingFlow({ userName }) {
               You&apos;re all set, {name}!
             </h2>
             <p className="mt-2" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", lineHeight: 1.7, maxWidth: 320, margin: "0.5rem auto 0" }}>
-              Coach RBC is ready and already knows your numbers. Ask her anything — she&apos;s built for this.
+              Coach RBC is ready and already knows your numbers. Ask her anything. She is built for exactly this.
             </p>
           </div>
           <button
@@ -285,7 +285,7 @@ export default function OnboardingFlow({ userName }) {
           icon={<IconWave />}
           badge="Getting started"
           title={`Hey ${name}, one quick setup 👋`}
-          body="Trakit7 uses a free AI service to power Coach RBC, auto-categorize your expenses, and generate spending insights. You'll pick a provider and get a key — it takes about 2 minutes."
+          body="Trakit7 uses a free AI service to power Coach RBC, auto-categorize your expenses, and generate spending insights. You will pick a provider and paste a key. It takes about 2 minutes and no payment is required."
           onNext={() => setStep(1)}
           nextLabel="Let's pick a provider →"
         />
@@ -312,7 +312,7 @@ export default function OnboardingFlow({ userName }) {
               Choose your AI provider
             </h2>
             <p style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", fontSize: "0.88rem", lineHeight: 1.6 }}>
-              Both are free. Pick whichever you prefer — you can always add the other later in Settings.
+              Both are free with no credit card required. Pick whichever you prefer. You can always add the other provider later in Settings.
             </p>
           </div>
 
@@ -353,7 +353,7 @@ export default function OnboardingFlow({ userName }) {
             icon={<IconBrowser color="#A9854F" />}
             badge={`Step 2 of ${total - 1}`}
             title="Open the Groq console"
-            body="In a new tab, go to console.groq.com and create a free account. Sign up with email or Google — no credit card needed."
+            body="In a new tab, go to console.groq.com and create a free account. Sign up with email or Google. No credit card needed at any point."
             extra={
               <div
                 className="flex items-center justify-between px-4 py-3 rounded-xl"
@@ -388,7 +388,7 @@ export default function OnboardingFlow({ userName }) {
             icon={<IconSidebar />}
             badge={`Step 3 of ${total - 1}`}
             title={`Click "API Keys" in the sidebar`}
-            body={`Once logged in, look at the left sidebar. Click "API Keys" — you will land on a page that manages your keys.`}
+            body={`Once logged in, look at the left sidebar and click "API Keys". You will land on a page listing all your keys where you can create a new one.`}
             extra={
               <div
                 className="px-4 py-3 rounded-xl"
@@ -421,7 +421,7 @@ export default function OnboardingFlow({ userName }) {
                 style={{ background: "rgba(184,57,43,0.1)", border: "1px solid rgba(184,57,43,0.3)" }}
               >
                 <p style={{ color: "var(--red)", fontFamily: "var(--font-sans)", fontSize: "0.85rem", lineHeight: 1.6 }}>
-                  ⚠️ Copy it now — if you close the dialog, you&apos;ll need to create a new one.
+                  ⚠️ Copy it now. If you close the dialog before copying, Groq does not show it again and you will need to create a new key.
                 </p>
               </div>
             }
@@ -447,7 +447,7 @@ export default function OnboardingFlow({ userName }) {
             icon={<IconBrowser color="#5B8FA8" />}
             badge={`Step 2 of ${total - 1}`}
             title="Open Google AI Studio"
-            body="In a new tab, go to the API Keys page in Google AI Studio. Sign in with your Google account — no billing or credit card required."
+            body="In a new tab, go to the API Keys page in Google AI Studio. Sign in with your Google account. No billing or credit card required at any point."
             extra={
               <div
                 className="flex items-center justify-between px-4 py-3 rounded-xl"
@@ -482,14 +482,14 @@ export default function OnboardingFlow({ userName }) {
             icon={<IconKey color="#5B8FA8" />}
             badge={`Step 3 of ${total - 1}`}
             title="Create & copy your key"
-            body='Click "Create API key". Choose an existing project or create a new one. The key appears immediately — copy it now. It starts with AIza.'
+            body='Click "Create API key". Choose an existing project or create a new one. The key appears immediately. Copy it now before closing the dialog. It starts with AIza.'
             extra={
               <div
                 className="px-4 py-3 rounded-xl"
                 style={{ background: "rgba(91,143,168,0.1)", border: "1px solid rgba(91,143,168,0.3)" }}
               >
                 <p style={{ color: "var(--blue-accent)", fontFamily: "var(--font-sans)", fontSize: "0.85rem", lineHeight: 1.6 }}>
-                  💡 Your key starts with <span style={{ fontFamily: "var(--font-mono)" }}>AIza</span>. Keep it secret — treat it like a password.
+                  💡 Your key starts with <span style={{ fontFamily: "var(--font-mono)" }}>AIza</span>. Keep it secret and treat it exactly like a password. Never share it or paste it into untrusted sites.
                 </p>
               </div>
             }
@@ -533,7 +533,7 @@ function PasteStep({ name, provider, keyPrefix, total, onBack, keyValue, onKeyCh
             Your key starts with{" "}
             <span style={{ fontFamily: "var(--font-mono)", color: isGroq ? "var(--gold)" : "var(--blue-accent)" }}>
               {keyPrefix}
-            </span>. Paste it here — it&apos;s saved securely in the database, never exposed in your browser.
+            </span>. Paste it below. It is saved encrypted in the database and is never sent back to your browser in plain text.
           </p>
         </div>
 

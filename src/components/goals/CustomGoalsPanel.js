@@ -172,7 +172,7 @@ function GoalCard({ goal, salary, onUpdateSaved, onDelete }) {
   const feasible = salary ? reqPer <= salary * 0.20 : true;
 
   function askCoachAboutGoal() {
-    const msg = `I set a savings goal called "${goal.name}" — target: ${formatNaira(target)} by ${goal.target_date}. I've saved ${formatNaira(saved)} so far and need ${formatNaira(reqPer)} per month to hit it on time. Can I actually afford this? Does it fit my overall financial picture?`;
+    const msg = `I set a savings goal called "${goal.name}". Target: ${formatNaira(target)} by ${goal.target_date}. I have saved ${formatNaira(saved)} so far and need ${formatNaira(reqPer)} per month to hit it on time. Can I actually afford this? Does it fit my overall financial picture?`;
     if (typeof window !== "undefined") {
       sessionStorage.setItem("trakit7-chat-prefill", msg);
     }

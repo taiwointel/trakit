@@ -1,13 +1,13 @@
 @import "tailwindcss";
 
 :root {
-  /* Ink (dark) theme */
-  --ink:            #15191F;
-  --ink-2:          #1D232C;
-  --ink-3:          #252C36;
-  --ink-text:       #ECE9E1;
-  --ink-text-dim:   #A7ACB6;
-  --rule:           rgba(255, 255, 255, 0.09);
+  /* Ink (dark) theme — shifted deeper for proper dark-mode contrast */
+  --ink:            #0D1117;
+  --ink-2:          #141B24;
+  --ink-3:          #1C2535;
+  --ink-text:       #EDE9E0;
+  --ink-text-dim:   #9DA3AE;
+  --rule:           rgba(255, 255, 255, 0.07);
 
   /* Paper (warm) theme */
   --paper:          #F6F3EC;
@@ -73,10 +73,10 @@ body {
 
 body {
   background:
-    radial-gradient(ellipse 1100px 620px at 5% -8%,  rgba(232,146,10,0.24),  transparent 58%),
-    radial-gradient(ellipse 900px 550px  at 98% 2%,  rgba(155,114,214,0.20), transparent 54%),
-    radial-gradient(ellipse 800px 700px  at 50% 105%,rgba(27,191,174,0.14),  transparent 60%),
-    radial-gradient(ellipse 600px 400px  at 70% 45%, rgba(240,74,128,0.08),  transparent 52%),
+    radial-gradient(ellipse 1100px 620px at 5% -8%,  rgba(232,146,10,0.16),  transparent 58%),
+    radial-gradient(ellipse 900px 550px  at 98% 2%,  rgba(155,114,214,0.12), transparent 54%),
+    radial-gradient(ellipse 800px 700px  at 50% 105%,rgba(27,191,174,0.08),  transparent 60%),
+    radial-gradient(ellipse 600px 400px  at 70% 45%, rgba(240,74,128,0.05),  transparent 52%),
     var(--ink);
   background-attachment: fixed;
   color: var(--ink-text);
@@ -131,7 +131,7 @@ select {
 
 /* Card glass surface — subtle gradient lift on the dark ink panels */
 .card-surface {
-  background: linear-gradient(145deg, #1E2530 0%, #1A2028 100%);
+  background: linear-gradient(145deg, #1A2232 0%, #141B24 100%);
 }
 
 /* Glowing ring for key metric values */
@@ -302,6 +302,19 @@ select {
 }
 .panel-inner {
   padding: 20px 24px;
+}
+
+/* Section description — sits between the section divider and the section body */
+.section-desc {
+  padding: 0 24px 18px;
+  color: var(--ink-text-dim);
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  line-height: 1.75;
+  max-width: 700px;
+}
+@media (max-width: 640px) {
+  .section-desc { padding: 0 16px 14px; }
 }
 
 /* Collapsible section toggle button */

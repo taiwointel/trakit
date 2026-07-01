@@ -117,7 +117,7 @@ export default function SearchModal({ open, onClose, entries = [] }) {
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search transactions — description, payee, category..."
+            placeholder="Search by description, payee, or category..."
             className="w-full py-3 px-4 rounded-xl text-base"
             style={{
               background: "var(--ink-2)",
@@ -160,7 +160,7 @@ export default function SearchModal({ open, onClose, entries = [] }) {
               className="text-sm py-8 text-center"
               style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}
             >
-              No transactions match — try a different term
+              No transactions match. Try a different description, payee, or category name.
             </p>
           ) : (
             shown.map((entry) => (
@@ -211,7 +211,7 @@ export default function SearchModal({ open, onClose, entries = [] }) {
               className="text-xs text-center py-2"
               style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}
             >
-              Showing first {MAX} of {filtered.length} — refine your search
+              Showing first {MAX} of {filtered.length} results. Refine your search to narrow it down.
             </p>
           )}
         </div>

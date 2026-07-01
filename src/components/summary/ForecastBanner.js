@@ -43,13 +43,13 @@ export default function ForecastBanner({ cycleStart, cycleEnd, salary, entries, 
       borderColor = "var(--amber)";
       bgColor     = "var(--amber-soft)";
       const pct = Math.round((projected / salary) * 100);
-      message     = `On track to use ${pct}% of salary — tight`;
+      message     = `On track to use ${pct}% of salary. Running tight.`;
     } else {
       status = "green";
       color       = "var(--green)";
       borderColor = "var(--green)";
       bgColor     = "var(--green-soft)";
-      message     = `On track — ${formatNaira(salary - projected)} projected to remain`;
+      message     = `On track. ${formatNaira(salary - projected)} projected to remain by payday.`;
     }
 
     const barPct = salary && salary > 0

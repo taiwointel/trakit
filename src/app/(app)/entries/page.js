@@ -175,6 +175,9 @@ export default function EntriesPage() {
         <span className="section-divider-label">Add Entries</span>
         <div className="section-divider-rule" />
       </div>
+      <p className="section-desc">
+        Three ways to get data in, all feeding the same ledger with the same AI categorization. The fastest method is the one that removes the most friction from your natural workflow. Most people end up using all three depending on the situation.
+      </p>
 
       <div className="section-body">
 
@@ -184,7 +187,7 @@ export default function EntriesPage() {
           title="Type it in"
           tag="Instant"
           tagColor="var(--gold)"
-          description="The fastest way to capture a spend the moment it happens — before you forget the amount. Describe it, enter the naira value, and AI categorizes it automatically. Zero friction, every time."
+          description="The fastest way to capture a spend the moment it happens, before it fades from memory. Type a description and the naira amount, hit Add, and the AI assigns the category, essentiality tag, and confidence score automatically. Takes under 10 seconds."
         >
           <EntryForm entries={entries} onAdd={addEntry} />
         </FeatureCard>
@@ -197,7 +200,7 @@ export default function EntriesPage() {
           title="Import a bank statement"
           tag="Bulk"
           tagColor="var(--teal)"
-          description="Drop in your PDF or CSV bank statement and AI reads, extracts, and queues every transaction for categorization — months of history in a single upload. This is the fastest way to catch up on weeks you haven't tracked."
+          description="Drop in a PDF or CSV bank statement and AI extracts every transaction and queues them for categorization in one action. Months of history entered in under a minute. The most efficient way to catch up on weeks you have not yet tracked manually."
         >
           <CsvImport onImported={() => window.location.reload()} />
         </FeatureCard>
@@ -210,7 +213,7 @@ export default function EntriesPage() {
           title="Telegram bot"
           tag="Anywhere"
           tagColor="var(--blue-accent)"
-          description="Log expenses mid-transaction without opening the app. Message your personal bot — '3,500 suya at Mallam Musa' — and it's in your ledger instantly. Works from your lock screen, from a market, from any device."
+          description="Log expenses without opening the app at all. Message your personal bot something like '3,500 suya at Mallam Musa' and it lands in your ledger immediately. Works from your phone lock screen, a crowded market, or any device with Telegram installed."
         >
           <TelegramBotSetup />
         </FeatureCard>
@@ -225,6 +228,9 @@ export default function EntriesPage() {
         <span className="section-divider-label" style={{ color: "var(--amber)" }}>Ledger</span>
         <div className="section-divider-rule" />
       </div>
+      <p className="section-desc">
+        Every transaction you have logged lives here, newest first. Edit categories, fix amounts, or delete mistakes directly in the row without leaving the page. The paper-style table is deliberate: reading your ledger should feel like reviewing a physical record.
+      </p>
 
       <div className="section-body">
         <div style={{ background: "var(--ink-2)", border: "1px solid var(--rule)", borderRadius: 16, overflow: "hidden" }}>
@@ -251,6 +257,9 @@ export default function EntriesPage() {
         <span className="section-divider-label" style={{ color: "var(--violet)" }}>Monthly Budgets</span>
         <div className="section-divider-rule" />
       </div>
+      <p className="section-desc">
+        Set a naira cap for each spending category and an overall monthly limit. A progress bar tracks your actual spend against each cap the moment a new entry lands. Research consistently shows that people who budget by category spend less than those who track without limits, even when they exceed individual caps.
+      </p>
 
       <div className="section-body">
         <div style={{ background: "var(--ink-2)", border: "1px solid var(--rule)", borderRadius: 16, overflow: "hidden" }}>
@@ -276,6 +285,9 @@ export default function EntriesPage() {
         <span className="section-divider-label" style={{ color: "var(--teal)" }}>Bill Tracker</span>
         <div className="section-divider-rule" />
       </div>
+      <p className="section-desc">
+        Log your fixed recurring bills, subscriptions, and standing orders in one place. Trakit7 monitors due dates so you always know what is coming out of your account before the debit appears. The most common source of budget shock is a charge you knew about but forgot to plan for.
+      </p>
 
       <div className="section-body">
         <div style={{ background: "var(--ink-2)", border: "1px solid var(--rule)", borderRadius: 16, overflow: "hidden" }}>

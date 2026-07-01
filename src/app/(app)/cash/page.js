@@ -59,6 +59,9 @@ export default function CashPage() {
         <span className="section-divider-label">Cash Balance</span>
         <div className="section-divider-rule" />
       </div>
+      <p className="section-desc">
+        Your balance is computed from a single anchor point plus every entry you have logged since, so it always matches your ledger exactly. There is no separate running total to fall out of sync. The daily navigator lets you check your opening and closing balance for any date on demand.
+      </p>
 
       {!hasAnchor ? (
         /* ── First-time setup ── */
@@ -112,6 +115,9 @@ export default function CashPage() {
         <span className="section-divider-label" style={{ color: "var(--blue-accent)" }}>Loans</span>
         <div className="section-divider-rule" />
       </div>
+      <p className="section-desc">
+        Tracking what you owe is as important as tracking what you own. Outstanding loans logged here are reflected in the net worth calculation on the Summary page, giving you a complete and honest picture of your actual financial position rather than just the assets side.
+      </p>
 
       <div className="section-body">
         <LoanTracker />
@@ -128,6 +134,9 @@ export default function CashPage() {
         <span className="section-divider-label" style={{ color: "var(--teal)" }}>Investments</span>
         <div className="section-divider-rule" />
       </div>
+      <p className="section-desc">
+        Your full investment portfolio in one view: Treasury bills, fixed-term notes, equities, savings accounts, mutual funds, ethical investments, life assurance, and pension. Each position shows live status, accrued return, and progress toward maturity or coverage target.
+      </p>
 
       <div className="section-body">
         {investments.length > 0 && (
@@ -151,6 +160,9 @@ export default function CashPage() {
             </span>
             <div className="section-divider-rule" />
           </div>
+          <p className="section-desc">
+            Treasury bills, commercial papers, and fixed-term notes. Trakit7 tracks elapsed tenor as a percentage, computes your actual return using discount-basis pricing for T-bills and CPs, and simple-interest basis for FTNs, and flags positions as matured the moment their tenor elapses.
+          </p>
           <div className="section-body" style={{ paddingTop: 0 }}>
             <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
               {maturityInvs.map((inv) => (
@@ -171,6 +183,9 @@ export default function CashPage() {
             </span>
             <div className="section-divider-rule" />
           </div>
+          <p className="section-desc">
+            Savings accounts, equities, mutual funds, and ethical investments. Value is tracked as net deposits minus withdrawals. For equities, you can set a current market value at any time and Trakit7 computes your real gain or loss against what you originally paid in.
+          </p>
           <div className="section-body" style={{ paddingTop: 0 }}>
             <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
               {balanceInvs.map((inv) => (
@@ -198,6 +213,9 @@ export default function CashPage() {
             </span>
             <div className="section-divider-rule" />
           </div>
+          <p className="section-desc">
+            Your life assurance policy tracked month by month. Trakit7 detects overdue months automatically, including months that were never logged in the first place, so your true arrears figure is always accurate. The batch logger lets you backfill years of payment history in a single action.
+          </p>
           <div className="section-body" style={{ paddingTop: 0 }}>
             <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
               {lifeInvs.map((inv) => (
@@ -226,6 +244,9 @@ export default function CashPage() {
             </span>
             <div className="section-divider-rule" />
           </div>
+          <p className="section-desc">
+            Your pension balance with automatic monthly accrual. Each time you open Trakit7, any unrecorded contribution months since your last login are added automatically so the balance stays current without manual input. You can make one-off adjustments to account for returns credited directly by your PFA.
+          </p>
           <div className="section-body" style={{ paddingTop: 0 }}>
             <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
               {pensionInvs.map((inv) => (
@@ -251,6 +272,9 @@ export default function CashPage() {
         <span className="section-divider-label" style={{ color: "var(--gold)" }}>Log a New Investment</span>
         <div className="section-divider-rule" />
       </div>
+      <p className="section-desc">
+        Record a new investment position here. The portfolio summary above updates immediately to include it in your total net worth and your savings-rate calculation. All four investment types are supported: fixed-income, balance-based, life assurance, and pension.
+      </p>
 
       <div className="section-body">
         <LogInvestmentForm onAdd={addInvestment} />
