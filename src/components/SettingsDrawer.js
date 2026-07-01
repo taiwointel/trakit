@@ -44,13 +44,6 @@ export default function SettingsDrawer({ open, onClose }) {
   const [status,     setStatus]     = useState("");
   const [testing,    setTesting]    = useState(false);
 
-  // ── Import state ──────────────────────────────────────────
-  const [importOpen,    setImportOpen]    = useState(false);
-  const [importJson,    setImportJson]    = useState("");
-  const [importReplace, setImportReplace] = useState(false);
-  const [importing,     setImporting]     = useState(false);
-  const [importStatus,  setImportStatus]  = useState(null); // null | { ok, summary, errors }
-
   // ── Account actions state ─────────────────────────────────
   const [signingOut,       setSigningOut]       = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -137,30 +130,6 @@ export default function SettingsDrawer({ open, onClose }) {
       setStatus(data.message || (res.ok ? "Connection OK" : "Failed."));
     } catch { setStatus("Network error."); }
     setTesting(false);
-  }
-
-  // ── Import handler ─────────────────────────────────────────
-  async function handleImport() {
-    const trimmed = importJson.trim();
-    if (!trimmed) { setImportStatus({ ok: false, errors: ["Paste the JSON data first."] }); return; }
-    let parsed;
-    try { parsed = JSON.parse(trimmed); }
-    catch { setImportStatus({ ok: false, errors: ["Could not parse JSON. Make sure you copied the full output from the console script."] }); return; }
-    setImporting(true);
-    setImportStatus(null);
-    try {
-      const res  = await fetch("/api/migrate/import", {
-        method:  "POST",
-        headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ ...parsed, replace: importReplace }),
-      });
-      const data = await res.json();
-      setImportStatus(data);
-      if (data.ok) setImportJson("");
-    } catch {
-      setImportStatus({ ok: false, errors: ["Network error. Please try again."] });
-    }
-    setImporting(false);
   }
 
   // ── Account action handlers ────────────────────────────────
@@ -443,157 +412,6 @@ export default function SettingsDrawer({ open, onClose }) {
               >
                 {status}
               </p>
-            )}
-          </Section>
-
-          <Divider />
-
-          {/* ── Import from old Ledger ───────────────── */}
-          <Section title="Import Data" color="var(--green)">
-            <button
-              onClick={() => { setImportOpen((v) => !v); setImportStatus(null); }}
-              className="w-full py-2.5 rounded-lg text-sm font-medium flex items-center justify-between"
-              style={{
-                background: "var(--ink-3)",
-                border:     "1px solid var(--rule)",
-                color:      "var(--ink-text)",
-                fontFamily: "var(--font-sans)",
-                paddingLeft: 14,
-                paddingRight: 14,
-              }}
-            >
-              <span>Import from old Ledger prototype</span>
-              <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--ink-text-dim)" }}>
-                {importOpen ? "▲" : "▼"}
-              </span>
-            </button>
-
-            {importOpen && (
-              <div className="flex flex-col gap-3">
-                <div
-                  className="rounded-xl p-3 flex flex-col gap-2"
-                  style={{ background: "rgba(47,122,86,0.08)", border: "1px solid rgba(47,122,86,0.2)" }}
-                >
-                  <p className="text-xs font-semibold" style={{ color: "var(--green)", fontFamily: "var(--font-sans)" }}>
-                    Step 1 — Extract your data
-                  </p>
-                  <p className="text-xs leading-relaxed" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>
-                    Open your old Ledger HTML file in a browser, press F12 to open DevTools, go to the Console tab, paste the script below and press Enter. It copies your data to clipboard.
-                  </p>
-                  <pre
-                    className="text-xs rounded-lg p-2.5 select-all overflow-x-auto"
-                    style={{
-                      background:  "var(--ink)",
-                      color:       "var(--gold)",
-                      fontFamily:  "var(--font-mono)",
-                      lineHeight:  1.5,
-                      whiteSpace:  "pre-wrap",
-                      wordBreak:   "break-all",
-                      userSelect:  "all",
-                    }}
-                  >{`var d={};['entries','budgets','cashbalance','investments','goals'].forEach(function(k){var r=localStorage.getItem('ledger:'+k);if(r)try{d[k]=JSON.parse(r)}catch(e){}});copy(JSON.stringify(d));alert('Copied! Paste into Trakit7.');`}</pre>
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                  <label
-                    className="text-xs font-semibold"
-                    style={{ color: "var(--green)", fontFamily: "var(--font-sans)" }}
-                  >
-                    Step 2 — Paste &amp; import
-                  </label>
-                  <textarea
-                    value={importJson}
-                    onChange={(e) => setImportJson(e.target.value)}
-                    placeholder='Paste the JSON here (starts with {"entries":[...]})'
-                    rows={5}
-                    className="w-full px-3 py-2 rounded-lg text-xs outline-none resize-y"
-                    style={{
-                      background:  "var(--ink-3)",
-                      border:      "1px solid var(--rule)",
-                      color:       "var(--ink-text)",
-                      fontFamily:  "var(--font-mono)",
-                      minHeight:   80,
-                    }}
-                  />
-                </div>
-
-                <label
-                  className="flex items-start gap-2.5 cursor-pointer select-none"
-                  style={{ fontFamily: "var(--font-sans)" }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={importReplace}
-                    onChange={(e) => setImportReplace(e.target.checked)}
-                    className="mt-0.5 shrink-0"
-                    style={{ accentColor: "var(--gold)", width: 14, height: 14 }}
-                  />
-                  <div>
-                    <span className="text-xs font-semibold" style={{ color: importReplace ? "var(--amber)" : "var(--ink-text-dim)" }}>
-                      Replace existing data
-                    </span>
-                    <p className="text-xs mt-0.5 leading-relaxed" style={{ color: "var(--ink-text-dim)" }}>
-                      Wipe all current entries, investments, budgets and goals first — use this to fix a duplicate import.
-                    </p>
-                  </div>
-                </label>
-
-                <button
-                  onClick={handleImport}
-                  disabled={importing || !importJson.trim()}
-                  className="w-full py-2.5 rounded-lg text-sm font-semibold"
-                  style={{
-                    background: "linear-gradient(135deg, var(--green), #3d9e6e)",
-                    color:      "#fff",
-                    fontFamily: "var(--font-sans)",
-                    opacity:    (importing || !importJson.trim()) ? 0.45 : 1,
-                  }}
-                >
-                  {importing ? "Importing…" : "Import my data"}
-                </button>
-
-                {importStatus && (
-                  <div
-                    className="rounded-xl p-3 flex flex-col gap-1.5"
-                    style={{
-                      background: importStatus.ok ? "rgba(47,122,86,0.10)" : "rgba(184,57,43,0.10)",
-                      border:     `1px solid ${importStatus.ok ? "rgba(47,122,86,0.3)" : "rgba(184,57,43,0.3)"}`,
-                    }}
-                  >
-                    {importStatus.ok ? (
-                      <>
-                        <p className="text-xs font-semibold" style={{ color: "var(--green)", fontFamily: "var(--font-sans)" }}>
-                          Import complete
-                        </p>
-                        <ul className="text-xs" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-mono)" }}>
-                          {importStatus.summary?.entries > 0 && <li>{importStatus.summary.entries} expense entries</li>}
-                          {importStatus.summary?.budgets && <li>Budget settings</li>}
-                          {importStatus.summary?.cashBalance && <li>Cash balance anchor</li>}
-                          {importStatus.summary?.investments > 0 && <li>{importStatus.summary.investments} investments</li>}
-                          {importStatus.summary?.investmentTxns > 0 && <li>{importStatus.summary.investmentTxns} investment transactions</li>}
-                          {importStatus.summary?.emergencyFundTxns > 0 && <li>{importStatus.summary.emergencyFundTxns} emergency fund entries</li>}
-                          {importStatus.summary?.customGoals > 0 && <li>{importStatus.summary.customGoals} custom savings goals</li>}
-                          {importStatus.summary?.goals && <li>Salary &amp; payday settings</li>}
-                        </ul>
-                        <p className="text-xs mt-1" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>
-                          Refresh the page to see your imported data.
-                        </p>
-                      </>
-                    ) : (
-                      <>
-                        <p className="text-xs font-semibold" style={{ color: "var(--red)", fontFamily: "var(--font-sans)" }}>
-                          Import failed
-                        </p>
-                        {(importStatus.errors || []).map((e, i) => (
-                          <p key={i} className="text-xs" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-mono)" }}>
-                            {e}
-                          </p>
-                        ))}
-                      </>
-                    )}
-                  </div>
-                )}
-              </div>
             )}
           </Section>
 

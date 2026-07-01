@@ -38,13 +38,14 @@ function Badge({ breach }) {
   );
 }
 
-export default function MonthlyTargets({ entries, salary, customGoals = [], userName = "" }) {
+export default function MonthlyTargets({ entries, salary, customGoals = [], userName = "", cycleStart = null, cycleLabel = null }) {
   const thisMonth = new Date().toISOString().slice(0, 7);
-  const today     = new Date();
+  const today     = new Date().toISOString().slice(0, 10);
+  const filterStart = cycleStart || `${thisMonth}-01`;
 
   const monthOut = useMemo(
-    () => entries.filter((e) => e.date?.startsWith(thisMonth) && e.flow === "out"),
-    [entries, thisMonth],
+    () => entries.filter((e) => e.date >= filterStart && e.date <= today && e.flow === "out"),
+    [entries, filterStart, today],
   );
 
   const actualNeeds = useMemo(
@@ -159,7 +160,7 @@ export default function MonthlyTargets({ entries, salary, customGoals = [], user
           className="text-xs font-semibold uppercase tracking-widest flex items-center gap-1.5"
           style={{ color: "var(--teal)", fontFamily: "var(--font-sans)" }}
         >
-          This month's targets
+          {cycleLabel ? `Cycle targets · ${cycleLabel}` : "This month's targets"}
           <InfoTooltip text="The 50/30/20 rule splits your salary: half for necessities (Needs), 30% for discretionary spending (Wants), and 20% for saving and investing. When you add a custom savings goal, the amount it needs each month is automatically moved from your Wants budget into Save & Invest." />
         </p>
 

@@ -14,7 +14,9 @@ export default function EntriesPage() {
   const today  = new Date();
   const [year,  setYear]  = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth() + 1);
-  const [selectedDay, setSelectedDay] = useState(null);
+  const [selectedDay,   setSelectedDay]   = useState(null);
+  const [ledgerOpen,    setLedgerOpen]    = useState(true);
+  const [budgetsOpen,   setBudgetsOpen]   = useState(false);
 
   const { entries, budgets, loading, addEntry, updateEntry, deleteEntry, saveBudget } = useEntries();
 
@@ -97,7 +99,12 @@ export default function EntriesPage() {
           style={{ background: "var(--ink-3)", borderBottom: "1px solid var(--rule)" }}
         >
           <span style={{ color: "var(--ink-text)", fontFamily: "var(--font-mono)", fontWeight: 600 }}>
-            {dayStr}
+            {(() => {
+              if (!dayStr) return "";
+              const d = new Date(dayStr + "T00:00:00");
+              const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+              return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+            })()}
           </span>
           <span style={{ color: "var(--red)", fontFamily: "var(--font-mono)" }}>
             Out: {formatNaira(dayOut)}
@@ -123,12 +130,38 @@ export default function EntriesPage() {
         <EntryForm entries={entries} onAdd={addEntry} />
       </div>
 
-      {/* Ledger table (paper theme) */}
-      <LedgerTable entries={displayEntries} onUpdate={updateEntry} onDelete={deleteEntry} />
-
-      {/* Budgets grid */}
+      {/* Ledger table — collapsible */}
       <div style={{ borderTop: "1px solid var(--rule)" }}>
-        <BudgetsGrid entries={monthEntries} budgets={budgets} onSave={saveBudget} />
+        <button
+          onClick={() => setLedgerOpen((v) => !v)}
+          className="w-full flex items-center justify-between px-4 py-2.5"
+          style={{ background: "var(--ink-2)", borderBottom: ledgerOpen ? "1px solid var(--rule)" : "none" }}
+        >
+          <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>
+            Entries ({displayEntries.length})
+          </span>
+          <span className="text-xs" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-mono)" }}>
+            {ledgerOpen ? "▲ Collapse" : "▼ Show"}
+          </span>
+        </button>
+        {ledgerOpen && <LedgerTable entries={displayEntries} onUpdate={updateEntry} onDelete={deleteEntry} />}
+      </div>
+
+      {/* Budgets grid — collapsible, closed by default */}
+      <div style={{ borderTop: "1px solid var(--rule)" }}>
+        <button
+          onClick={() => setBudgetsOpen((v) => !v)}
+          className="w-full flex items-center justify-between px-4 py-2.5"
+          style={{ background: "var(--ink-2)", borderBottom: budgetsOpen ? "1px solid var(--rule)" : "none" }}
+        >
+          <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>
+            Monthly budgets
+          </span>
+          <span className="text-xs" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-mono)" }}>
+            {budgetsOpen ? "▲ Collapse" : "▼ Show"}
+          </span>
+        </button>
+        {budgetsOpen && <BudgetsGrid entries={monthEntries} budgets={budgets} onSave={saveBudget} />}
       </div>
     </div>
   );

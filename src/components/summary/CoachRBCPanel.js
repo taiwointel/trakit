@@ -1,21 +1,23 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { formatNaira } from "@/lib/format";
+import { formatNaira, getSalaryCycle } from "@/lib/format";
 
-const PRESETS = [
-  { label: "Today",         days: 0  },
-  { label: "Last 7 days",   days: 7  },
-  { label: "This month",    days: -1 }, // special
-  { label: "Last 3 months", days: 90 },
+const BASE_PRESETS = [
+  { label: "Today",         days: 0   },
+  { label: "Last 7 days",   days: 7   },
+  { label: "This cycle",    days: -4  }, // salary cycle — shown only if paydayDay set
+  { label: "This month",    days: -1  },
+  { label: "Last month",    days: -3  },
+  { label: "Last 3 months", days: 90  },
   { label: "Last 6 months", days: 180 },
-  { label: "This year",     days: -2  }, // special
+  { label: "This year",     days: -2  },
 ];
 
-function getDateRange(preset, customFrom, customTo) {
+function getDateRange(preset, customFrom, customTo, paydayDay) {
   const today = new Date().toISOString().slice(0, 10);
   if (preset === "custom") return { from: customFrom, to: customTo || today };
-  const p = PRESETS.find((p) => p.label === preset);
+  const p = BASE_PRESETS.find((p) => p.label === preset);
   if (!p) return { from: today, to: today };
   if (p.days === 0) return { from: today, to: today };
   if (p.days === -1) { // This month
@@ -24,6 +26,20 @@ function getDateRange(preset, customFrom, customTo) {
   }
   if (p.days === -2) { // This year
     return { from: `${new Date().getFullYear()}-01-01`, to: today };
+  }
+  if (p.days === -3) { // Last month
+    const d = new Date(); d.setMonth(d.getMonth() - 1);
+    const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, "0");
+    const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+    return { from: `${y}-${m}-01`, to: `${y}-${m}-${String(lastDay).padStart(2, "0")}` };
+  }
+  if (p.days === -4) { // This cycle
+    const cycle = getSalaryCycle(paydayDay);
+    if (!cycle) { // fall back to this month
+      const d = new Date(); const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, "0");
+      return { from: `${y}-${m}-01`, to: today };
+    }
+    return { from: cycle.start, to: today };
   }
   const from = new Date(); from.setDate(from.getDate() - p.days + 1);
   return { from: from.toISOString().slice(0, 10), to: today };
@@ -73,15 +89,17 @@ function buildContext(entries, from, to, cashBalance, salary) {
   };
 }
 
-export default function CoachRBCPanel({ entries, cashBalance, salary }) {
-  const [preset,     setPreset]     = useState("This month");
+export default function CoachRBCPanel({ entries, cashBalance, salary, paydayDay }) {
+  const defaultPreset = paydayDay ? "This cycle" : "This month";
+  const [preset,     setPreset]     = useState(defaultPreset);
   const [customFrom, setCustomFrom] = useState("");
   const [customTo,   setCustomTo]   = useState("");
   const [session,    setSession]    = useState(null);
   const [loading,    setLoading]    = useState(false);
   const [error,      setError]      = useState("");
 
-  const { from, to } = getDateRange(preset, customFrom, customTo);
+  const visiblePresets = BASE_PRESETS.filter((p) => p.days !== -4 || paydayDay);
+  const { from, to } = getDateRange(preset, customFrom, customTo, paydayDay);
 
   async function getCoached() {
     setLoading(true); setError(""); setSession(null);
@@ -116,7 +134,7 @@ export default function CoachRBCPanel({ entries, cashBalance, salary }) {
 
       {/* Date range presets */}
       <div className="flex flex-wrap gap-1.5">
-        {PRESETS.map((p) => (
+        {visiblePresets.map((p) => (
           <button
             key={p.label}
             onClick={() => setPreset(p.label)}

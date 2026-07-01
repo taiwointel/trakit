@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { getSalaryCycle } from "@/lib/format";
 import { useEntries }        from "@/hooks/useEntries";
 import { useGoals }          from "@/hooks/useGoals";
 import { useEmergencyFund }  from "@/hooks/useEmergencyFund";
@@ -20,14 +21,19 @@ export default function GoalsPage() {
   const { goals: customGoals, loading: cgLoading, addGoal, updateSavedSoFar, deleteGoal } = useCustomGoals();
   const { name: userName } = useUser();
 
-  const thisMonth = new Date().toISOString().slice(0, 7);
+  const today     = new Date().toISOString().slice(0, 10);
+  const thisMonth = today.slice(0, 7);
 
-  // Emergency fund target = 6 × this month's essential spend (or manual override)
+  // Use salary cycle if configured, else calendar month
+  const cycle = useMemo(() => getSalaryCycle(goals.payday_day), [goals.payday_day]);
+  const cycleStart = cycle?.start || `${thisMonth}-01`;
+
+  // Emergency fund target = 6 × this cycle's essential spend (or manual override)
   const essentialThisMonth = useMemo(
     () => entries
-      .filter((e) => e.date?.startsWith(thisMonth) && e.flow === "out" && e.essentiality === "Essential")
+      .filter((e) => e.date >= cycleStart && e.date <= today && e.flow === "out" && e.essentiality === "Essential")
       .reduce((s, e) => s + Number(e.amount), 0),
-    [entries, thisMonth],
+    [entries, cycleStart, today],
   );
 
   const efTarget = goals.emergency_fund_target_override || essentialThisMonth * 6;
@@ -68,6 +74,8 @@ export default function GoalsPage() {
         salary={goals.salary}
         customGoals={customGoals}
         userName={userName}
+        cycleStart={cycleStart}
+        cycleLabel={cycle?.label}
       />
 
       {/* Emergency fund */}

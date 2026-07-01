@@ -5,7 +5,7 @@ import { useEntries }       from "@/hooks/useEntries";
 import { useGoals }         from "@/hooks/useGoals";
 import { useCashBalance }   from "@/hooks/useCashBalance";
 import { closingBalance, liquidityCoverage, last14Days } from "@/lib/cashBalance";
-import { formatNaira }      from "@/lib/format";
+import { formatNaira, getSalaryCycle } from "@/lib/format";
 
 import PaydayWidget      from "@/components/summary/PaydayWidget";
 import LiquidityPanel    from "@/components/summary/LiquidityPanel";
@@ -66,12 +66,19 @@ export default function SummaryPage() {
   const { anchor,  loading: cashLoading    } = useCashBalance();
   const { name }                             = useUser();
 
-  const today   = new Date().toISOString().slice(0, 10);
+  const today     = new Date().toISOString().slice(0, 10);
   const thisMonth = today.slice(0, 7);
 
-  const monthEntries = useMemo(
-    () => entries.filter((e) => e.date?.startsWith(thisMonth)),
-    [entries, thisMonth],
+  // Salary cycle — use as the "this period" baseline when payday is configured
+  const cycle = useMemo(
+    () => getSalaryCycle(goals.payday_day),
+    [goals.payday_day],
+  );
+  const cycleStart = cycle?.start || `${thisMonth}-01`;
+
+  const cycleEntries = useMemo(
+    () => entries.filter((e) => e.date >= cycleStart && e.date <= today),
+    [entries, cycleStart, today],
   );
 
   // Cash balance
@@ -98,34 +105,39 @@ export default function SummaryPage() {
   const months     = useMemo(() => liquidityCoverage(entries, currentBalance), [entries, currentBalance]);
   const sparkRows  = useMemo(() => last14Days(entries, anchor.anchor_date, anchor.anchor_amount), [entries, anchor]);
 
-  // Headline: this month's total out + biggest category
-  const monthOut   = monthEntries.filter((e) => e.flow === "out").reduce((s, e) => s + Number(e.amount), 0);
+  // Headline: this cycle's total out + biggest category
+  const monthOut   = cycleEntries.filter((e) => e.flow === "out").reduce((s, e) => s + Number(e.amount), 0);
   const byCategory = useMemo(() => {
     const m = {};
-    monthEntries.filter((e) => e.flow === "out" && e.category).forEach((e) => {
+    cycleEntries.filter((e) => e.flow === "out" && e.category).forEach((e) => {
       m[e.category] = (m[e.category] || 0) + Number(e.amount);
     });
     return Object.entries(m).sort(([, a], [, b]) => b - a);
-  }, [monthEntries]);
+  }, [cycleEntries]);
   const biggestCat = byCategory[0];
 
-  // Prior month for delta
-  const prevMonth = (() => {
-    const d = new Date(); d.setMonth(d.getMonth() - 1);
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-  })();
-  const prevOut = entries
-    .filter((e) => e.date?.startsWith(prevMonth) && e.flow === "out")
-    .reduce((s, e) => s + Number(e.amount), 0);
-  const delta    = monthOut - prevOut;
-  const deltaDir = delta > 0 ? "▲" : delta < 0 ? "▼" : "—";
-  const deltaColor = delta > 0 ? "var(--red)" : "var(--green)";
+  // Prior cycle delta
+  const prevOut = useMemo(() => {
+    if (!cycle) {
+      const d = new Date(); d.setMonth(d.getMonth() - 1);
+      const pm = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      return entries.filter((e) => e.date?.startsWith(pm) && e.flow === "out")
+                    .reduce((s, e) => s + Number(e.amount), 0);
+    }
+    // Previous cycle: same length, ending day before cycleStart
+    const cs = new Date(cycle.start + "T00:00:00");
+    const ce = new Date(cs); ce.setDate(ce.getDate() - 1);
+    const ps = new Date(cs); ps.setDate(ps.getDate() - (new Date(cycle.end + "T00:00:00") - cs) / 86400000 - 1);
+    const prevStart = ps.toISOString().slice(0, 10);
+    const prevEnd   = ce.toISOString().slice(0, 10);
+    return entries.filter((e) => e.flow === "out" && e.date >= prevStart && e.date <= prevEnd)
+                  .reduce((s, e) => s + Number(e.amount), 0);
+  }, [entries, cycle]);
 
-  // 30-day date range for trend chart
-  const thirtyDaysAgo = (() => {
-    const d = new Date(); d.setDate(d.getDate() - 29);
-    return d.toISOString().slice(0, 10);
-  })();
+  const delta      = monthOut - prevOut;
+  const deltaDir   = delta > 0 ? "▲" : delta < 0 ? "▼" : "";
+  const deltaColor = delta > 0 ? "var(--red)" : "var(--green)";
+  const periodLabel = cycle ? `Cycle: ${cycle.label}` : "This month";
 
   if (entriesLoading || goalsLoading || cashLoading) {
     return (
@@ -165,7 +177,7 @@ export default function SummaryPage() {
         style={{ background: "var(--ink-2)", border: "1px solid var(--rule)" }}
       >
         <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>
-          This month's spending
+          {periodLabel}
         </p>
         <div
           className="text-4xl font-bold"
@@ -203,22 +215,23 @@ export default function SummaryPage() {
         entries={entries}
         cashBalance={currentBalance}
         salary={goals.salary}
+        paydayDay={goals.payday_day}
       />
 
       {/* Ask about your spending */}
       <AskSpending entries={entries} />
 
       {/* Where it went */}
-      <WhereItWent entries={monthEntries} />
+      <WhereItWent entries={cycleEntries} />
 
       {/* Category explorer */}
-      <CategoryExplorer entries={monthEntries} />
+      <CategoryExplorer entries={cycleEntries} />
 
       {/* Analytics row */}
       <AnalyticsRow entries={entries} />
 
-      {/* Spending trend */}
-      <SpendTrendChart entries={entries} from={thirtyDaysAgo} to={today} />
+      {/* Spending trend — use salary cycle range, fall back to 30 days */}
+      <SpendTrendChart entries={entries} from={cycleStart} to={today} />
 
     </div>
   );

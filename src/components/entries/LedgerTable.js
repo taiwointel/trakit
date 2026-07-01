@@ -2,7 +2,14 @@
 
 import { useState } from "react";
 import { CATEGORY_NAMES, categoryDefaults } from "@/lib/categories";
-import { formatNaira, formatAmountInput, parseAmount, formatDateShort } from "@/lib/format";
+import { formatNaira, formatAmountInput, parseAmount } from "@/lib/format";
+
+function fmtDate(iso) {
+  if (!iso) return "";
+  const d = new Date(iso + "T00:00:00");
+  const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+}
 
 const ESSENTIALITIES = ["Essential", "Discretionary", "—"];
 const NATURES        = ["Fixed", "Variable", "—"];
@@ -134,8 +141,8 @@ export default function LedgerTable({ entries, onUpdate, onDelete }) {
                 style={{ background: i % 2 === 0 ? "var(--paper)" : "var(--paper-2)", borderBottom: borderStyle }}
               >
                 {/* Date */}
-                <td className="px-3 py-2 whitespace-nowrap" style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--paper-text-dim)" }}>
-                  {entry.date}
+                <td className="px-3 py-2 whitespace-nowrap" style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--paper-text-dim)" }}>
+                  {fmtDate(entry.date)}
                 </td>
 
                 {/* Description */}

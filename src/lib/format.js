@@ -58,6 +58,33 @@ export function lastNDays(n) {
   return dates;
 }
 
+/** Compute the current salary cycle based on payday day of month.
+ *  Returns { start: 'YYYY-MM-DD', end: 'YYYY-MM-DD', label: 'DD Mon – DD Mon' }
+ *  start = most recent payday; end = day before the next payday.
+ */
+export function getSalaryCycle(paydayDay) {
+  if (!paydayDay) return null;
+  const today = new Date();
+  const d = today.getDate();
+  const y = today.getFullYear();
+  const m = today.getMonth(); // 0-indexed
+
+  let sy, sm;
+  if (d >= paydayDay) { sy = y; sm = m; }
+  else { sy = m === 0 ? y - 1 : y; sm = m === 0 ? 11 : m - 1; }
+
+  const start      = new Date(sy, sm, paydayDay);
+  const nextPayday = new Date(sy, sm + 1, paydayDay); // JS handles Dec→Jan overflow
+  const endDate    = new Date(nextPayday); endDate.setDate(endDate.getDate() - 1);
+
+  const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const fmt = (iso) => `${parseInt(iso.slice(8), 10)} ${MONTHS[parseInt(iso.slice(5, 7), 10) - 1]}`;
+
+  const startISO = start.toISOString().slice(0, 10);
+  const endISO   = endDate.toISOString().slice(0, 10);
+  return { start: startISO, end: endISO, label: `${fmt(startISO)} – ${fmt(endISO)}` };
+}
+
 /** All calendar dates for a given YYYY-MM month */
 export function datesInMonth(year, month) {
   const dates = [];
