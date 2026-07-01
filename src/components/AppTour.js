@@ -4,39 +4,64 @@ import { useState, useEffect, useCallback } from "react";
 
 const STEPS = [
   {
-    target:  "settings-btn",
-    label:   "Settings, top right",
-    title:   "Step 1 of 5: Connect your AI key",
-    body:    "Tap the gear icon to open Settings. Paste your Groq or Gemini API key. Every AI feature in Trakit7, including auto-categorization, Coach RBC coaching sessions, and spend analysis, runs through this key. Both Groq and Gemini have genuinely free tiers with no credit card required.",
-    arrowUp: true,
+    target: "settings-btn",
+    label:  "Settings, top right",
+    title:  "Step 1 of 10: Connect your AI key",
+    body:   "Tap the gear icon to open Settings, then expand 'AI Connection.' Paste your Groq or Gemini API key — both have genuinely free tiers, no credit card required. This single step powers auto-categorization, Coach RBC coaching sessions, bank statement analysis, and spend narration across the whole app.",
   },
   {
-    target:  "tab-entries",
-    label:   "Expense Entry tab",
-    title:   "Step 2 of 5: Log your first transaction",
-    body:    "Go to Expense Entry to record money in or out. Type a description and amount, then hit Add. The AI assigns the spending category, essential versus discretionary status, and a confidence score automatically. Takes under 10 seconds.",
-    arrowUp: true,
+    target: "tab-entries",
+    label:  "Expense Entry tab",
+    title:  "Step 2 of 10: Log your first transaction",
+    body:   "Open Expense Entry and fill in a description and amount, then hit Add. The AI reads your description and assigns a spending category, essential vs. discretionary status, and a 0-to-1 confidence score — all in under 10 seconds. A small coloured dot shows you at a glance how certain the AI was.",
   },
   {
-    target:  "tab-goals",
-    label:   "Goals tab",
-    title:   "Step 3 of 5: Set your salary",
-    body:    "Open Goals and enter your monthly salary. This single number unlocks the 50/30/20 budget tracker, sets your emergency fund target based on your actual essential spending, and starts the payday countdown. Every financial target in the app derives from it.",
-    arrowUp: true,
+    target: "tab-entries",
+    label:  "Statement import",
+    title:  "Step 3 of 10: Import a bank statement — AI logs it all",
+    body:   "Skip manual entry entirely. In the Expense Entry tab, open 'Import PDF / Image' to upload a scanned bank statement or receipt — Trakit7 sends it to Gemini, extracts every transaction, and categorizes them all automatically. You can also import a standard bank CSV export using the 'Import CSV' section below it.",
   },
   {
-    target:  "tab-summary",
-    label:   "Summary tab",
-    title:   "Step 4 of 5: Your financial dashboard",
-    body:    "After a few entries, Summary shows your total spend, cash balance, liquidity coverage, Coach RBC's structured analysis, and trend charts, all in one view. Most users make it their daily starting point because everything relevant is visible without clicking through menus.",
-    arrowUp: true,
+    target: "tab-entries",
+    label:  "Budgets & bill tracker",
+    title:  "Step 4 of 10: Set spending limits and track bills",
+    body:   "Scroll down in Expense Entry to find the Budgets grid. Set an overall monthly spending cap and per-category limits — each card shows a live progress bar that turns amber at 75% and red when you breach the cap. The Bill Tracker beneath it lets you log recurring bills so you never miss a due date.",
   },
   {
-    target:  "tab-chat",
-    label:   "Ask Coach RBC tab",
-    title:   "Step 5 of 5: Ask Coach RBC anything",
-    body:    "Chat with your AI financial advisor anytime. She has full visibility into your current numbers: salary, cash balance, portfolio, emergency fund, and spending by category. Ask what you actually want to know and get a specific, data-grounded answer.",
-    arrowUp: true,
+    target: "tab-goals",
+    label:  "Goals tab",
+    title:  "Step 5 of 10: Set your salary and savings goals",
+    body:   "Open Goals and enter your monthly take-home salary. This unlocks the 50/30/20 budget tracker, starts the payday countdown, and sets your emergency fund target automatically from your actual essential spend. Add custom savings goals — Trakit7 calculates how much of your 'Wants' budget to redirect each month to hit each target on time.",
+  },
+  {
+    target: "tab-goals",
+    label:  "Emergency fund",
+    title:  "Step 6 of 10: Build your emergency fund separately",
+    body:   "The Emergency Fund panel in Goals tracks a dedicated pot of money that is completely separate from your main cash balance. Trakit7 sets the target at 6x your current month's essential spending and recalculates it fresh every month. Deposits and withdrawals are logged in their own dated ledger, distinct from your regular transactions.",
+  },
+  {
+    target: "tab-cash",
+    label:  "Cash & Investments tab",
+    title:  "Step 7 of 10: Anchor your opening balance",
+    body:   "Go to Cash & Investments and tell Trakit7 how much was in your account on a specific date — this is the anchor. From that point, your daily opening and closing balance is computed exactly from every transaction you log. No manual updates ever needed: the balance always stays in sync with your ledger.",
+  },
+  {
+    target: "tab-cash",
+    label:  "Investment portfolio",
+    title:  "Step 8 of 10: Track your full investment portfolio",
+    body:   "Below the cash balance, log every position you hold: Treasury bills, fixed-term notes, commercial papers, equities, savings accounts, mutual funds, ethical investments, life assurance, and pension. Each position shows accrued return, tenor progress, and live status. Your total portfolio value feeds directly into the net worth figure on Summary.",
+  },
+  {
+    target: "tab-summary",
+    label:  "Summary tab",
+    title:  "Step 9 of 10: Your complete financial dashboard",
+    body:   "After a few entries, Summary shows total spend, current cash balance, liquidity coverage (how many months your cash covers your essential bills), net worth, Coach RBC's structured analysis of your selected period, spend trend charts, and a category-by-category breakdown — all on one screen. Most users make it their daily starting point.",
+  },
+  {
+    target: "tab-chat",
+    label:  "Ask Coach RBC tab",
+    title:  "Step 10 of 10: Ask Coach RBC anything",
+    body:   "Chat with your AI financial advisor anytime. She already knows your salary, cash balance, portfolio breakdown, emergency fund status, and this month's spend by category. Ask about your spending habits, investment options, or savings strategy — or upload a bank statement, receipt, or document directly in the chat for instant AI analysis of the actual file.",
   },
 ];
 
@@ -108,6 +133,10 @@ export default function AppTour({ open, onClose }) {
   function next() {
     if (isLast) onClose();
     else setStep((s) => s + 1);
+  }
+
+  function back() {
+    if (step > 0) setStep((s) => s - 1);
   }
 
   return (
@@ -280,22 +309,42 @@ export default function AppTour({ open, onClose }) {
               Skip tour
             </button>
 
-            <button
-              onClick={next}
-              style={{
-                background:  "linear-gradient(135deg, var(--gold-deep), var(--gold))",
-                color:       "#fff",
-                fontFamily:  "var(--font-sans)",
-                fontSize:    13,
-                fontWeight:  600,
-                border:      "none",
-                borderRadius:8,
-                padding:     "8px 20px",
-                cursor:      "pointer",
-              }}
-            >
-              {isLast ? "Let's go! →" : "Next →"}
-            </button>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              {step > 0 && (
+                <button
+                  onClick={back}
+                  style={{
+                    background:  "var(--ink-3)",
+                    color:       "var(--ink-text-dim)",
+                    fontFamily:  "var(--font-sans)",
+                    fontSize:    13,
+                    fontWeight:  600,
+                    border:      "1px solid var(--rule)",
+                    borderRadius:8,
+                    padding:     "8px 16px",
+                    cursor:      "pointer",
+                  }}
+                >
+                  ← Back
+                </button>
+              )}
+              <button
+                onClick={next}
+                style={{
+                  background:  "linear-gradient(135deg, var(--gold-deep), var(--gold))",
+                  color:       "#fff",
+                  fontFamily:  "var(--font-sans)",
+                  fontSize:    13,
+                  fontWeight:  600,
+                  border:      "none",
+                  borderRadius:8,
+                  padding:     "8px 20px",
+                  cursor:      "pointer",
+                }}
+              >
+                {isLast ? "Let's go! →" : "Next →"}
+              </button>
+            </div>
           </div>
         </div>
       </div>

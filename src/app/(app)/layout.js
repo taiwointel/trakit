@@ -169,133 +169,136 @@ export default function AppLayout({ children }) {
   return (
     <div className="flex flex-col h-full min-h-screen" style={{ background: "var(--ink)" }}>
 
-      {/* ── Topbar ─────────────────────────────────────────── */}
+      {/* ── Topbar + mobile nav (sticky together) ─────────── */}
       <header
-        className="app-topbar flex items-center gap-3 px-4 py-2.5 border-b shrink-0"
+        className="app-topbar shrink-0 sticky top-0 z-30"
         style={{
           borderColor: "var(--rule)",
-          background: "linear-gradient(to bottom, var(--ink-2) 0%, rgba(29,35,44,0.95) 100%)",
-          backdropFilter: "blur(8px)",
+          background: "linear-gradient(to bottom, var(--ink-2) 0%, rgba(29,35,44,0.97) 100%)",
+          backdropFilter: "blur(10px)",
+          borderBottom: "1px solid var(--rule)",
         }}
       >
-        {/* Brand */}
-        <Trakit7Logo />
+        {/* Main topbar row */}
+        <div className="flex items-center gap-3 px-4 py-2.5">
+          {/* Brand */}
+          <Trakit7Logo />
 
-        {/* Desktop tabs */}
-        <nav className="hidden md:flex flex-1 overflow-x-auto hide-scrollbar">
-          <div className="flex gap-0.5 min-w-max mx-auto">
-            {TABS.map((tab) => {
-              const active = pathname === tab.href;
-              return (
-                <Link
-                  key={tab.href}
-                  href={tab.href}
-                  data-tour={`tab-${tab.href.slice(1)}`}
-                  className="px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-all border-b-2"
-                  style={{
-                    background:  active ? "var(--ink-3)" : "transparent",
-                    color:       active ? tab.color : "var(--ink-text-dim)",
-                    borderColor: active ? tab.color : "transparent",
-                    fontFamily:  "var(--font-sans)",
-                  }}
-                >
-                  {tab.label}
-                </Link>
-              );
-            })}
+          {/* Desktop tabs */}
+          <nav className="hidden md:flex flex-1 overflow-x-auto hide-scrollbar">
+            <div className="flex gap-0.5 min-w-max mx-auto">
+              {TABS.map((tab) => {
+                const active = pathname === tab.href;
+                return (
+                  <Link
+                    key={tab.href}
+                    href={tab.href}
+                    data-tour={`tab-${tab.href.slice(1)}`}
+                    className="px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-all border-b-2"
+                    style={{
+                      background:  active ? "var(--ink-3)" : "transparent",
+                      color:       active ? tab.color : "var(--ink-text-dim)",
+                      borderColor: active ? tab.color : "transparent",
+                      fontFamily:  "var(--font-sans)",
+                    }}
+                  >
+                    {tab.label}
+                  </Link>
+                );
+              })}
+            </div>
+          </nav>
+
+          {/* Mobile: current tab name centered */}
+          <div className="flex md:hidden flex-1 justify-center">
+            <span
+              className="text-sm font-semibold"
+              style={{ color: "var(--ink-text)", fontFamily: "var(--font-sans)" }}
+            >
+              {activeTab?.label ?? "Trakit7"}
+            </span>
           </div>
-        </nav>
 
-        {/* Mobile: current tab name centered */}
-        <div className="flex md:hidden flex-1 justify-center">
-          <span
-            className="text-sm font-semibold"
-            style={{ color: "var(--ink-text)", fontFamily: "var(--font-sans)" }}
+          {/* Search */}
+          <button
+            onClick={() => setSearchOpen(true)}
+            className="shrink-0 w-9 h-9 flex items-center justify-center rounded-lg transition-colors"
+            style={{ color: "var(--ink-text-dim)", background: "var(--ink-3)", border: "1px solid var(--rule)" }}
+            aria-label="Search transactions"
+            title="Search transactions (Ctrl+K)"
           >
-            {activeTab?.label ?? "Trakit7"}
-          </span>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+          </button>
+
+          {/* Theme toggle */}
+          <button
+            onClick={toggleTheme}
+            className="shrink-0 w-9 h-9 flex items-center justify-center rounded-lg transition-colors"
+            style={{ color: "var(--ink-text-dim)", background: "var(--ink-3)", border: "1px solid var(--rule)" }}
+            aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+            title={theme === "dark" ? "Light mode" : "Dark mode"}
+          >
+            {theme === "dark" ? <SunIcon /> : <MoonIcon />}
+          </button>
+
+          {/* Settings gear */}
+          <button
+            onClick={() => setSettingsOpen(true)}
+            data-tour="settings-btn"
+            className="shrink-0 w-9 h-9 flex items-center justify-center rounded-lg transition-colors"
+            style={{ color: "var(--ink-text-dim)", background: "var(--ink-3)", border: "1px solid var(--rule)" }}
+            aria-label="Open settings"
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+            </svg>
+          </button>
         </div>
 
-        {/* Search */}
-        <button
-          onClick={() => setSearchOpen(true)}
-          className="shrink-0 w-9 h-9 flex items-center justify-center rounded-lg transition-colors"
-          style={{ color: "var(--ink-text-dim)", background: "var(--ink-3)", border: "1px solid var(--rule)" }}
-          aria-label="Search transactions"
-          title="Search transactions (Ctrl+K)"
+        {/* ── Mobile horizontal tab nav (second row, top of page) ── */}
+        <nav
+          className="app-mobile-nav md:hidden flex overflow-x-auto hide-scrollbar border-t"
+          style={{
+            borderColor: "var(--rule)",
+            background: "rgba(20,27,36,0.6)",
+          }}
         >
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-          </svg>
-        </button>
-
-        {/* Theme toggle */}
-        <button
-          onClick={toggleTheme}
-          className="shrink-0 w-9 h-9 flex items-center justify-center rounded-lg transition-colors"
-          style={{ color: "var(--ink-text-dim)", background: "var(--ink-3)", border: "1px solid var(--rule)" }}
-          aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
-          title={theme === "dark" ? "Light mode" : "Dark mode"}
-        >
-          {theme === "dark" ? <SunIcon /> : <MoonIcon />}
-        </button>
-
-        {/* Settings gear */}
-        <button
-          onClick={() => setSettingsOpen(true)}
-          data-tour="settings-btn"
-          className="shrink-0 w-9 h-9 flex items-center justify-center rounded-lg transition-colors"
-          style={{ color: "var(--ink-text-dim)", background: "var(--ink-3)", border: "1px solid var(--rule)" }}
-          aria-label="Open settings"
-        >
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="3"/>
-            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-          </svg>
-        </button>
+          {TABS.map((tab) => {
+            const active = pathname === tab.href;
+            return (
+              <Link
+                key={tab.href}
+                href={tab.href}
+                data-tour={`tab-${tab.href.slice(1)}`}
+                className="flex-shrink-0 flex flex-col items-center justify-center gap-0.5 px-4 py-2 transition-colors"
+                style={{
+                  color:         active ? tab.color : "var(--ink-text-dim)",
+                  fontFamily:    "var(--font-sans)",
+                  minHeight:     48,
+                  borderBottom:  active ? `2px solid ${tab.color}` : "2px solid transparent",
+                  minWidth:      64,
+                }}
+              >
+                <span style={{ opacity: active ? 1 : 0.55 }}>{tab.icon}</span>
+                <span
+                  className="text-[9px] font-bold uppercase tracking-wide whitespace-nowrap"
+                  style={{ color: active ? tab.color : "var(--ink-text-dim)" }}
+                >
+                  {tab.shortLabel}
+                </span>
+              </Link>
+            );
+          })}
+        </nav>
       </header>
 
       {/* Page content */}
-      <main className="flex-1 overflow-y-auto pb-16 md:pb-0 flex flex-col">
+      <main className="flex-1 overflow-y-auto pb-4 flex flex-col">
         {children}
       </main>
-
-      {/* ── Mobile bottom navigation ───────────────────────── */}
-      <nav
-        className="app-bottom-nav md:hidden fixed bottom-0 left-0 right-0 z-30 flex border-t"
-        style={{
-          background: "var(--ink-2)",
-          borderColor: "var(--rule)",
-          boxShadow: "0 -4px 20px rgba(0,0,0,0.3)",
-        }}
-      >
-        {TABS.map((tab) => {
-          const active = pathname === tab.href;
-          return (
-            <Link
-              key={tab.href}
-              href={tab.href}
-              data-tour={`tab-${tab.href.slice(1)}`}
-              className="flex-1 flex flex-col items-center justify-center py-2 gap-0.5 transition-colors"
-              style={{
-                color:      active ? tab.color : "var(--ink-text-dim)",
-                fontFamily: "var(--font-sans)",
-                minHeight:  52,
-                borderTop:  active ? `2px solid ${tab.color}` : "2px solid transparent",
-                marginTop:  -1,
-              }}
-            >
-              <span style={{ opacity: active ? 1 : 0.6 }}>{tab.icon}</span>
-              <span
-                className="text-[9px] font-bold uppercase tracking-wide"
-                style={{ color: active ? tab.color : "var(--ink-text-dim)" }}
-              >
-                {tab.shortLabel}
-              </span>
-            </Link>
-          );
-        })}
-      </nav>
 
       {/* Settings drawer */}
       <SettingsDrawer

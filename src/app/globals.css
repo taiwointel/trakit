@@ -204,9 +204,8 @@ select {
   box-shadow: 0 1px 16px rgba(0,0,0,0.06);
 }
 
-[data-theme="light"] .app-bottom-nav {
-  background: #FFFFFF !important;
-  box-shadow: 0 -2px 16px rgba(0,0,0,0.06);
+[data-theme="light"] .app-mobile-nav {
+  background: rgba(255,255,255,0.7) !important;
 }
 
 /* ── Layout / section system ──────────────────────────────── */
@@ -388,20 +387,24 @@ select {
   }
 }
 
-/* Stats strip — horizontal scroll on mobile */
+/* Stats strip — 2-col grid on mobile, 5-col on desktop */
 .stats-strip-scroll {
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
+  /* passthrough — no longer scrolls */
 }
-.stats-strip-scroll::-webkit-scrollbar { display: none; }
 .stats-strip-grid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(110px, 1fr));
+  grid-template-columns: 1fr 1fr;
   gap: 8px;
-  min-width: 600px;
 }
-@media (min-width: 700px) {
-  .stats-strip-grid { min-width: 0; }
+/* 5th item spans full width on mobile so it isn't orphaned */
+.stats-strip-grid > *:nth-child(5) {
+  grid-column: span 2;
+}
+@media (min-width: 640px) {
+  .stats-strip-grid {
+    grid-template-columns: repeat(5, 1fr);
+  }
+  .stats-strip-grid > *:nth-child(5) {
+    grid-column: span 1;
+  }
 }

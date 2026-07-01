@@ -13,6 +13,39 @@ import RbcIllustration      from "@/components/RbcIllustration";
 import { closingBalance, liquidityCoverage } from "@/lib/cashBalance";
 import { maturityCalc, balanceNetValue }     from "@/lib/investments";
 
+function getTimeOfDay() {
+  const h = new Date().getHours();
+  if (h >= 5  && h < 12) return { label: "Good morning",  icon: "sun" };
+  if (h >= 12 && h < 17) return { label: "Good afternoon", icon: "sun" };
+  if (h >= 17 && h < 21) return { label: "Good evening",  icon: "moon" };
+  return { label: "Good night", icon: "moon" };
+}
+
+function TimeIcon({ type }) {
+  if (type === "moon") {
+    return (
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"
+        style={{ color: "#9DA3C8", filter: "drop-shadow(0 0 8px rgba(157,163,200,0.6))" }}>
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" fill="rgba(157,163,200,0.18)" />
+      </svg>
+    );
+  }
+  return (
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"
+      style={{ color: "#E8920A", filter: "drop-shadow(0 0 10px rgba(232,146,10,0.7))" }}>
+      <circle cx="12" cy="12" r="5" fill="rgba(232,146,10,0.22)" />
+      <line x1="12" y1="1" x2="12" y2="3" />
+      <line x1="12" y1="21" x2="12" y2="23" />
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+      <line x1="1" y1="12" x2="3" y2="12" />
+      <line x1="21" y1="12" x2="23" y2="12" />
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+    </svg>
+  );
+}
+
 const SUGGESTED_PROMPTS = [
   "How am I tracking against the 50/30/20 rule this month?",
   "What are my biggest discretionary expenses and where can I cut?",
@@ -335,6 +368,7 @@ export default function ChatPage() {
 
   const isEmpty = messages.length === 0 && !isLoading;
   const firstName = name ? name.split(" ")[0] : null;
+  const tod = getTimeOfDay();
 
   return (
     <div className="flex flex-col flex-1 min-h-0">
@@ -408,11 +442,21 @@ export default function ChatPage() {
               </div>
 
               <div className="text-center">
+                <div className="flex items-center justify-center gap-2.5 mb-1">
+                  <TimeIcon type={tod.icon} />
+                  <p
+                    className="font-bold leading-tight"
+                    style={{ color: "var(--ink-text)", fontFamily: "var(--font-serif)", fontSize: "1.6rem" }}
+                  >
+                    {firstName ? `${tod.label}, ${firstName}` : tod.label}
+                  </p>
+                  <TimeIcon type={tod.icon} />
+                </div>
                 <p
-                  className="font-bold leading-tight"
-                  style={{ color: "var(--ink-text)", fontFamily: "var(--font-serif)", fontSize: "1.6rem" }}
+                  className="font-medium mt-1"
+                  style={{ color: "var(--gold)", fontFamily: "var(--font-serif)", fontSize: "1.1rem" }}
                 >
-                  {firstName ? `Hey ${firstName}, I'm Coach RBC 👋` : "Hey, I'm Coach RBC 👋"}
+                  I&apos;m Coach RBC — your financial advisor
                 </p>
                 <p
                   className="text-sm mt-2 max-w-xs mx-auto leading-relaxed"

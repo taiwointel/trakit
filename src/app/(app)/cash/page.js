@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { useEntries }       from "@/hooks/useEntries";
 import { useCashBalance }   from "@/hooks/useCashBalance";
 import { useInvestments }   from "@/hooks/useInvestments";
@@ -25,8 +25,10 @@ export default function CashPage() {
     addTransaction, bulkAddTransactions, txnsFor,
   } = useInvestments();
 
-  const [anchorEditOpen, setAnchorEditOpen] = useState(false);
-  const [balTableOpen,   setBalTableOpen]   = useState(false);
+  const [anchorEditOpen,  setAnchorEditOpen]  = useState(false);
+  const [balTableOpen,    setBalTableOpen]    = useState(false);
+  const [addInvOpen,      setAddInvOpen]      = useState(false);
+  const addInvRef = useRef(null);
 
   const maturityInvs = useMemo(() => investments.filter((i) => i.group === "maturity"), [investments]);
   const balanceInvs  = useMemo(() => investments.filter((i) => i.group === "balance"),  [investments]);
@@ -143,9 +145,37 @@ export default function CashPage() {
           <PortfolioSummary investments={investments} transactions={transactions} />
         )}
 
-        {investments.length === 0 && (
+        {/* Log a new investment — lives here, immediately after the portfolio overview */}
+        <div
+          ref={addInvRef}
+          style={{ background: "var(--ink-2)", border: "1px solid var(--rule)", borderRadius: 16, overflow: "hidden" }}
+        >
+          <button
+            onClick={() => {
+              setAddInvOpen((v) => {
+                if (!v) setTimeout(() => addInvRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 50);
+                return !v;
+              });
+            }}
+            className="section-toggle"
+          >
+            <span className="section-toggle-label" style={{ color: "var(--gold)" }}>
+              + Log a New Investment
+            </span>
+            <span className="section-toggle-arrow">
+              {addInvOpen ? "▲ Collapse" : "▼ Add"}
+            </span>
+          </button>
+          {addInvOpen && (
+            <div style={{ padding: "16px 20px" }}>
+              <LogInvestmentForm onAdd={(data) => { addInvestment(data); setAddInvOpen(false); }} />
+            </div>
+          )}
+        </div>
+
+        {investments.length === 0 && !addInvOpen && (
           <p style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", fontSize: 14 }}>
-            No investments logged yet. Use the form below to add one.
+            No investments logged yet. Use the form above to add one.
           </p>
         )}
       </div>
@@ -264,21 +294,6 @@ export default function CashPage() {
         </>
       )}
 
-      {/* ── LOG A NEW INVESTMENT ──────────────────────────────────────────
-          Add form lives at the bottom — it's the occasional "I just got
-          a new T-bill" action, not the reason users open this page daily. */}
-      <div className="section-divider">
-        <div className="section-divider-bar" style={{ background: "var(--gold)" }} />
-        <span className="section-divider-label" style={{ color: "var(--gold)" }}>Log a New Investment</span>
-        <div className="section-divider-rule" />
-      </div>
-      <p className="section-desc">
-        Record a new investment position here. The portfolio summary above updates immediately to include it in your total net worth and your savings-rate calculation. All four investment types are supported: fixed-income, balance-based, life assurance, and pension.
-      </p>
-
-      <div className="section-body">
-        <LogInvestmentForm onAdd={addInvestment} />
-      </div>
 
     </div>
   );
