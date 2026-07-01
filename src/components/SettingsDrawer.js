@@ -45,10 +45,11 @@ export default function SettingsDrawer({ open, onClose }) {
   const [testing,    setTesting]    = useState(false);
 
   // ── Import state ──────────────────────────────────────────
-  const [importOpen,   setImportOpen]   = useState(false);
-  const [importJson,   setImportJson]   = useState("");
-  const [importing,    setImporting]    = useState(false);
-  const [importStatus, setImportStatus] = useState(null); // null | { ok, summary, errors }
+  const [importOpen,    setImportOpen]    = useState(false);
+  const [importJson,    setImportJson]    = useState("");
+  const [importReplace, setImportReplace] = useState(false);
+  const [importing,     setImporting]     = useState(false);
+  const [importStatus,  setImportStatus]  = useState(null); // null | { ok, summary, errors }
 
   // ── Account actions state ─────────────────────────────────
   const [signingOut,       setSigningOut]       = useState(false);
@@ -151,7 +152,7 @@ export default function SettingsDrawer({ open, onClose }) {
       const res  = await fetch("/api/migrate/import", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify(parsed),
+        body:    JSON.stringify({ ...parsed, replace: importReplace }),
       });
       const data = await res.json();
       setImportStatus(data);
@@ -515,6 +516,27 @@ export default function SettingsDrawer({ open, onClose }) {
                     }}
                   />
                 </div>
+
+                <label
+                  className="flex items-start gap-2.5 cursor-pointer select-none"
+                  style={{ fontFamily: "var(--font-sans)" }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={importReplace}
+                    onChange={(e) => setImportReplace(e.target.checked)}
+                    className="mt-0.5 shrink-0"
+                    style={{ accentColor: "var(--gold)", width: 14, height: 14 }}
+                  />
+                  <div>
+                    <span className="text-xs font-semibold" style={{ color: importReplace ? "var(--amber)" : "var(--ink-text-dim)" }}>
+                      Replace existing data
+                    </span>
+                    <p className="text-xs mt-0.5 leading-relaxed" style={{ color: "var(--ink-text-dim)" }}>
+                      Wipe all current entries, investments, budgets and goals first — use this to fix a duplicate import.
+                    </p>
+                  </div>
+                </label>
 
                 <button
                   onClick={handleImport}

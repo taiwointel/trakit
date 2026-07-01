@@ -28,6 +28,19 @@ export async function POST(request) {
   catch { return NextResponse.json({ error: "Invalid JSON payload." }, { status: 400 }); }
 
   const uid = user.id;
+
+  // ── Optional: wipe existing data before importing ─────────────
+  if (body.replace === true) {
+    const { data: ownInvestments } = await supabase
+      .from("investments").select("id").eq("user_id", uid);
+    const invIds = (ownInvestments || []).map((i) => i.id);
+    if (invIds.length) {
+      await supabase.from("investment_transactions").delete().in("investment_id", invIds);
+    }
+    for (const table of ["entries","budgets","cash_balance","investments","emergency_fund_transactions","custom_goals","goals"]) {
+      await supabase.from(table).delete().eq("user_id", uid);
+    }
+  }
   const summary = {
     entries: 0,
     budgets: false,
