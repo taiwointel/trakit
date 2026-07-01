@@ -86,7 +86,7 @@ export default function SpendTrendChart({ entries, from, to }) {
   const showValLabels = buckets.length <= 14;
 
   return (
-    <div className="rounded-xl p-5 flex flex-col gap-4" style={{ background: "var(--ink-2)", border: "1px solid var(--rule)" }}>
+    <div className="rounded-xl p-5 flex flex-col gap-4" style={{ background: "var(--ink-2)", border: "1px solid var(--rule)", overflow: "hidden" }}>
       <div className="flex items-center justify-between">
         <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>
           Spending trend

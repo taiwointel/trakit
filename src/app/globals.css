@@ -283,6 +283,11 @@ select {
   .grid-2 { grid-template-columns: 1fr; }
 }
 
+/* Prevent grid children from overflowing their cell on mobile */
+.grid-2 > * {
+  min-width: 0;
+}
+
 /* 3/2 split (hero left content + right widget) */
 .grid-hero {
   display: grid;

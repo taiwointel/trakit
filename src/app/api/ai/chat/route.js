@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
+export const maxDuration = 60;
+
 function buildPersona(name) {
   const n = name || "you";
   return `You are Coach RBC — a sharp, warm, no-nonsense personal finance coach. Your client's name is ${n}. You have deep knowledge of Nigerian financial products and context: naira volatility, high cost of essentials, PFAs, treasury bills, commercial papers, fixed deposit rates, equity markets, and the day-to-day realities of managing money in Nigeria. You are direct, encouraging, and never preachy. You give concrete, actionable advice. Always address ${n} by name. Keep responses clear and concise — typically 2–4 paragraphs unless a detailed breakdown adds real value.`;
@@ -8,7 +10,7 @@ function buildPersona(name) {
 
 export async function POST(request) {
   const body = await request.json();
-  const { messages, webSearch, snapshot } = body;
+  const { messages, webSearch, snapshot, files = [] } = body;
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -33,10 +35,10 @@ export async function POST(request) {
     if (settings?.provider === "groq" && settings.groq_key_encrypted) {
       const groqSystem = systemPrompt + (webSearch
         ? `\n\n${name || "The user"} has turned on web research. Use it to ground your answer in current information. When you cite something you found, name the source plainly. Rates, fees, and product terms change — always tell ${name || "them"} to verify the exact figure directly with the provider before acting on it. Never present yourself as executing a financial decision, only informing one.`
+        : "") + (files.length > 0
+        ? `\n\n${name} has attached ${files.length} file(s) to this message. File upload analysis is only supported when using Gemini. Ask ${name} to switch to Gemini in Settings to get AI analysis of uploaded documents and images.`
         : "");
 
-      // "groq/compound" runs Groq's agentic system with built-in real-time web search.
-      // Fall back to the plain chat model when search is off, since it's faster and cheaper.
       const groqModel = webSearch ? "groq/compound" : "llama-3.3-70b-versatile";
 
       const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -54,8 +56,6 @@ export async function POST(request) {
       });
       let data = await res.json();
       if (!res.ok && webSearch) {
-        // Compound model unavailable on this account/tier — retry on the standard model
-        // without ever telling the user search failed; just answer from training knowledge.
         const fallbackRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
           method: "POST",
           headers: {
@@ -79,6 +79,8 @@ export async function POST(request) {
     } else if (settings?.provider === "claude" && settings.claude_key_encrypted) {
       const claudeSystem = systemPrompt + (webSearch
         ? `\n\nWhen you use web search, always name your source explicitly and remind ${name || "the user"} that rates change — they should verify directly with the provider before acting. Never present yourself as executing a financial decision, only informing one.`
+        : "") + (files.length > 0
+        ? `\n\n${name} has attached ${files.length} file(s). File upload analysis requires Gemini. Let ${name} know they should switch to Gemini in Settings to use this feature.`
         : "");
 
       const claudeHeaders = {
@@ -105,28 +107,53 @@ export async function POST(request) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error?.message || "Claude error");
-      // Collect all text blocks (search may interleave tool_use + text blocks)
       const textBlocks = data.content?.filter((b) => b.type === "text") || [];
       reply = textBlocks.map((b) => b.text).join("") || "";
 
     } else {
-      // Gemini (default)
+      // Gemini (default) — supports multimodal via inline_data
       const key = settings?.gemini_key_encrypted;
       if (!key) throw new Error("No AI key configured. Open Settings and add one.");
 
       const geminiSystem = systemPrompt + (webSearch
         ? `\n\nWhen you use Google Search, always name your source explicitly and remind ${name || "the user"} that rates change — they should verify directly with the provider before acting. Never present yourself as executing a financial decision, only informing one.`
+        : "") + (files.length > 0
+        ? `\n\n${name} has uploaded ${files.length} file(s) for analysis. Read them carefully and give specific, detailed insights based on the actual content — amounts, dates, merchants, patterns you notice. Reference specific figures from the documents in your response.`
         : "");
 
-      const geminiContents = messages.map((m) => ({
-        role: m.role === "assistant" ? "model" : "user",
-        parts: [{ text: m.content }],
-      }));
+      // Build Gemini contents with multimodal support for the last user message
+      const geminiContents = messages.map((m, idx) => {
+        const isLastUser = idx === messages.length - 1 && m.role === "user";
+        const parts = [];
+
+        if (m.content && m.content.trim()) {
+          parts.push({ text: m.content });
+        }
+
+        // Attach uploaded files only to the current (last) user message
+        if (isLastUser && files.length > 0) {
+          for (const file of files) {
+            parts.push({
+              inline_data: {
+                mime_type: file.mimeType,
+                data: file.data,
+              },
+            });
+          }
+        }
+
+        if (parts.length === 0) parts.push({ text: "" });
+
+        return {
+          role: m.role === "assistant" ? "model" : "user",
+          parts,
+        };
+      });
 
       const geminiBody = {
         system_instruction: { parts: [{ text: geminiSystem }] },
         contents: geminiContents,
-        generationConfig: { temperature: 0.7, maxOutputTokens: 1000 },
+        generationConfig: { temperature: 0.7, maxOutputTokens: 1500 },
       };
       if (webSearch) {
         geminiBody.tools = [{ google_search: {} }];

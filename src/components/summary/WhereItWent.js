@@ -116,7 +116,7 @@ export default function WhereItWent({ entries }) {
     return (
       <div
         className="rounded-lg p-4 flex flex-col gap-3"
-        style={{ background: "var(--ink-2)", border: "1px solid var(--rule)" }}
+        style={{ background: "var(--ink-2)", border: "1px solid var(--rule)", overflow: "hidden" }}
       >
         <div className="flex items-center justify-between">
           <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--ink-text-dim)" }}>
@@ -131,7 +131,7 @@ export default function WhereItWent({ entries }) {
   return (
     <div
       className="rounded-lg p-4 flex flex-col gap-4"
-      style={{ background: "var(--ink-2)", border: "1px solid var(--rule)" }}
+      style={{ background: "var(--ink-2)", border: "1px solid var(--rule)", overflow: "hidden" }}
     >
       {/* Header + toggle */}
       <div className="flex items-center justify-between">

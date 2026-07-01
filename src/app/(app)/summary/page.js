@@ -209,7 +209,7 @@ export default function SummaryPage() {
         <div className="section-divider-rule" />
       </div>
       <p className="section-desc">
-        Your real-time financial position for this salary cycle: total spend, cash balance, liquidity coverage, and net worth. Every entry you add updates these figures instantly so you always know exactly where you stand.
+        How much you have spent since payday, what is sitting in your account right now, how many months that cash would cover your essential bills if your income stopped today, and your total net worth across cash and investments. Four numbers, full picture.
       </p>
 
       <div className="section-body">
@@ -281,7 +281,7 @@ export default function SummaryPage() {
         <div className="section-divider-rule" />
       </div>
       <p className="section-desc">
-        A full picture of where your money went this cycle. Charts surface patterns that raw transaction lists hide. Click any category in the explorer below the charts to drill into the individual transactions that made up the total.
+        The pie chart shows what share of your spending each category took this cycle so you can see at a glance if Dining is eating 30% while Savings barely registers. The trend chart shows whether you spent harder at the start or end of the cycle. Click any category row in the explorer below to expand it and see every individual transaction that went into the total.
       </p>
 
       <div className="section-body">
@@ -303,7 +303,7 @@ export default function SummaryPage() {
         <div className="section-divider-rule" />
       </div>
       <p className="section-desc">
-        Coach RBC analyses your actual spending data for any date range you choose and gives you specific, personalised guidance based on what the numbers say. Select a period and get a structured briefing, or ask her anything about your finances directly in the Chat tab.
+        Pick a date range, hit Get Coached, and Coach RBC reads your actual transaction data and writes a structured briefing in seconds. You get concrete findings like which category jumped 40% versus last period and a specific cut list with naira estimates attached. No generic advice. Switch to the Chat tab to upload a bank statement or ask her a follow-up question about anything she flagged.
       </p>
 
       <div className="section-body">
@@ -327,7 +327,7 @@ export default function SummaryPage() {
         <div className="section-divider-rule" />
       </div>
       <p className="section-desc">
-        Forward-looking projections and market data. The cycle forecast tells you whether your current spending pace will take you past salary before payday. The FX widget surfaces live Naira exchange rates for dollar-linked decisions. Your annual financial review is generated on demand.
+        The spend forecast does one job: it tells you if your current daily spending rate will drain your salary account before the next payday and by exactly how much. The FX widget pulls live USD, GBP, and Euro rates in Naira so you can make dollar-linked decisions without leaving the app. Annual Wrapped gives you a full-year financial summary generated on demand.
       </p>
 
       <div className="section-body">
@@ -359,7 +359,7 @@ export default function SummaryPage() {
         <div className="section-divider-rule" />
       </div>
       <p className="section-desc">
-        Patterns that are invisible in a single transaction become obvious when you see weeks of data at once. Recurring charges and subscriptions surface automatically. The spending heatmap shows which days and weeks you consistently spend the most, so you can anticipate and plan around them.
+        The recurring panel scans your transactions and flags entries that repeat monthly at similar amounts, like subscriptions, standing orders, and regular transfers, so you can see your committed overhead in one place without hunting through the ledger. The heatmap shows spending intensity across the calendar so you can spot which days or weeks you consistently overspend and plan around them.
       </p>
 
       <div className="section-body">
