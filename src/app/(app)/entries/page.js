@@ -123,22 +123,38 @@ export default function EntriesPage() {
         </div>
       )}
 
-      {/* ── 1. LOG AN ENTRY ───────────────────────────────────────────────
-          Primary action — sits at the top so the user can act immediately. */}
+      {/* ── 1. ADD ENTRIES ────────────────────────────────────────────────
+          Both input methods sit here: quick manual entry and bulk import.
+          They answer the same question ("how do I get data in?") and belong
+          together at the top of the page. */}
       <div className="section-divider">
         <div className="section-divider-bar" />
-        <span className="section-divider-label">Log an Entry</span>
+        <span className="section-divider-label">Add Entries</span>
         <div className="section-divider-rule" />
       </div>
 
       <div className="section-body">
+        {/* Manual entry */}
         <div style={{ background: "var(--ink-2)", border: "1px solid var(--rule)", borderRadius: 16, overflow: "hidden" }}>
           <EntryForm entries={entries} onAdd={addEntry} />
+        </div>
+
+        {/* Import — same section, equal prominence */}
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ flex: 1, height: 1, background: "var(--rule)" }} />
+          <span style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.1em", whiteSpace: "nowrap" }}>
+            or import from a bank statement
+          </span>
+          <div style={{ flex: 1, height: 1, background: "var(--rule)" }} />
+        </div>
+
+        <div style={{ background: "var(--ink-2)", border: "1px solid var(--rule)", borderRadius: 16, overflow: "hidden" }}>
+          <CsvImport onImported={() => window.location.reload()} />
         </div>
       </div>
 
       {/* ── 2. LEDGER ─────────────────────────────────────────────────────
-          Review follows action — see what was just logged and fix anything
+          Review follows entry — see what was just added and fix anything
           inline without switching context. */}
       <div className="section-divider">
         <div className="section-divider-bar" style={{ background: "var(--amber)" }} />
@@ -187,13 +203,13 @@ export default function EntriesPage() {
         </div>
       </div>
 
-      {/* ── 4. IMPORT & BILLS ─────────────────────────────────────────────
-          Power tools — used less frequently than logging or reviewing.
-          Collapsed by default so they don't visually compete with the
-          primary workflow above. */}
+      {/* ── 4. BILL TRACKER ───────────────────────────────────────────────
+          Recurring bill management — different from importing or logging,
+          this is ongoing tracking. Collapsible since it's not touched
+          every session. */}
       <div className="section-divider">
         <div className="section-divider-bar" style={{ background: "var(--teal)" }} />
-        <span className="section-divider-label" style={{ color: "var(--teal)" }}>Import &amp; Bills</span>
+        <span className="section-divider-label" style={{ color: "var(--teal)" }}>Bill Tracker</span>
         <div className="section-divider-rule" />
       </div>
 
@@ -203,19 +219,12 @@ export default function EntriesPage() {
             onClick={() => setToolsOpen((v) => !v)}
             className="section-toggle"
           >
-            <span className="section-toggle-label">CSV / PDF import &amp; bill tracker</span>
+            <span className="section-toggle-label">Recurring bills &amp; subscriptions</span>
             <span className="section-toggle-arrow">
               {toolsOpen ? "▲ Collapse" : "▼ Show"}
             </span>
           </button>
-          {toolsOpen && (
-            <div style={{ padding: "20px", display: "flex", flexDirection: "column", gap: 16 }}>
-              <div className="grid-2">
-                <BillTracker onLogEntry={addEntry} />
-                <CsvImport onImported={() => window.location.reload()} />
-              </div>
-            </div>
-          )}
+          {toolsOpen && <BillTracker onLogEntry={addEntry} />}
         </div>
       </div>
 
