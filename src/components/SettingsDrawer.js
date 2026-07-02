@@ -268,7 +268,10 @@ export default function SettingsDrawer({ open, onClose, onStartTour }) {
         body: JSON.stringify({ label: `Manual backup — ${new Date().toLocaleString("en-NG")}` }),
       });
       const d = await res.json();
-      if (!res.ok) { setBackupStatus(d.error || "Backup failed."); }
+      if (!res.ok) {
+        if (d.needsMigration) setNeedsMigration(true);
+        setBackupStatus(d.error || "Backup failed.");
+      }
       else {
         setBackups((prev) => [d.backup, ...prev]);
         setBackupStatus(`Backed up ${d.backup.entry_count} entries.`);

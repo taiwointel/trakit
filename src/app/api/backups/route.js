@@ -13,7 +13,7 @@ export async function GET() {
     .order("created_at", { ascending: false })
     .limit(20);
 
-  if (error?.code === "42P01") {
+  if (error?.code === "42P01" || error?.message?.includes("entry_backups") || error?.message?.includes("schema cache")) {
     return NextResponse.json({ backups: [], needsMigration: true });
   }
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -46,9 +46,9 @@ export async function POST(request) {
     .select("id, label, created_at, entry_count")
     .single();
 
-  if (error?.code === "42P01") {
+  if (error?.code === "42P01" || error?.message?.includes("entry_backups") || error?.message?.includes("schema cache")) {
     return NextResponse.json(
-      { error: "Backup table not set up yet. Run the migration in your Supabase SQL editor." },
+      { error: "Backup table not set up yet. Run the migration in your Supabase SQL editor.", needsMigration: true },
       { status: 400 },
     );
   }
