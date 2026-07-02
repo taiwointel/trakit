@@ -411,43 +411,46 @@ export default function SummaryPage() {
         @media print {
           .app-topbar, .app-bottom-nav, .page-root, [data-no-print] { display: none !important; }
           #print-report { display: block !important; }
-          body { background: #ffffff !important; margin: 0 !important; padding: 0 !important; }
-          @page { margin: 12mm 14mm; size: A4 portrait; }
+          body { background: #0F172A !important; margin: 0 !important; padding: 0 !important; }
+          @page { margin: 0; size: A4 portrait; }
         }
         #print-report { display: none; }
       `}</style>
 
-      {/* ── PRINT REPORT ── outside page-root so it isn't hidden by the print rule ── */}
-      <div id="print-report" style={{ fontFamily: "Arial, Helvetica, sans-serif", background: "#ffffff", color: "#15191F", minHeight: "100vh", padding: "0" }}>
+      {/* ── PRINT REPORT ── dark theme, outside page-root so it isn't hidden by the print rule ── */}
+      <div id="print-report" style={{ WebkitPrintColorAdjust: "exact", printColorAdjust: "exact", fontFamily: "Arial, Helvetica, sans-serif", background: "#0F172A", color: "#ECE9E1", minHeight: "100vh", padding: 0 }}>
 
-        {/* Gold top accent bar */}
-        <div style={{ height: 5, background: "linear-gradient(90deg, #C8862E 0%, #A9854F 60%, #8C4F5B 100%)" }} />
+        {/* Gold accent top bar */}
+        <div style={{ WebkitPrintColorAdjust: "exact", printColorAdjust: "exact", height: 6, background: "linear-gradient(90deg, #C8862E 0%, #A9854F 50%, #8C4F5B 100%)" }} />
 
-        {/* Header */}
-        <div style={{ padding: "28px 36px 20px", borderBottom: "2px solid #A9854F", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+        {/* Header band */}
+        <div style={{ WebkitPrintColorAdjust: "exact", printColorAdjust: "exact", background: "linear-gradient(135deg, #0A0F1E 0%, #1E1B4B 50%, #0F172A 100%)", padding: "30px 40px 22px", borderBottom: "2px solid rgba(169,133,79,0.4)", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
           <div>
-            <div style={{ fontFamily: "Georgia, serif", fontSize: 26, fontWeight: 700, color: "#A9854F", letterSpacing: -0.5 }}>Trakit7</div>
-            <div style={{ fontSize: 11, color: "#5B6472", marginTop: 3, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+            <div style={{ fontFamily: "Georgia, serif", fontSize: 28, fontWeight: 700, color: "#F5A623", letterSpacing: -0.5 }}>Trakit7</div>
+            <div style={{ fontSize: 10, color: "rgba(199,210,254,0.6)", marginTop: 4, letterSpacing: "0.1em", textTransform: "uppercase" }}>
               Financial Report &nbsp;·&nbsp; {periodLabel}
             </div>
           </div>
           <div style={{ textAlign: "right" }}>
-            <div style={{ fontSize: 10, color: "#5B6472", letterSpacing: "0.04em" }}>Generated</div>
-            <div style={{ fontSize: 12, color: "#15191F", fontFamily: "Courier New, monospace", fontWeight: 600, marginTop: 2 }}>
+            <div style={{ fontSize: 9, color: "rgba(148,163,184,0.55)", letterSpacing: "0.04em", textTransform: "uppercase" }}>Generated</div>
+            <div style={{ fontSize: 12, color: "#A9854F", fontFamily: "Courier New, monospace", fontWeight: 700, marginTop: 3 }}>
               {new Date().toLocaleDateString("en-NG", { day: "numeric", month: "long", year: "numeric" })}
             </div>
-            {name && <div style={{ fontSize: 11, color: "#5B6472", marginTop: 2 }}>{name}</div>}
+            {name && <div style={{ fontSize: 11, color: "rgba(148,163,184,0.5)", marginTop: 2 }}>{name}</div>}
           </div>
         </div>
 
+        {/* Spectrum bar */}
+        <div style={{ WebkitPrintColorAdjust: "exact", printColorAdjust: "exact", height: 3, background: "linear-gradient(90deg, #7C3AED 0%, #EC4899 25%, #F59E0B 50%, #10B981 75%, #3B82F6 100%)" }} />
+
         {/* Hero stat */}
-        <div style={{ padding: "28px 36px 22px", textAlign: "center", borderBottom: "1px solid #E3DFD2", background: "#F6F3EC" }}>
-          <div style={{ fontSize: 10, color: "#5B6472", textTransform: "uppercase", letterSpacing: "0.18em", marginBottom: 8 }}>Total Expenses</div>
-          <div style={{ fontFamily: "Georgia, serif", fontSize: 48, fontWeight: 700, color: "#15191F", letterSpacing: -2, lineHeight: 1 }}>{formatNaira(monthOut)}</div>
+        <div style={{ WebkitPrintColorAdjust: "exact", printColorAdjust: "exact", background: "linear-gradient(180deg, #0F172A 0%, #1E293B 100%)", padding: "36px 40px 28px", textAlign: "center", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+          <div style={{ fontSize: 9, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.2em", marginBottom: 10 }}>Total Expenses</div>
+          <div style={{ fontFamily: "Georgia, serif", fontSize: 58, fontWeight: 700, color: "#F1F5F9", letterSpacing: -3, lineHeight: 1 }}>{formatNaira(monthOut)}</div>
           {prevOut > 0 && (
-            <div style={{ marginTop: 10 }}>
-              <span style={{ display: "inline-block", border: `1.5px solid ${delta > 0 ? "#B8392B" : "#2F7A56"}`, borderRadius: 20, padding: "3px 14px" }}>
-                <span style={{ fontFamily: "Courier New, monospace", fontSize: 12, color: delta > 0 ? "#B8392B" : "#2F7A56", fontWeight: 700 }}>
+            <div style={{ marginTop: 14 }}>
+              <span style={{ WebkitPrintColorAdjust: "exact", printColorAdjust: "exact", display: "inline-block", background: delta > 0 ? "rgba(239,68,68,0.15)" : "rgba(16,185,129,0.15)", border: `1px solid ${delta > 0 ? "rgba(239,68,68,0.4)" : "rgba(16,185,129,0.4)"}`, borderRadius: 20, padding: "5px 16px" }}>
+                <span style={{ fontFamily: "Courier New, monospace", fontSize: 13, color: delta > 0 ? "#FCA5A5" : "#6EE7B7", fontWeight: 700 }}>
                   {delta > 0 ? "↑" : "↓"} {formatNaira(Math.abs(delta))} vs prior period
                 </span>
               </span>
@@ -456,82 +459,95 @@ export default function SummaryPage() {
         </div>
 
         {/* Quick stats row */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 0, borderBottom: "1px solid #E3DFD2" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 0, borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
           {[
-            { label: "Transactions", value: `${cycleTxCount}` },
-            { label: "Daily Average", value: formatNaira(cycleDailyAvg, { compact: true }) },
-            { label: "Essential", value: `${essPct}%` },
-            { label: "Income In", value: cycleIn > 0 ? formatNaira(cycleIn, { compact: true }) : "—" },
+            { label: "Transactions", value: `${cycleTxCount}`, accent: "#A9854F" },
+            { label: "Daily Average", value: formatNaira(cycleDailyAvg, { compact: true }), accent: "#5B8FA8" },
+            { label: "Essential", value: `${essPct}%`, accent: "#7C8C5B" },
+            { label: "Income In", value: cycleIn > 0 ? formatNaira(cycleIn, { compact: true }) : "—", accent: "#5BA88A" },
           ].map((s, i) => (
-            <div key={i} style={{ padding: "16px 18px", textAlign: "center", borderRight: i < 3 ? "1px solid #E3DFD2" : "none", background: i % 2 === 0 ? "#F6F3EC" : "#ffffff" }}>
-              <div style={{ fontSize: 9, color: "#5B6472", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 5 }}>{s.label}</div>
-              <div style={{ fontFamily: "Courier New, monospace", fontSize: 16, color: "#15191F", fontWeight: 700 }}>{s.value}</div>
+            <div key={i} style={{ WebkitPrintColorAdjust: "exact", printColorAdjust: "exact", padding: "18px 16px", textAlign: "center", borderRight: i < 3 ? "1px solid rgba(255,255,255,0.06)" : "none", background: i % 2 === 0 ? "#1E293B" : "#0F172A", borderTop: `3px solid ${s.accent}` }}>
+              <div style={{ fontSize: 8, color: "#64748B", textTransform: "uppercase", letterSpacing: "0.14em", marginBottom: 6 }}>{s.label}</div>
+              <div style={{ fontFamily: "Courier New, monospace", fontSize: 17, color: s.accent, fontWeight: 700 }}>{s.value}</div>
             </div>
           ))}
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0 }}>
-          {/* Category breakdown */}
-          <div style={{ padding: "24px 28px", borderRight: "1px solid #E3DFD2" }}>
-            <div style={{ fontSize: 10, color: "#A9854F", textTransform: "uppercase", letterSpacing: "0.14em", fontWeight: 700, marginBottom: 14, paddingBottom: 6, borderBottom: "1px solid #E3DFD2" }}>Where it went</div>
+        {/* Two-column body */}
+        <div style={{ display: "grid", gridTemplateColumns: "55% 45%", gap: 0 }}>
+
+          {/* Left: Category breakdown */}
+          <div style={{ WebkitPrintColorAdjust: "exact", printColorAdjust: "exact", padding: "26px 30px", borderRight: "1px solid rgba(255,255,255,0.07)", background: "#0F172A" }}>
+            <div style={{ fontSize: 9, color: "#A9854F", textTransform: "uppercase", letterSpacing: "0.16em", fontWeight: 700, marginBottom: 16, paddingBottom: 8, borderBottom: "1px solid rgba(169,133,79,0.2)", display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ WebkitPrintColorAdjust: "exact", printColorAdjust: "exact", display: "inline-block", width: 3, height: 12, background: "#A9854F", borderRadius: 2 }} />
+              Where it went
+            </div>
             {byCategory.slice(0, 8).map(([cat, amt], idx) => {
               const pct = monthOut > 0 ? (amt / monthOut) * 100 : 0;
-              const colors = ["#A9854F","#5B8FA8","#7C8C5B","#A8645B","#8A6FA8","#A89A5B","#5BA88A","#A85B86"];
-              const color  = colors[idx % colors.length];
+              const catColors = ["#A9854F","#5B8FA8","#7C8C5B","#A8645B","#8A6FA8","#A89A5B","#5BA88A","#A85B86"];
+              const color = catColors[idx % catColors.length];
               return (
-                <div key={cat} style={{ marginBottom: 9 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 3 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <div style={{ width: 7, height: 7, borderRadius: "50%", background: color, flexShrink: 0 }} />
-                      <span style={{ fontSize: 11, color: idx < 3 ? "#15191F" : "#5B6472", fontWeight: idx < 3 ? 700 : 400 }}>{cat}</span>
+                <div key={cat} style={{ marginBottom: 11 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                      <div style={{ WebkitPrintColorAdjust: "exact", printColorAdjust: "exact", width: 7, height: 7, borderRadius: "50%", background: color, flexShrink: 0 }} />
+                      <span style={{ fontSize: 11, color: idx < 3 ? "#ECE9E1" : "rgba(236,233,225,0.55)", fontWeight: idx < 3 ? 700 : 400 }}>{cat}</span>
                     </div>
                     <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                      <span style={{ fontSize: 10, color: "#5B6472", fontFamily: "Courier New, monospace" }}>{pct.toFixed(0)}%</span>
-                      <span style={{ fontSize: 11.5, color, fontFamily: "Courier New, monospace", fontWeight: 700 }}>{formatNaira(amt, { compact: true })}</span>
+                      <span style={{ fontSize: 9, color: "rgba(148,163,184,0.5)", fontFamily: "Courier New, monospace" }}>{pct.toFixed(0)}%</span>
+                      <span style={{ fontSize: 12, color, fontFamily: "Courier New, monospace", fontWeight: 700 }}>{formatNaira(amt, { compact: true })}</span>
                     </div>
                   </div>
-                  <div style={{ height: 4, background: "#E3DFD2", borderRadius: 3 }}>
-                    <div style={{ height: 4, width: `${pct}%`, background: color, borderRadius: 3 }} />
+                  <div style={{ WebkitPrintColorAdjust: "exact", printColorAdjust: "exact", height: 5, background: "rgba(255,255,255,0.07)", borderRadius: 3 }}>
+                    <div style={{ WebkitPrintColorAdjust: "exact", printColorAdjust: "exact", height: 5, width: `${pct}%`, background: color, borderRadius: 3 }} />
                   </div>
                 </div>
               );
             })}
           </div>
 
-          {/* Right column: essential/disc split + cash */}
-          <div style={{ padding: "24px 28px" }}>
-            <div style={{ fontSize: 10, color: "#A9854F", textTransform: "uppercase", letterSpacing: "0.14em", fontWeight: 700, marginBottom: 14, paddingBottom: 6, borderBottom: "1px solid #E3DFD2" }}>Spend breakdown</div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 20 }}>
-              <div style={{ border: "1.5px solid #2F7A56", borderRadius: 8, padding: "12px" }}>
-                <div style={{ fontSize: 9, color: "#2F7A56", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 5 }}>Essential</div>
-                <div style={{ fontFamily: "Courier New, monospace", fontSize: 15, color: "#15191F", fontWeight: 700 }}>{formatNaira(cycleEssential, { compact: true })}</div>
-                <div style={{ fontSize: 10, color: "#5B6472", marginTop: 2 }}>{essPct}% of spend</div>
+          {/* Right: breakdown + liquidity */}
+          <div style={{ WebkitPrintColorAdjust: "exact", printColorAdjust: "exact", padding: "26px 26px", background: "#0A0F1A" }}>
+
+            <div style={{ fontSize: 9, color: "#EC4899", textTransform: "uppercase", letterSpacing: "0.16em", fontWeight: 700, marginBottom: 12, paddingBottom: 8, borderBottom: "1px solid rgba(236,72,153,0.2)", display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ WebkitPrintColorAdjust: "exact", printColorAdjust: "exact", display: "inline-block", width: 3, height: 12, background: "#EC4899", borderRadius: 2 }} />
+              Spend Breakdown
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 22 }}>
+              <div style={{ WebkitPrintColorAdjust: "exact", printColorAdjust: "exact", background: "rgba(47,122,86,0.12)", border: "1px solid rgba(47,122,86,0.35)", borderTop: "3px solid #2F7A56", borderRadius: 8, padding: "12px 10px" }}>
+                <div style={{ fontSize: 8, color: "#4ADE80", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>Essential</div>
+                <div style={{ fontFamily: "Courier New, monospace", fontSize: 14, color: "#6EE7B7", fontWeight: 700 }}>{formatNaira(cycleEssential, { compact: true })}</div>
+                <div style={{ fontSize: 9, color: "rgba(110,231,183,0.55)", marginTop: 3 }}>{essPct}%</div>
               </div>
-              <div style={{ border: "1.5px solid #C8862E", borderRadius: 8, padding: "12px" }}>
-                <div style={{ fontSize: 9, color: "#C8862E", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 5 }}>Discretionary</div>
-                <div style={{ fontFamily: "Courier New, monospace", fontSize: 15, color: "#15191F", fontWeight: 700 }}>{formatNaira(cycleDiscretionary, { compact: true })}</div>
-                <div style={{ fontSize: 10, color: "#5B6472", marginTop: 2 }}>{discPct}% of spend</div>
+              <div style={{ WebkitPrintColorAdjust: "exact", printColorAdjust: "exact", background: "rgba(200,134,46,0.12)", border: "1px solid rgba(200,134,46,0.35)", borderTop: "3px solid #C8862E", borderRadius: 8, padding: "12px 10px" }}>
+                <div style={{ fontSize: 8, color: "#FCD34D", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>Discretionary</div>
+                <div style={{ fontFamily: "Courier New, monospace", fontSize: 14, color: "#FCD34D", fontWeight: 700 }}>{formatNaira(cycleDiscretionary, { compact: true })}</div>
+                <div style={{ fontSize: 9, color: "rgba(252,211,77,0.55)", marginTop: 3 }}>{discPct}%</div>
               </div>
             </div>
 
-            <div style={{ fontSize: 10, color: "#A9854F", textTransform: "uppercase", letterSpacing: "0.14em", fontWeight: 700, marginBottom: 10, paddingBottom: 6, borderBottom: "1px solid #E3DFD2" }}>Cash &amp; Liquidity</div>
+            <div style={{ fontSize: 9, color: "#3B82F6", textTransform: "uppercase", letterSpacing: "0.16em", fontWeight: 700, marginBottom: 12, paddingBottom: 8, borderBottom: "1px solid rgba(59,130,246,0.2)", display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ WebkitPrintColorAdjust: "exact", printColorAdjust: "exact", display: "inline-block", width: 3, height: 12, background: "#3B82F6", borderRadius: 2 }} />
+              Cash &amp; Liquidity
+            </div>
             {[
               { label: "Current Balance", value: formatNaira(currentBalance) },
               { label: "Avg Monthly Essentials", value: avgEssential ? formatNaira(avgEssential, { compact: true }) : "—" },
               { label: "Liquidity Coverage", value: `${months?.toFixed(1) ?? "0.0"} months` },
             ].map((r, i) => (
-              <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "7px 0", borderBottom: "1px solid #EDE9E1" }}>
-                <span style={{ fontSize: 11, color: "#5B6472" }}>{r.label}</span>
-                <span style={{ fontFamily: "Courier New, monospace", fontSize: 11.5, color: "#15191F", fontWeight: 700 }}>{r.value}</span>
+              <div key={i} style={{ WebkitPrintColorAdjust: "exact", printColorAdjust: "exact", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: "1px solid rgba(255,255,255,0.05)", background: "transparent" }}>
+                <span style={{ fontSize: 10, color: "rgba(148,163,184,0.65)" }}>{r.label}</span>
+                <span style={{ fontFamily: "Courier New, monospace", fontSize: 11, color: "#ECE9E1", fontWeight: 700 }}>{r.value}</span>
               </div>
             ))}
 
             {cycleIn > 0 && (
-              <div style={{ marginTop: 18, border: "1.5px solid #2F7A56", borderLeft: "4px solid #2F7A56", borderRadius: 8, padding: "12px" }}>
-                <div style={{ fontSize: 9, color: "#2F7A56", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 5 }}>Income This Cycle</div>
-                <div style={{ fontFamily: "Courier New, monospace", fontSize: 15, color: "#2F7A56", fontWeight: 700 }}>+{formatNaira(cycleIn)}</div>
-                <div style={{ fontSize: 10, color: "#5B6472", marginTop: 2 }}>
-                  Net: <span style={{ color: cycleIn >= monthOut ? "#2F7A56" : "#B8392B", fontWeight: 700 }}>{cycleIn >= monthOut ? "+" : ""}{formatNaira(cycleIn - monthOut)}</span>
+              <div style={{ WebkitPrintColorAdjust: "exact", printColorAdjust: "exact", marginTop: 16, background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.25)", borderLeft: "4px solid #10B981", borderRadius: 8, padding: "12px 10px" }}>
+                <div style={{ fontSize: 8, color: "#10B981", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 5 }}>Income This Cycle</div>
+                <div style={{ fontFamily: "Courier New, monospace", fontSize: 14, color: "#6EE7B7", fontWeight: 700 }}>+{formatNaira(cycleIn)}</div>
+                <div style={{ fontSize: 9, color: "rgba(110,231,183,0.55)", marginTop: 3 }}>
+                  Net: <span style={{ color: cycleIn >= monthOut ? "#6EE7B7" : "#FCA5A5", fontWeight: 700 }}>{cycleIn >= monthOut ? "+" : ""}{formatNaira(cycleIn - monthOut)}</span>
                 </div>
               </div>
             )}
@@ -539,10 +555,15 @@ export default function SummaryPage() {
         </div>
 
         {/* Footer */}
-        <div style={{ padding: "16px 36px", textAlign: "center", borderTop: "2px solid #A9854F", marginTop: 8 }}>
-          <div style={{ fontFamily: "Georgia, serif", fontSize: 13, color: "#A9854F", fontWeight: 700, marginBottom: 3 }}>Trakit7</div>
-          <div style={{ fontSize: 9, color: "#5B6472", letterSpacing: "0.04em" }}>Your personal finance tracker &nbsp;·&nbsp; trakit-seven.vercel.app</div>
+        <div style={{ WebkitPrintColorAdjust: "exact", printColorAdjust: "exact", background: "linear-gradient(135deg, #0A0F1E 0%, #1E1B4B 100%)", padding: "18px 40px", display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(169,133,79,0.25)" }}>
+          <div>
+            <div style={{ fontFamily: "Georgia, serif", fontSize: 15, color: "#F5A623", fontWeight: 700 }}>Trakit7</div>
+            <div style={{ fontSize: 9, color: "rgba(148,163,184,0.4)", marginTop: 2, letterSpacing: "0.04em" }}>trakit-seven.vercel.app</div>
+          </div>
+          <div style={{ fontSize: 9, color: "rgba(148,163,184,0.35)", letterSpacing: "0.04em" }}>Your personal finance tracker</div>
         </div>
+        {/* Bottom spectrum */}
+        <div style={{ WebkitPrintColorAdjust: "exact", printColorAdjust: "exact", height: 4, background: "linear-gradient(90deg, #10B981 0%, #3B82F6 33%, #8B5CF6 66%, #EC4899 100%)" }} />
       </div>
 
       <div className="page-root">
