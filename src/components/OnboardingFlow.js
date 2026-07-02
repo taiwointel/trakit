@@ -423,9 +423,9 @@ export default function OnboardingFlow({ userName }) {
             icon={<IconWave />}
             badge="Quick setup — 2 providers, ~3 minutes"
             title={`Hey ${name}, let's power up Coach RBC 👋`}
-            body="Trakit7 uses two free AI providers — Groq and Gemini — to categorize expenses, generate insights, and run Coach RBC. You will connect both now. No payment or credit card is required for either."
+            body="Trakit7 uses two free AI providers — Groq (not Grok) and Gemini — to categorize expenses, generate insights, and run Coach RBC. You will connect both now. No payment or credit card is required for either."
             onNext={() => setStep(1)}
-            nextLabel="Start with Groq →"
+            nextLabel="Start with Groq (not Grok) →"
           />
         </OverlayShell>
       );
@@ -438,9 +438,9 @@ export default function OnboardingFlow({ userName }) {
           <ProviderProgress groqDone={false} geminiDone={false} />
           <StepCard
             icon={<IconBrowser color="#A9854F" />}
-            badge="Groq · Step 1 of 3"
+            badge="Groq (not Grok) · Step 1 of 3"
             title="Open the Groq console"
-            body="In a new tab, go to console.groq.com and create a free account. Sign up with email or Google. No credit card needed at any point."
+            body="In a new tab, go to console.groq.com and create a free account. Sign up with email or Google. No credit card needed at any point. Note: this is Groq — G·R·O·Q — not Grok, Elon Musk's chatbot."
             extra={
               <div className="flex items-center justify-between px-4 py-3 rounded-xl" style={{ background: "var(--ink-3)", border: "1px solid var(--rule)" }}>
                 <span style={{ color: "var(--ink-text)", fontFamily: "var(--font-mono)", fontSize: "0.9rem" }}>console.groq.com</span>
