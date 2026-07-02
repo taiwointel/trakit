@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter, usePathname } from "next/navigation";
 
 const STEPS = [
@@ -100,11 +100,56 @@ export default function AppTour({ open, onClose }) {
 
   const [step,       setStep]       = useState(0);
   const [navigating, setNavigating] = useState(false);
+  const [dragPos,    setDragPos]    = useState(null); // null = default pinned position
+  const cardRef  = useRef(null);
+  const dragState = useRef({ active: false, moved: false, startX: 0, startY: 0, originX: 0, originY: 0 });
 
-  // Reset when tour opens
+  // Reset drag + state when tour opens or step changes
   useEffect(() => {
-    if (open) { setStep(0); setNavigating(false); }
+    if (open) { setStep(0); setNavigating(false); setDragPos(null); }
   }, [open]);
+  useEffect(() => { setDragPos(null); }, [step]);
+
+  const onPointerDown = useCallback((e) => {
+    // Don't start drag from interactive elements
+    if (e.target.closest("button,a,input,select,textarea")) return;
+    const isTouch = e.type === "touchstart";
+    const cx = isTouch ? e.touches[0].clientX : e.clientX;
+    const cy = isTouch ? e.touches[0].clientY : e.clientY;
+    const rect = cardRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    dragState.current = { active: true, moved: false, startX: cx, startY: cy, originX: rect.left, originY: rect.top };
+    if (!isTouch) e.preventDefault();
+
+    function onMove(ev) {
+      if (!dragState.current.active) return;
+      const mx = ev.touches ? ev.touches[0].clientX : ev.clientX;
+      const my = ev.touches ? ev.touches[0].clientY : ev.clientY;
+      const dx = mx - dragState.current.startX;
+      const dy = my - dragState.current.startY;
+      if (!dragState.current.moved && Math.hypot(dx, dy) < 5) return; // threshold before drag starts
+      dragState.current.moved = true;
+      const W  = window.innerWidth;
+      const H  = window.innerHeight;
+      const tw = cardRef.current?.offsetWidth  || 620;
+      const th = cardRef.current?.offsetHeight || 240;
+      setDragPos({
+        x: Math.max(8, Math.min(dragState.current.originX + dx, W - tw - 8)),
+        y: Math.max(8, Math.min(dragState.current.originY + dy, H - th - 8)),
+      });
+    }
+    function onUp() {
+      dragState.current.active = false;
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup",   onUp);
+      window.removeEventListener("touchmove", onMove);
+      window.removeEventListener("touchend",  onUp);
+    }
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup",   onUp);
+    window.addEventListener("touchmove", onMove, { passive: false });
+    window.addEventListener("touchend",  onUp);
+  }, []);
 
   // Navigate + scroll the target into view on each step change
   useEffect(() => {
@@ -171,16 +216,22 @@ export default function AppTour({ open, onClose }) {
         }` : ""}
       `}</style>
 
-      {/* Tooltip — pinned to bottom center, always visible */}
+      {/* Tooltip — draggable; defaults to bottom center */}
       <div
+        ref={cardRef}
+        onMouseDown={onPointerDown}
+        onTouchStart={onPointerDown}
         style={{
           position:     "fixed",
-          bottom:       20,
-          left:         "50%",
-          transform:    "translateX(-50%)",
+          ...(dragPos
+            ? { top: dragPos.y, left: dragPos.x, transform: "none" }
+            : { bottom: 20, left: "50%", transform: "translateX(-50%)" }),
           width:        "min(620px, calc(100vw - 20px))",
           zIndex:       9999,
           pointerEvents:"all",
+          cursor:       "grab",
+          userSelect:   "none",
+          touchAction:  "none",
         }}
       >
         <div style={{
@@ -272,6 +323,7 @@ export default function AppTour({ open, onClose }) {
                 border:     "none",
                 cursor:     "pointer",
                 padding:    "6px 0",
+                userSelect: "none",
               }}
             >
               End tour
