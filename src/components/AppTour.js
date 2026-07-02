@@ -84,7 +84,7 @@ const STEPS = [
 ];
 
 const SPOT_PAD = 10;
-const TOOLTIP_W = 520;
+const TOOLTIP_W = 680;
 
 function findVisibleEl(tourId) {
   const els = document.querySelectorAll(`[data-tour="${tourId}"]`);
@@ -340,7 +340,7 @@ export default function AppTour({ open, onClose }) {
           border:       "1px solid var(--rule)",
           borderTop:    "3px solid var(--gold)",
           borderRadius: 16,
-          padding:      "18px 22px 18px",
+          padding:      "12px 22px 14px",
           boxShadow:    "0 24px 72px rgba(0,0,0,0.7)",
         }}>
 
@@ -353,9 +353,9 @@ export default function AppTour({ open, onClose }) {
               display:       "flex",
               justifyContent:"center",
               alignItems:    "center",
-              marginBottom:  12,
+              marginBottom:  6,
               cursor:        "grab",
-              padding:       "2px 0 4px",
+              padding:       "0 0 2px",
               touchAction:   "none",
               userSelect:    "none",
             }}
@@ -364,7 +364,7 @@ export default function AppTour({ open, onClose }) {
           </div>
 
           {/* Progress pips + step counter */}
-          <div style={{ display: "flex", gap: 5, marginBottom: 14, alignItems: "center" }}>
+          <div style={{ display: "flex", gap: 5, marginBottom: 8, alignItems: "center" }}>
             {STEPS.map((_, i) => (
               <div
                 key={i}
@@ -387,7 +387,7 @@ export default function AppTour({ open, onClose }) {
           </div>
 
           {/* Section chip */}
-          <div style={{ marginBottom: 8 }}>
+          <div style={{ marginBottom: 4 }}>
             <span style={{
               display:       "inline-block",
               fontSize:      10,
@@ -410,7 +410,7 @@ export default function AppTour({ open, onClose }) {
             fontSize:     "1.05rem",
             fontWeight:   700,
             lineHeight:   1.3,
-            marginBottom: 8,
+            marginBottom: 5,
           }}>
             {current.title}
           </h3>
@@ -418,9 +418,9 @@ export default function AppTour({ open, onClose }) {
           <p style={{
             color:        "var(--ink-text-dim)",
             fontFamily:   "var(--font-sans)",
-            fontSize:     "0.85rem",
-            lineHeight:   1.65,
-            marginBottom: 18,
+            fontSize:     "0.83rem",
+            lineHeight:   1.55,
+            marginBottom: 12,
           }}>
             {current.body}
           </p>
