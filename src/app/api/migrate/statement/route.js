@@ -153,8 +153,8 @@ export async function POST(request) {
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
         body: JSON.stringify({
           model: "llama-3.3-70b-versatile",
-          messages: [{ role: "user", content: textExtractPrompt(text.slice(0, 24000)) }],
-          max_tokens: 8192,
+          messages: [{ role: "user", content: textExtractPrompt(text.slice(0, 40000)) }],
+          max_tokens: 32768,
           temperature: 0.1,
         }),
       });
@@ -188,7 +188,7 @@ export async function POST(request) {
         },
         body: JSON.stringify({
           model:      "claude-sonnet-4-6",
-          max_tokens: 8192,
+          max_tokens: 32000,
           messages:   [{ role: "user", content: [contentType, { type: "text", text: EXTRACT_PROMPT }] }],
         }),
       });
@@ -206,7 +206,7 @@ export async function POST(request) {
           { inline_data: { mime_type: mimeType, data: base64 } },
           { text: EXTRACT_PROMPT },
         ]}],
-        generationConfig: { temperature: 0.1, maxOutputTokens: 8192 },
+        generationConfig: { temperature: 0.1, maxOutputTokens: 65536 },
       });
     }
 

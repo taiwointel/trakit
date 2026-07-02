@@ -57,49 +57,64 @@ export default function DayStrip({ entries, budgets, year, month, selectedDay, o
             key={date}
             data-today={isToday || undefined}
             onClick={() => onSelectDay(isSelected ? null : dayNum)}
-            title={`${date}: ${formatNaira(dayOut)} out`}
+            title={`${date}: ${dayOut > 0 ? formatNaira(dayOut) + " out" : "No spending"}`}
             style={{
               display:       "flex",
               flexDirection: "column",
               alignItems:    "center",
-              gap:           3,
+              gap:           2,
               flexShrink:    0,
-              minWidth:      30,
-              padding:       "5px 4px",
-              borderRadius:  4,
-              border:        "none",
-              background:    isSelected ? "var(--ink-3)" : "transparent",
-              outline:       isToday ? "1px solid var(--gold)" : "none",
+              width:         38,
+              padding:       "8px 0 6px",
+              borderRadius:  10,
+              border:        isSelected ? "1px solid rgba(169,133,79,0.5)" : "1px solid transparent",
+              background:    isSelected ? "rgba(169,133,79,0.1)" : "transparent",
               cursor:        "pointer",
             }}
           >
+            {/* Day-of-week label */}
             <span style={{
-              display:       "block",
-              fontSize:      9,
+              fontSize:      8,
               textTransform: "uppercase",
-              letterSpacing: "0.05em",
+              letterSpacing: "0.07em",
               color:         "var(--ink-text-dim)",
               fontFamily:    "var(--font-mono)",
               lineHeight:    1,
+              opacity:       0.65,
             }}>
               {DAY_LABELS[dow]}
             </span>
-            <span style={{
-              display:    "block",
-              fontSize:   12,
-              fontWeight: 600,
-              color:      isToday ? "var(--gold)" : "var(--ink-text-dim)",
-              fontFamily: "var(--font-mono)",
-              lineHeight: 1,
-            }}>
-              {dayNum}
-            </span>
+
+            {/* Day number — filled gold circle for today */}
             <div style={{
-              width:       18,
-              height:      4,
-              borderRadius: 2,
-              background:  color,
-              opacity:     dayOut === 0 ? 0.25 : 1,
+              width:          26,
+              height:         26,
+              borderRadius:   "50%",
+              display:        "flex",
+              alignItems:     "center",
+              justifyContent: "center",
+              background:     isToday ? "var(--gold)" : "transparent",
+              marginTop:      1,
+            }}>
+              <span style={{
+                fontSize:   12,
+                fontWeight: isToday ? 700 : 500,
+                color:      isToday ? "#fff" : isSelected ? "var(--gold)" : "var(--ink-text-dim)",
+                fontFamily: "var(--font-mono)",
+                lineHeight: 1,
+              }}>
+                {dayNum}
+              </span>
+            </div>
+
+            {/* Spend bar */}
+            <div style={{
+              width:        "calc(100% - 10px)",
+              height:       5,
+              borderRadius: 3,
+              background:   color,
+              opacity:      dayOut === 0 ? 0.18 : 1,
+              marginTop:    3,
             }} />
           </button>
         );
