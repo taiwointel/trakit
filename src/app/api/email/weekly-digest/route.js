@@ -610,7 +610,7 @@ export async function POST() {
   });
 
   const resend    = new Resend(apiKey);
-  const fromEmail = process.env.RESEND_FROM_EMAIL || "Trakit7 <digest@trakit7.com>";
+  const fromEmail = process.env.RESEND_FROM_EMAIL || "Trakit7 <onboarding@resend.dev>";
 
   const { error } = await resend.emails.send({
     from:    fromEmail,
