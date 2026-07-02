@@ -7,28 +7,28 @@ const STEPS = [
   {
     route:  null,
     target: "settings-btn",
-    label:  "Settings, top right",
+    label:  "Settings",
     title:  "Step 1: Connect your provider key",
-    body:   "Tap the gear icon to open Settings, then expand 'Provider Setup.' Paste your Groq or Gemini key. Both have genuinely free tiers with no credit card required. This powers categorization, Coach RBC coaching sessions, bank statement reading, and spend narration across the whole app.",
+    body:   "Tap the gear icon to open Settings, then expand 'Provider Setup.' Paste your Groq or Gemini key — both have genuinely free tiers with no credit card required. This powers categorization, Coach RBC sessions, bank statement reading, and spend narration across the whole app.",
   },
   {
     route:  "/entries",
     target: "entry-form",
     label:  "Expense Entry",
     title:  "Step 2: Log your first transaction",
-    body:   "Fill in a description and amount, then hit Add. Trakit7 reads your description and assigns a spending category, essential vs. discretionary status, and a confidence score, all in under 10 seconds. A small coloured dot shows how certain the classification was.",
+    body:   "Fill in a description and amount, then hit Add. Trakit7 reads your description and assigns a spending category, essential vs. discretionary status, and a confidence score — all in under 10 seconds. A small coloured dot shows how certain the classification was.",
   },
   {
     route:  "/entries",
     target: "import-card",
-    label:  "Statement import",
+    label:  "Statement Import",
     title:  "Step 3: Import a bank statement",
     body:   "Skip manual entry entirely. Drop a scanned bank statement or CSV export and Trakit7 extracts every transaction and categorizes them automatically. A labeling wizard walks you through any transactions needing more context before importing.",
   },
   {
     route:  "/entries",
     target: "budgets-grid",
-    label:  "Budgets and bill tracker",
+    label:  "Budgets",
     title:  "Step 4: Set spending limits and track bills",
     body:   "Set an overall monthly cap and per-category limits. Each card shows a live progress bar that turns amber at 75% and red when you breach the cap. The Bill Tracker below lets you log recurring bills so you never miss a due date.",
   },
@@ -42,21 +42,21 @@ const STEPS = [
   {
     route:  "/goals",
     target: "emergency-fund",
-    label:  "Emergency fund",
+    label:  "Emergency Fund",
     title:  "Step 6: Build your emergency fund",
     body:   "The Emergency Fund panel tracks a dedicated pot completely separate from your main cash balance. Trakit7 sets the target at 6 times your current month's essential spending and recalculates it fresh every month. Deposits and withdrawals are logged in their own dated ledger.",
   },
   {
     route:  "/cash",
     target: "cash-balance",
-    label:  "Cash and Investments",
+    label:  "Cash Balance",
     title:  "Step 7: Anchor your opening balance",
-    body:   "Tell Trakit7 how much was in your account on a specific date. From that point, your daily opening and closing balance is computed exactly from every transaction you log. No manual updates ever needed: the balance stays in sync with your ledger automatically.",
+    body:   "Tell Trakit7 how much was in your account on a specific date. From that point, your daily opening and closing balance is computed exactly from every transaction you log — no manual updates ever needed. The balance stays in sync with your ledger automatically.",
   },
   {
     route:  "/cash",
     target: "investments-section",
-    label:  "Investment portfolio",
+    label:  "Investments",
     title:  "Step 8: Track your full investment portfolio",
     body:   "Log every position you hold: Treasury bills, fixed-term notes, commercial papers, equities, savings accounts, mutual funds, ethical investments, life assurance, and pension. Each shows accrued return, tenor progress, and live status. Your portfolio total feeds directly into net worth on Summary.",
   },
@@ -77,15 +77,14 @@ const STEPS = [
   {
     route:  null,
     target: null,
-    label:  "Your data, your privacy",
+    label:  "Privacy",
     title:  "Your data stays yours",
-    body:   "Trakit7 stores everything in your private Supabase account, protected by Row Level Security so only you can access your records. Your provider key is encrypted at rest and is never returned to the browser in plain text. No data is shared with third parties, no ads, no tracking. Coach RBC sends spending summaries to your chosen provider to generate responses; nothing else leaves your device.",
+    body:   "Trakit7 stores everything in your private Supabase account, protected by Row Level Security so only you can access your records. Your provider key is encrypted at rest and never returned to the browser in plain text. No data is shared with third parties, no ads, no tracking. Coach RBC sends spending summaries to your chosen provider to generate responses — nothing else leaves your device.",
   },
 ];
 
-const TOOLTIP_W = 340;
-const TOOLTIP_H = 270; // conservative height estimate for viewport clamping
-const SPOT_PAD  = 8;
+const SPOT_PAD = 10;
+const TOOLTIP_W = 420;
 
 function findVisibleEl(tourId) {
   const els = document.querySelectorAll(`[data-tour="${tourId}"]`);
@@ -98,76 +97,58 @@ function findVisibleEl(tourId) {
 
 export default function AppTour({ open, onClose }) {
   const router      = useRouter();
+  const pathnameRef = useRef(null);
   const pathname    = usePathname();
-  // Keep a ref to pathname so navigation effect doesn't re-fire on route change
-  const pathnameRef = useRef(pathname);
+
+  // Sync pathname into ref without adding it as an effect dep
   useEffect(() => { pathnameRef.current = pathname; }, [pathname]);
 
-  const [step,      setStep]      = useState(0);
-  const [spotRect,  setSpotRect]  = useState(null);
-  const [tipStyle,  setTipStyle]  = useState({});
-  const [arrowLeft, setArrowLeft] = useState(TOOLTIP_W / 2 - 8);
-  const [tipAbove,  setTipAbove]  = useState(false);
+  const [step,     setStep]     = useState(0);
+  const [spotRect, setSpotRect] = useState(null);
+  // Tooltip is always pinned to bottom or top of viewport — no free-float
+  const [tipAtTop, setTipAtTop] = useState(false);
 
   const measure = useCallback(() => {
     if (!open) return;
     const s = STEPS[step];
+
     if (!s.target) {
       setSpotRect(null);
-      setTipStyle({ top: "50%", left: "50%", transform: "translate(-50%, -50%)" });
+      setTipAtTop(false);
       return;
     }
 
     const el = findVisibleEl(s.target);
     const r  = el?.getBoundingClientRect();
-    setSpotRect(r && r.width > 0 ? { top: r.top, left: r.left, width: r.width, height: r.height } : null);
-    if (!r || r.width === 0) return;
 
-    const W  = window.innerWidth;
-    const H  = window.innerHeight;
-    const cx = r.left + r.width / 2;
-
-    const rawLeft = cx - TOOLTIP_W / 2;
-    const left    = Math.max(12, Math.min(rawLeft, W - TOOLTIP_W - 12));
-    const arrow   = Math.max(16, Math.min(cx - left - 8, TOOLTIP_W - 32));
-
-    // Prefer placing tooltip below the element; fall back to above if it would overflow viewport
-    const belowTop = r.bottom + SPOT_PAD + 12;
-    const aboveTop = r.top - SPOT_PAD - 12 - TOOLTIP_H;
-
-    let top, above;
-    if (belowTop + TOOLTIP_H <= H - 8) {
-      // Fits below
-      top = belowTop; above = false;
-    } else if (aboveTop >= 8) {
-      // Fits above
-      top = aboveTop; above = true;
-    } else {
-      // Neither fits cleanly — clamp below so it's as visible as possible
-      top = Math.max(8, H - TOOLTIP_H - 8);
-      above = false;
+    if (!r || r.width === 0) {
+      setSpotRect(null);
+      setTipAtTop(false);
+      return;
     }
 
-    setTipStyle({ top, left });
-    setArrowLeft(arrow);
-    setTipAbove(above);
+    setSpotRect({ top: r.top, left: r.left, width: r.width, height: r.height });
+
+    // Pin tooltip to top of viewport when element occupies the lower half,
+    // otherwise pin to bottom — tooltip never overlaps the element.
+    const H = window.innerHeight;
+    const elementMidY = (r.top + r.bottom) / 2;
+    setTipAtTop(elementMidY > H * 0.55);
   }, [open, step]);
 
-  // Resize listener — separate stable effect
   useEffect(() => {
     if (!open) return;
     window.addEventListener("resize", measure);
     return () => window.removeEventListener("resize", measure);
   }, [open, measure]);
 
-  // Reset on open
   useEffect(() => {
-    if (open) { setStep(0); setSpotRect(null); }
+    if (open) { setStep(0); setSpotRect(null); setTipAtTop(false); }
   }, [open]);
 
   // Navigate + scroll + measure on step change.
-  // Intentionally does NOT list `pathname` as a dep — we read it via pathnameRef
-  // so that router.push() changing pathname doesn't re-trigger this effect.
+  // Does NOT list pathname as a dep — read via ref so router.push()
+  // changing pathname doesn't re-trigger this effect.
   useEffect(() => {
     if (!open) return;
     const s = STEPS[step];
@@ -175,24 +156,26 @@ export default function AppTour({ open, onClose }) {
 
     function doMeasure() {
       if (cancelled) return;
+
       if (!s.target) {
         setSpotRect(null);
-        setTipStyle({ top: "50%", left: "50%", transform: "translate(-50%, -50%)" });
+        setTipAtTop(false);
         return;
       }
 
       const el = findVisibleEl(s.target);
       if (el) {
         el.scrollIntoView({ behavior: "smooth", block: "center" });
-        setTimeout(() => { if (!cancelled) measure(); }, 450);
+        // Wait for smooth scroll to settle before measuring
+        setTimeout(() => { if (!cancelled) measure(); }, 500);
       } else {
-        // Element not found yet — retry once after another 600ms (e.g. lazy-rendered sections)
+        // Element not in DOM yet — retry after another 600ms
         setTimeout(() => {
           if (cancelled) return;
           const el2 = findVisibleEl(s.target);
           if (el2) {
             el2.scrollIntoView({ behavior: "smooth", block: "center" });
-            setTimeout(() => { if (!cancelled) measure(); }, 450);
+            setTimeout(() => { if (!cancelled) measure(); }, 500);
           } else {
             if (!cancelled) measure();
           }
@@ -203,59 +186,62 @@ export default function AppTour({ open, onClose }) {
     const needsNav = s.route && pathnameRef.current !== s.route;
     if (needsNav) {
       router.push(s.route);
-      // 1200ms gives Next.js page time to navigate, mount, and hydrate
-      const t = setTimeout(doMeasure, 1200);
+      // Give Next.js time to navigate, mount, and hydrate before looking for element
+      const t = setTimeout(doMeasure, 1400);
       return () => { cancelled = true; clearTimeout(t); };
     } else {
-      const t = setTimeout(doMeasure, 120);
+      const t = setTimeout(doMeasure, 150);
       return () => { cancelled = true; clearTimeout(t); };
     }
-  }, [step, open, measure, router]); // no pathname dep
+  }, [step, open, measure, router]);
 
   if (!open) return null;
 
   const current = STEPS[step];
   const isLast  = step === STEPS.length - 1;
-
-  function next() {
-    if (isLast) onClose();
-    else setStep((s) => s + 1);
-  }
-  function back() {
-    if (step > 0) setStep((s) => s - 1);
-  }
-
   const isCenter = !current.target;
+
+  function next() { if (isLast) onClose(); else setStep((s) => s + 1); }
+  function back() { if (step > 0) setStep((s) => s - 1); }
+
+  // Tooltip position: always fixed at bottom or top of viewport
+  // Center-modal for the privacy step (no target)
+  const tooltipStyle = isCenter
+    ? { top: "50%", left: "50%", transform: "translate(-50%, -50%)" }
+    : tipAtTop
+      ? { top: 80, left: "50%", transform: "translateX(-50%)" }
+      : { bottom: 24, left: "50%", transform: "translateX(-50%)" };
 
   return (
     <>
       <style>{`
         @keyframes tour-spot-pulse {
-          0%, 100% { box-shadow: 0 0 0 3px var(--gold),      0 0 0 9999px rgba(0,0,0,0.78); }
-          50%       { box-shadow: 0 0 0 5px var(--gold-deep), 0 0 0 9999px rgba(0,0,0,0.84); }
+          0%,100% { box-shadow: 0 0 0 3px var(--gold),      0 0 0 9999px rgba(0,0,0,0.72); }
+          50%      { box-shadow: 0 0 0 6px var(--gold-deep), 0 0 0 9999px rgba(0,0,0,0.80); }
         }
         @keyframes tour-tip-in {
-          from { opacity: 0; transform: translateY(6px); }
-          to   { opacity: 1; transform: translateY(0);   }
+          from { opacity:0; transform:translateX(-50%) translateY(8px); }
+          to   { opacity:1; transform:translateX(-50%) translateY(0);   }
+        }
+        @keyframes tour-tip-in-top {
+          from { opacity:0; transform:translateX(-50%) translateY(-8px); }
+          to   { opacity:1; transform:translateX(-50%) translateY(0);    }
         }
         @keyframes tour-center-in {
-          from { opacity: 0; transform: translate(-50%, -48%); }
-          to   { opacity: 1; transform: translate(-50%, -50%); }
+          from { opacity:0; transform:translate(-50%,-48%); }
+          to   { opacity:1; transform:translate(-50%,-50%); }
         }
       `}</style>
 
-      {/* Backdrop — blocks background clicks but sits below the tooltip */}
+      {/* Backdrop — sits below spotlight and tooltip, closes on click */}
       <div
-        style={{
-          position: "fixed", inset: 0, zIndex: 58,
-          pointerEvents: "all",
-          background: isCenter ? "rgba(0,0,0,0.82)" : "transparent",
-        }}
+        style={{ position: "fixed", inset: 0, zIndex: 58, pointerEvents: "all",
+                 background: isCenter ? "rgba(0,0,0,0.82)" : "transparent" }}
         onClick={onClose}
         aria-hidden="true"
       />
 
-      {/* Spotlight ring */}
+      {/* Spotlight ring around the target element */}
       {spotRect && !isCenter && (
         <div
           style={{
@@ -264,7 +250,7 @@ export default function AppTour({ open, onClose }) {
             left:          spotRect.left   - SPOT_PAD,
             width:         spotRect.width  + SPOT_PAD * 2,
             height:        spotRect.height + SPOT_PAD * 2,
-            borderRadius:  10,
+            borderRadius:  12,
             zIndex:        59,
             pointerEvents: "none",
             animation:     "tour-spot-pulse 2.4s ease-in-out infinite",
@@ -272,56 +258,91 @@ export default function AppTour({ open, onClose }) {
         />
       )}
 
-      {/* Tooltip card */}
+      {/* Tooltip — always fixed to bottom (or top, or center) of viewport */}
       <div
         key={step}
         style={{
           position:      "fixed",
           width:         TOOLTIP_W,
+          maxWidth:      "calc(100vw - 24px)",
           zIndex:        60,
           pointerEvents: "all",
-          animation:     isCenter ? "tour-center-in 0.22s ease forwards" : "tour-tip-in 0.22s ease forwards",
-          ...(isCenter
-            ? { top: "50%", left: "50%", transform: "translate(-50%, -50%)" }
-            : tipStyle),
+          animation:     isCenter
+            ? "tour-center-in 0.22s ease forwards"
+            : tipAtTop
+              ? "tour-tip-in-top 0.22s ease forwards"
+              : "tour-tip-in 0.22s ease forwards",
+          ...tooltipStyle,
         }}
       >
-        {/* Arrow — below variant */}
-        {spotRect && !tipAbove && !isCenter && (
-          <div style={{ position: "absolute", top: -8, left: arrowLeft, width: 0, height: 0, borderLeft: "8px solid transparent", borderRight: "8px solid transparent", borderBottom: "8px solid var(--ink-2)", pointerEvents: "none", zIndex: 1 }} />
-        )}
-        {/* Arrow — above variant */}
-        {spotRect && tipAbove && !isCenter && (
-          <div style={{ position: "absolute", bottom: -8, left: arrowLeft, width: 0, height: 0, borderLeft: "8px solid transparent", borderRight: "8px solid transparent", borderTop: "8px solid var(--ink-2)", pointerEvents: "none", zIndex: 1 }} />
-        )}
+        <div style={{
+          background:   "var(--ink-2)",
+          border:       "1px solid var(--rule)",
+          borderTop:    "3px solid var(--gold)",
+          borderRadius: 16,
+          padding:      "18px 22px 18px",
+          boxShadow:    "0 24px 72px rgba(0,0,0,0.7)",
+        }}>
 
-        <div style={{ background: "var(--ink-2)", border: "1px solid var(--rule)", borderTop: "3px solid var(--gold)", borderRadius: 14, padding: "18px 20px 16px", boxShadow: "0 20px 64px rgba(0,0,0,0.65)" }}>
-          {/* Progress pips */}
+          {/* Progress pips + step counter */}
           <div style={{ display: "flex", gap: 5, marginBottom: 14, alignItems: "center" }}>
             {STEPS.map((_, i) => (
               <div
                 key={i}
                 onClick={() => setStep(i)}
-                style={{ width: i === step ? 20 : 6, height: 6, borderRadius: 3, background: i < step ? "var(--green)" : i === step ? "var(--gold)" : "var(--ink-3)", transition: "all 0.3s ease", cursor: "pointer", flexShrink: 0 }}
+                title={STEPS[i].label}
+                style={{
+                  width:      i === step ? 22 : 6,
+                  height:     6,
+                  borderRadius: 3,
+                  background: i < step ? "var(--green)" : i === step ? "var(--gold)" : "var(--ink-3)",
+                  transition: "all 0.3s ease",
+                  cursor:     "pointer",
+                  flexShrink: 0,
+                }}
               />
             ))}
-            <span style={{ marginLeft: "auto", color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", fontSize: 10 }}>
+            <span style={{ marginLeft: "auto", color: "var(--ink-text-dim)", fontFamily: "var(--font-mono)", fontSize: 11, whiteSpace: "nowrap" }}>
               {step + 1} / {STEPS.length}
             </span>
           </div>
 
-          {/* Label chip */}
+          {/* Section chip */}
           <div style={{ marginBottom: 8 }}>
-            <span style={{ display: "inline-block", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", color: "var(--gold)", fontFamily: "var(--font-sans)", background: "rgba(169,133,79,0.12)", borderRadius: 4, padding: "2px 7px" }}>
+            <span style={{
+              display:       "inline-block",
+              fontSize:      10,
+              fontWeight:    700,
+              textTransform: "uppercase",
+              letterSpacing: "0.07em",
+              color:         "var(--gold)",
+              fontFamily:    "var(--font-sans)",
+              background:    "rgba(169,133,79,0.13)",
+              borderRadius:  4,
+              padding:       "2px 8px",
+            }}>
               {isCenter ? "🔒" : "↑"} {current.label}
             </span>
           </div>
 
-          <h3 style={{ color: "var(--ink-text)", fontFamily: "var(--font-serif)", fontSize: "1.05rem", fontWeight: 700, lineHeight: 1.3, marginBottom: 8 }}>
+          <h3 style={{
+            color:        "var(--ink-text)",
+            fontFamily:   "var(--font-serif)",
+            fontSize:     "1.05rem",
+            fontWeight:   700,
+            lineHeight:   1.3,
+            marginBottom: 8,
+          }}>
             {current.title}
           </h3>
 
-          <p style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", fontSize: "0.85rem", lineHeight: 1.65, marginBottom: 16 }}>
+          <p style={{
+            color:        "var(--ink-text-dim)",
+            fontFamily:   "var(--font-sans)",
+            fontSize:     "0.85rem",
+            lineHeight:   1.65,
+            marginBottom: 18,
+          }}>
             {current.body}
           </p>
 
@@ -336,16 +357,37 @@ export default function AppTour({ open, onClose }) {
               {step > 0 && (
                 <button
                   onClick={back}
-                  style={{ background: "var(--ink-3)", color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600, border: "1px solid var(--rule)", borderRadius: 8, padding: "8px 16px", cursor: "pointer" }}
+                  style={{
+                    background: "var(--ink-3)",
+                    color:      "var(--ink-text-dim)",
+                    fontFamily: "var(--font-sans)",
+                    fontSize:   13,
+                    fontWeight: 600,
+                    border:     "1px solid var(--rule)",
+                    borderRadius: 8,
+                    padding:    "8px 16px",
+                    cursor:     "pointer",
+                  }}
                 >
                   Back
                 </button>
               )}
               <button
                 onClick={next}
-                style={{ background: "linear-gradient(135deg, var(--gold-deep), var(--gold))", color: "#fff", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600, border: "none", borderRadius: 8, padding: "8px 20px", cursor: "pointer" }}
+                style={{
+                  background:  "linear-gradient(135deg, var(--gold-deep), var(--gold))",
+                  color:       "#fff",
+                  fontFamily:  "var(--font-sans)",
+                  fontSize:    13,
+                  fontWeight:  700,
+                  border:      "none",
+                  borderRadius: 8,
+                  padding:     "8px 22px",
+                  cursor:      "pointer",
+                  letterSpacing: "0.01em",
+                }}
               >
-                {isLast ? "Let's go!" : "Next"}
+                {isLast ? "Let's go!" : "Next →"}
               </button>
             </div>
           </div>
