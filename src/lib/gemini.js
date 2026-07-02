@@ -1,9 +1,18 @@
 // Gemini model fallback chain.
 // On free-tier quota errors (429 / RESOURCE_EXHAUSTED), automatically retries
-// with the next model in the list before surfacing an error to the caller.
-// gemini-2.5-flash and gemini-2.0-flash-lite have independent free-tier quotas.
-
-const FALLBACK_MODELS = ["gemini-2.5-flash", "gemini-2.0-flash-lite"];
+// with the next model in the list. Each model has its own independent free-tier
+// quota, so chaining them multiplies total headroom before any error surfaces.
+//
+// To add more fallbacks: look up the API model ID in AI Studio → Model info,
+// then append it here. Order = preference (best model first).
+const FALLBACK_MODELS = [
+  "gemini-2.5-flash",       // primary   — 5 RPM free tier
+  "gemini-2.5-flash-lite",  // fallback1 — 10 RPM free tier
+  "gemini-2.0-flash-lite",  // fallback2 — additional headroom
+  // Add more here as you find their API model IDs, e.g.:
+  // "antigravity",         // 60 RPM — find exact ID in AI Studio
+  // "gemini-3.1-flash-lite", // 15 RPM — verify API ID first
+];
 
 function isQuotaError(status, message) {
   return (
