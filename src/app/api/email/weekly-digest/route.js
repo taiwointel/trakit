@@ -115,24 +115,64 @@ function buildRbcBriefing({ userName, totalOut, prevTotal, categoryBreakdown, es
 
 const APP_URL = "https://trakit-seven.vercel.app";
 
-// ── Rotating catchy header lines (changes each week) ───────────────────────
+// ── Rotating catchy header lines — 52 unique lines, one per week of the year ─
 function pickHeaderLine() {
   const weekNum = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 1).getTime()) / (7 * 24 * 60 * 60 * 1000));
   const lines = [
-    "Your wallet called. It has notes.",
-    "The receipts are in. Brace yourself.",
-    "This week's money confessional.",
-    "Where did it all go? We did the math.",
-    "Numbers don't lie. We checked yours.",
-    "Your week, in cold hard naira.",
-    "The ledger has spoken.",
-    "A full financial debrief, no filter.",
-    "Coach RBC reviewed your week.",
-    "The week in numbers. Some of them are fine.",
-    "Your spending, fully accounted for.",
-    "Everything that moved, explained.",
+    "Your wallet called. It has notes.",                                    // wk 0
+    "The receipts are in. Brace yourself.",                                 // wk 1
+    "This week's money confessional.",                                      // wk 2
+    "Where did it all go? We did the math.",                               // wk 3
+    "Numbers don't lie. We checked yours.",                                 // wk 4
+    "Your week, in cold hard naira.",                                       // wk 5
+    "The ledger has spoken. You should listen.",                            // wk 6
+    "A full financial debrief, no filter.",                                 // wk 7
+    "Coach RBC reviewed your week. She has thoughts.",                      // wk 8
+    "The week in numbers. Some of them are fine.",                          // wk 9
+    "Your spending, fully accounted for.",                                  // wk 10
+    "Everything that moved this week, explained.",                          // wk 11
+    "The weekly audit you didn't know you needed.",                         // wk 12
+    "Financial honesty hour is here.",                                      // wk 13
+    "The weekly reckoning, delivered fresh.",                               // wk 14
+    "The numbers are in. Don't panic.",                                     // wk 15
+    "Seven days, every naira, no excuses.",                                 // wk 16
+    "The weekly financial mirror.",                                         // wk 17
+    "What your bank statement won't tell you.",                             // wk 18
+    "Your money moved. Here's where it went.",                              // wk 19
+    "The full picture from the past seven days.",                           // wk 20
+    "Weekly spend intelligence, delivered.",                                // wk 21
+    "Your ledger, distilled to one email.",                                 // wk 22
+    "Seven days of transactions. All accounted for.",                       // wk 23
+    "The facts are in. Coach RBC has commentary.",                          // wk 24
+    "Your financial week, told honestly.",                                  // wk 25
+    "Time to look at the numbers. We'll go slow.",                          // wk 26
+    "Another week, another audit.",                                         // wk 27
+    "Your week's spending, no spin.",                                       // wk 28
+    "This week's financial highlights and lowlights.",                      // wk 29
+    "Your money diary from the past seven days.",                           // wk 30
+    "All the numbers from this week, in one place.",                        // wk 31
+    "Weekly financial clarity, served fresh.",                              // wk 32
+    "The weekly report you actually want to read.",                         // wk 33
+    "Your naira, your week, your numbers.",                                 // wk 34
+    "Seven days of financial reality, summarized.",                         // wk 35
+    "Coach RBC is in your inbox again.",                                    // wk 36
+    "The weekly accounting of your financial life.",                        // wk 37
+    "Week closes. Numbers settle. Here they are.",                          // wk 38
+    "This is what your week looked like in naira.",                         // wk 39
+    "The money moved. We tracked every step.",                              // wk 40
+    "Your spend, your patterns, your week.",                                // wk 41
+    "One week of transactions. Coach RBC has opinions.",                    // wk 42
+    "The weekly financial check-in you can't ignore.",                      // wk 43
+    "Your naira trail from the past seven days.",                           // wk 44
+    "The weekly reality check is here.",                                    // wk 45
+    "Transactions logged. Coach RBC briefed. Digest ready.",                // wk 46
+    "Your cash flow story, week by week.",                                  // wk 47
+    "This week's spend, decoded and delivered.",                            // wk 48
+    "The weekly money check-in, no sugar-coating.",                         // wk 49
+    "Your ledger doesn't forget. Neither do we.",                           // wk 50
+    "52 weeks, 52 reports. Here's this one.",                               // wk 51
   ];
-  return lines[weekNum % lines.length];
+  return lines[weekNum % 52];
 }
 
 // ── Email subject lines ─────────────────────────────────────────────────────
