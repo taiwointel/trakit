@@ -91,6 +91,12 @@ export default function SettingsDrawer({ open, onClose, onStartTour }) {
   const [digestSending,  setDigestSending]  = useState(false);
   const [digestStatus,   setDigestStatus]   = useState("");
 
+  // ── App Preferences state ─────────────────────────────────
+  const [salary,       setSalary]       = useState("");
+  const [paydayDay,    setPaydayDay]    = useState("22");
+  const [savingPrefs,  setSavingPrefs]  = useState(false);
+  const [prefsStatus,  setPrefsStatus]  = useState("");
+
   // ── Account actions state ─────────────────────────────────
   const [signingOut,       setSigningOut]       = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -103,6 +109,7 @@ export default function SettingsDrawer({ open, onClose, onStartTour }) {
     setAiStatus(""); setKeyWarning(""); setNameStatus(""); setPassStatus("");
     setNewPassword(""); setConfirmPassword(""); setClearChatStatus(""); setExportStatus("");
     setBackupStatus(""); setBackupsLoaded(false); setDigestStatus(""); setDigestConfirm(false);
+    setPrefsStatus("");
     // Load digest toggle from localStorage — default ON for new users
     const stored = localStorage.getItem("trakit7:weekly-digest");
     setDigestEnabled(stored === null ? true : stored === "true");
@@ -122,6 +129,14 @@ export default function SettingsDrawer({ open, onClose, onStartTour }) {
           setSelectedProvider(d.provider || "groq");
         })
         .catch(() => {});
+
+      supabase.from("goals").select("salary, payday_day").eq("user_id", user.id).maybeSingle()
+        .then(({ data: goals }) => {
+          if (goals) {
+            setSalary(goals.salary != null ? String(goals.salary) : "");
+            setPaydayDay(goals.payday_day != null ? String(goals.payday_day) : "22");
+          }
+        });
     }
     loadSettings();
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -229,6 +244,30 @@ export default function SettingsDrawer({ open, onClose, onStartTour }) {
     } catch (err) {
       setExportStatus(err.message || "Export failed.");
     }
+  }
+
+  // ── App Preferences handlers ───────────────────────────────
+  async function savePreferences() {
+    setSavingPrefs(true); setPrefsStatus("Saving...");
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const salaryNum  = parseFloat(salary.replace(/,/g, "")) || null;
+      const paydayNum  = Math.min(31, Math.max(1, parseInt(paydayDay, 10) || 22));
+      const { error }  = await supabase.from("goals").upsert(
+        { user_id: user.id, salary: salaryNum, payday_day: paydayNum },
+        { onConflict: "user_id" }
+      );
+      if (error) throw error;
+      setPrefsStatus("Saved.");
+    } catch (err) {
+      setPrefsStatus(err.message || "Save failed.");
+    }
+    setSavingPrefs(false);
+  }
+
+  function fmtSalaryInput(raw) {
+    const digits = raw.replace(/[^0-9]/g, "");
+    return digits ? Number(digits).toLocaleString("en-NG") : "";
   }
 
   // ── Account action handlers ────────────────────────────────
@@ -799,31 +838,78 @@ CREATE POLICY "own_backups" ON entry_backups
           <CollapsibleSection title="App Preferences" color="var(--amber)">
             <div className="flex flex-col gap-3">
 
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-medium" style={{ color: "var(--ink-text)", fontFamily: "var(--font-sans)" }}>Theme</p>
-                  <p className="text-xs" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>Toggle light/dark using the ☀/☾ button in the top bar</p>
+              {/* Salary */}
+              <div className="flex flex-col gap-1.5">
+                <label style={labelStyle}>Monthly salary (take-home)</label>
+                <div className="flex gap-1.5 items-center" style={{ background: "var(--ink-3)", border: "1px solid var(--rule)", borderRadius: 10, padding: "0 10px" }}>
+                  <span style={{ color: "var(--gold)", fontFamily: "var(--font-mono)", fontSize: 13 }}>₦</span>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={salary}
+                    onChange={(e) => setSalary(fmtSalaryInput(e.target.value))}
+                    placeholder="e.g. 450,000"
+                    className="flex-1 py-2.5 text-sm"
+                    style={{ background: "transparent", border: "none", color: "var(--ink-text)", fontFamily: "var(--font-mono)", outline: "none" }}
+                  />
                 </div>
               </div>
 
-              <div style={{ height: 1, background: "var(--rule)" }} />
+              {/* Payday */}
+              <div className="flex flex-col gap-1.5">
+                <label style={labelStyle}>Payday (day of month)</label>
+                <div className="flex gap-2 items-center">
+                  <input
+                    type="number"
+                    min={1}
+                    max={31}
+                    value={paydayDay}
+                    onChange={(e) => setPaydayDay(e.target.value)}
+                    className="px-3 py-2.5 rounded-lg text-sm"
+                    style={{ ...inputStyle, width: 72, fontFamily: "var(--font-mono)" }}
+                  />
+                  <span className="text-xs" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>
+                    of each month (e.g. 22 for the 22nd)
+                  </span>
+                </div>
+              </div>
 
+              {/* Currency */}
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-xs font-medium" style={{ color: "var(--ink-text)", fontFamily: "var(--font-sans)" }}>Currency</p>
-                  <p className="text-xs" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>Nigerian Naira (₦) — set for this account</p>
+                  <p className="text-xs" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>Nigerian Naira, fixed for this account</p>
                 </div>
                 <span className="text-xs px-2 py-0.5 rounded-full shrink-0 mt-0.5" style={{ background: "var(--ink-3)", color: "var(--gold)", fontFamily: "var(--font-mono)", border: "1px solid var(--rule)" }}>
                   ₦ NGN
                 </span>
               </div>
 
+              <button
+                onClick={savePreferences}
+                disabled={savingPrefs}
+                className="w-full py-2.5 rounded-lg text-sm font-semibold"
+                style={{
+                  background: savingPrefs ? "var(--ink-3)" : "linear-gradient(135deg, var(--gold-deep), var(--gold))",
+                  color: "#fff", fontFamily: "var(--font-sans)",
+                  opacity: savingPrefs ? 0.6 : 1, border: "none", cursor: savingPrefs ? "default" : "pointer",
+                }}
+              >
+                {savingPrefs ? "Saving..." : "Save preferences"}
+              </button>
+
+              {prefsStatus && (
+                <p className="text-xs" style={{ color: prefsStatus === "Saved." ? "var(--green)" : "var(--ink-text-dim)", fontFamily: "var(--font-mono)" }}>
+                  {prefsStatus}
+                </p>
+              )}
+
               <div style={{ height: 1, background: "var(--rule)" }} />
 
-              <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs font-medium" style={{ color: "var(--ink-text)", fontFamily: "var(--font-sans)" }}>Payday & salary setup</p>
-                  <p className="text-xs" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>Configure in the Goals tab under "Salary & Payday"</p>
+                  <p className="text-xs font-medium" style={{ color: "var(--ink-text)", fontFamily: "var(--font-sans)" }}>Theme</p>
+                  <p className="text-xs" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>Toggle light/dark using the button in the top bar</p>
                 </div>
               </div>
 

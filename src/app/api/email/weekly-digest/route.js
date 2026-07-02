@@ -28,88 +28,143 @@ const CAT_COLORS = {
 };
 function catColor(cat) { return CAT_COLORS[cat] || "#A9854F"; }
 
-// ── Coach RBC full briefing (multi-paragraph, humorous, specific) ──────────
-function buildRbcBriefing({ userName, totalOut, prevTotal, categoryBreakdown, essentialTotal, discretionaryTotal, totalIn, dayBreakdown, allEntries }) {
-  const paras = [];
-  const weekChange = prevTotal > 0 ? Math.round(((totalOut - prevTotal) / prevTotal) * 100) : null;
-  const top  = categoryBreakdown[0];
-  const top2 = categoryBreakdown[1];
-  const discPct = totalOut > 0 ? Math.round((discretionaryTotal / totalOut) * 100) : 0;
-  const essentialPct = 100 - discPct;
-  const busiestDay = dayBreakdown.reduce((a,b)=>b.total>a.total?b:a,dayBreakdown[0]||{total:0});
-  const activeDays = dayBreakdown.filter(d=>d.total>0).length;
-  const dailyAvg = activeDays > 0 ? totalOut / activeDays : 0;
+// ── Coach RBC briefing — AI-generated, specific to this week's actual data ──
+async function generateRbcBriefing({ settings, userName, totalOut, prevTotal, categoryBreakdown, essentialTotal, discretionaryTotal, totalIn, dayBreakdown, allEntries, weekStart, weekEnd }) {
+  const weekChange  = prevTotal > 0 ? Math.round(((totalOut - prevTotal) / prevTotal) * 100) : null;
+  const activeDays  = dayBreakdown.filter(d => d.total > 0).length;
+  const dailyAvg    = activeDays > 0 ? totalOut / activeDays : 0;
+  const discPct     = totalOut > 0 ? Math.round((discretionaryTotal / totalOut) * 100) : 0;
+  const essPct      = 100 - discPct;
+  const busiestDay  = dayBreakdown.reduce((a, b) => b.total > a.total ? b : a, dayBreakdown[0] || { total: 0 });
+  const biggestTxns = [...allEntries].filter(e => e.flow === "out").sort((a, b) => Number(b.amount) - Number(a.amount)).slice(0, 3);
 
-  // Para 1 -overall verdict
+  const PERSONA = `You are Coach RBC, a sharp, direct, warmly funny personal finance coach. Your client is ${userName}. You know Nigerian financial life intimately: naira volatility, NEPA bills, PFAs, T-Bills, Bolt receipts that would make a grown adult weep. Your humor is precise and earned. You roast gently. You celebrate genuinely. You are never preachy, never generic. Every sentence earns its place.`;
+
+  const context = [
+    `Week: ${weekStart} to ${weekEnd}`,
+    `Total spent: ${fmt(totalOut)}`,
+    weekChange !== null
+      ? `vs last week (${fmt(prevTotal)}): ${weekChange > 0 ? "+" : ""}${weekChange}%`
+      : "First week on record (no prior week to compare)",
+    `Daily average: ${fmtK(dailyAvg)} across ${activeDays} active day${activeDays !== 1 ? "s" : ""}`,
+    `Category breakdown: ${categoryBreakdown.slice(0, 5).map(c => `${c.category} ${fmt(c.amount)} (${Math.round((c.amount / (totalOut || 1)) * 100)}%)`).join("; ")}`,
+    `Essential spend: ${fmt(essentialTotal)} (${essPct}%)`,
+    `Discretionary spend: ${fmt(discretionaryTotal)} (${discPct}%)`,
+    `Busiest day: ${busiestDay.dayFull || "n/a"} at ${fmt(busiestDay.total)} across ${busiestDay.count || 0} transactions`,
+    totalIn > 0 ? `Income received: ${fmt(totalIn)} (net: ${totalIn >= totalOut ? "+" : ""}${fmt(totalIn - totalOut)})` : "No income recorded this week",
+    biggestTxns.length > 0 ? `Biggest transactions: ${biggestTxns.map(e => `${e.desc} ${fmt(e.amount)}`).join(", ")}` : "",
+  ].filter(Boolean).join("\n");
+
+  const PROMPT = `Write a weekly financial briefing for ${userName} based on their real spending data below.
+
+${context}
+
+Rules you MUST follow:
+- Write 4 to 6 distinct paragraphs, each covering a different angle: overall verdict, top category analysis, essential vs discretionary balance, a specific observation (busiest day or a notable transaction), income/net position if applicable, and a concrete challenge for the coming week.
+- Every paragraph must reference specific numbers from the data above. No vague generalities.
+- Do not use em dashes (no "—" character and no " -" used as an em dash). Use periods, commas, or colons to join clauses instead.
+- Do not repeat sentence structures across paragraphs. Vary your openings.
+- Be genuinely specific to THIS week's numbers. Avoid anything that could appear in any other week's email.
+- Address ${userName} by name at least twice across the whole briefing.
+- No bullet points. Plain prose paragraphs only.
+- Return raw JSON only, no markdown fences: {"paragraphs": ["first paragraph", "second paragraph", ...]}`;
+
+  try {
+    let text = "";
+
+    if (settings?.provider === "groq" && settings.groq_key_encrypted) {
+      const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${settings.groq_key_encrypted}` },
+        body: JSON.stringify({
+          model: "llama-3.3-70b-versatile",
+          messages: [{ role: "system", content: PERSONA }, { role: "user", content: PROMPT }],
+          max_tokens: 1400,
+          temperature: 0.85,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) text = data.choices?.[0]?.message?.content || "";
+
+    } else if (settings?.provider === "claude" && settings.claude_key_encrypted) {
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": settings.claude_key_encrypted,
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-6",
+          max_tokens: 1400,
+          system: PERSONA,
+          messages: [{ role: "user", content: PROMPT }],
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) text = data.content?.[0]?.text || "";
+
+    } else if (settings?.gemini_key_encrypted) {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${settings.gemini_key_encrypted}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: `${PERSONA}\n\n${PROMPT}` }] }],
+            generationConfig: { maxOutputTokens: 1400, temperature: 0.85 },
+          }),
+        }
+      );
+      const data = await res.json();
+      if (res.ok) text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    }
+
+    if (text) {
+      const clean = text.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
+      const parsed = JSON.parse(clean);
+      if (Array.isArray(parsed.paragraphs) && parsed.paragraphs.length > 0) {
+        return parsed.paragraphs;
+      }
+    }
+  } catch { /* fall through to static fallback */ }
+
+  // Static fallback (no AI key or AI failed) — no em dashes
+  const paras = [];
   if (totalOut === 0) {
-    paras.push(`${userName}, I've looked at this week's numbers and I have to say -there's nothing to look at. Zero recorded spend. Either you had a genuinely quiet week, you're living off last week's groceries, or you forgot to log things in the app. All three are valid. The ledger remains ready to receive confessions whenever you are.`);
+    paras.push(`${userName}, this week's ledger is blank. Zero recorded spend. That could mean a genuinely quiet week, or it could mean the app didn't get the receipts. Either way, the numbers are ready when you are.`);
   } else if (weekChange === null) {
-    paras.push(`${userName}, first week on record -so no previous week to benchmark against. But here's what I can tell you: ${fmt(totalOut)} across ${activeDays} active day${activeDays !== 1 ? "s" : ""} gives us a daily average of ${fmtK(dailyAvg)}. That's the baseline. Every week from here is a comparison point.`);
-  } else if (weekChange > 40) {
-    paras.push(`${userName}. ${fmt(totalOut)}. That's ${Math.abs(weekChange)}% more than last week, and that's not a rounding error -that's a meaningful jump. Before I say anything else: was this planned? Because there's a big difference between "I knew this week would be heavy" and "wait, it's already gone." If the former, we move on. If the latter, we need to talk.`);
-  } else if (weekChange > 15) {
-    paras.push(`Up ${Math.abs(weekChange)}% from last week. Not alarming on its own, but worth naming. ${fmt(totalOut)} against a previous ${fmt(prevTotal)} -the gap is ${fmt(totalOut - prevTotal)}. The question is always whether that gap went somewhere intentional or somewhere accidental. The ledger knows; now you do too.`);
-  } else if (weekChange < -30) {
-    paras.push(`${userName}, I want you to sit with this for a moment: down ${Math.abs(weekChange)}% from last week. ${fmt(totalOut)} versus last week's ${fmt(prevTotal)} -you kept ${fmt(prevTotal - totalOut)} more in your pocket. Whether that was deliberate restraint or just a quiet week, the financial effect is the same. This is what a lighter week looks like. Remember it.`);
-  } else if (weekChange < -10) {
-    paras.push(`Down ${Math.abs(weekChange)}% from last week. Steady, controlled improvement -the kind that actually adds up over months without requiring you to eat plain rice for a fortnight. ${fmt(totalOut)} is a more manageable week than ${fmt(prevTotal)}. The direction is right.`);
+    paras.push(`${userName}, this is the first week on record, so there's no prior week to benchmark against. Here's what the data shows: ${fmt(totalOut)} across ${activeDays} active day${activeDays !== 1 ? "s" : ""}, with a daily average of ${fmtK(dailyAvg)}. That baseline is now set. Every future week gets measured against it.`);
+  } else if (weekChange > 20) {
+    paras.push(`${fmt(totalOut)} this week. That's ${Math.abs(weekChange)}% more than last week's ${fmt(prevTotal)}, and the extra ${fmt(totalOut - prevTotal)} deserves a name. Was this a planned heavy week or did things just accumulate? The ledger doesn't judge; it just records. But knowing the answer matters.`);
+  } else if (weekChange < -15) {
+    paras.push(`Down ${Math.abs(weekChange)}% from last week. ${fmt(totalOut)} against a previous ${fmt(prevTotal)}: you held back ${fmt(prevTotal - totalOut)} compared to seven days ago. That's not trivial. Whether it was deliberate or circumstantial, the financial result is the same.`);
   } else {
-    paras.push(`Roughly steady week -${weekChange > 0 ? "up" : "down"} ${Math.abs(weekChange)}% from last week's ${fmt(prevTotal)}. You came in at ${fmt(totalOut)}. Consistency is underrated: it makes planning meaningful, projections accurate, and budgets actually useful. Keep the pattern visible.`);
+    paras.push(`${fmt(totalOut)} this week, coming in ${weekChange > 0 ? `${Math.abs(weekChange)}% above` : `${Math.abs(weekChange)}% below`} last week's ${fmt(prevTotal)}. Consistent weeks make planning reliable and projections accurate. The pattern is visible now.`);
   }
 
-  // Para 2 -top categories
+  const top = categoryBreakdown[0];
   if (top && totalOut > 0) {
     const topPct = Math.round((top.amount / totalOut) * 100);
-    const catLines = {
-      "Dining & Lifestyle": `${topPct}% of this week went to Dining & Lifestyle -${fmt(top.amount)}. Your social life is well-funded. Your savings account is watching from a distance with complicated feelings. This isn't a scolding; it's an accounting. Budget for the suya, the dinners, the everything -just make sure it's a number you chose, not a number that chose you.`,
-      "Transportation": `Transportation took the top spot at ${fmt(top.amount)} (${topPct}%). Lagos doesn't have a cheap direction and you've been moving in all of them. Uber, Bolt, fuel -it all adds up to a significant weekly overhead. Worth asking: is this level of movement typical, or was this week unusually busy?`,
-      "Food & Groceries": `${fmt(top.amount)} on Food & Groceries leads the week at ${topPct}%. Feeding yourself and your household is non-negotiable, the market prices are not negotiating, and I respect both of those facts. What I'll note is that over-shopping at the market is one of the quietest budget leaks there is -things expire, duplicates accumulate. Keep an eye on the frequency.`,
-      "Housing & Utilities": `Housing & Utilities claimed ${topPct}% -${fmt(top.amount)}. NEPA tokens, diesel, internet, estate dues: the recurring cost of existing in a house in Nigeria. There's very little to cut here and very little point trying. What you can do is track it so you're never surprised by it.`,
-      "Family & Dependents": `Family & Dependents led this week at ${fmt(top.amount)} (${topPct}%). Being the one who shows up financially is a real form of love and a real drain on cash flow. Both things are true simultaneously. The only protection is knowing the number, which you now do.`,
-      "Debt Service": `${fmt(top.amount)} to Debt Service -${topPct}% of the week. Every one of those naira is a step closer to zero. I know it doesn't feel exciting to watch money leave for a loan, but the math is simple: this week's payments are future you's freedom. Keep going.`,
-      "Savings & Investment": `Savings & Investment leads this week at ${fmt(top.amount)} (${topPct}%). I almost never get to say this, but -well done. You paid your future self first, and that's the whole game.`,
-      "Betting": `Betting comes in at ${fmt(top.amount)} this week, taking ${topPct}% of your spend. I'm not here to lecture about betting -the entertainment value is real. I'm here to make sure you saw the number. ${fmt(top.amount)}. In one week. That's the number. Do with it what you will.`,
-      "Personal Care": `${fmt(top.amount)} on Personal Care (${topPct}%). Showing up well-groomed, well-rested, and well-presented in the world costs money. That's not waste -that's investment in yourself. Just make sure it fits the broader picture.`,
-    };
-    paras.push(catLines[top.category] || `${top.category} led the week at ${fmt(top.amount)} -${topPct}% of total spend. ${top2 ? `Second was ${top2.category} at ${fmt(top2.amount)} (${Math.round((top2.amount/totalOut)*100)}%).` : ""} These two categories together account for ${Math.round(((top.amount + (top2?.amount||0)) / totalOut) * 100)}% of the week.`);
+    paras.push(`${top.category} led this week at ${fmt(top.amount)}, which is ${topPct}% of total spend. ${categoryBreakdown[1] ? `Second place went to ${categoryBreakdown[1].category} at ${fmt(categoryBreakdown[1].amount)} (${Math.round((categoryBreakdown[1].amount / totalOut) * 100)}%).` : ""} These two categories together represent ${Math.round(((top.amount + (categoryBreakdown[1]?.amount || 0)) / totalOut) * 100)}% of everything that moved this week.`);
   }
 
-  // Para 3 -essential vs discretionary
   if (totalOut > 0) {
-    if (discPct > 55) {
-      paras.push(`The essential/discretionary split this week: ${essentialPct}% essential, ${discPct}% discretionary. More than half of what left your account this week was, technically, optional. That's not a verdict -context matters and some discretionary spend is genuinely important. But it is a question worth sitting with: of the ${fmt(discretionaryTotal)} discretionary spend, how much of it would you choose again?`);
-    } else if (discPct < 20) {
-      paras.push(`${essentialPct}% of this week's spend went to essentials. That's a lean, purposeful week -the overwhelming majority of what you spent was necessary. Whether that's a budget victory or just a quiet week is yours to judge, but the pattern is worth noting.`);
-    } else {
-      paras.push(`Essential vs. discretionary this week: ${essentialPct}% needs (${fmt(essentialTotal)}), ${discPct}% wants (${fmt(discretionaryTotal)}). That's a relatively balanced split. The classic 50/30 target isn't far off, which means your natural spending rhythm is closer to the textbook than most people's.`);
-    }
+    paras.push(`The essential vs. discretionary split: ${essPct}% essential (${fmt(essentialTotal)}) and ${discPct}% discretionary (${fmt(discretionaryTotal)}). ${discPct > 55 ? "More than half was technically optional. Worth sitting with the question: how much of that discretionary spend would you choose again?" : discPct < 20 ? "That's a lean week. The overwhelming majority went to necessary spending." : "A balanced split. The 50/30 benchmark isn't far off."}`);
   }
 
-  // Para 4 -busiest day observation
   if (busiestDay && busiestDay.total > 0 && activeDays > 1) {
-    const bPct = Math.round((busiestDay.total / totalOut) * 100);
-    paras.push(`${busiestDay.dayFull} was your heaviest day -${fmt(busiestDay.total)} across ${busiestDay.count} transaction${busiestDay.count === 1 ? "" : "s"}, which is ${bPct}% of the entire week's spend in a single day. If ${busiestDay.dayShort} consistently spikes like this, it's worth naming what makes that day expensive. Named patterns are controllable patterns.`);
+    paras.push(`${busiestDay.dayFull} was the peak day at ${fmt(busiestDay.total)} across ${busiestDay.count} transaction${busiestDay.count === 1 ? "" : "s"}, which is ${Math.round((busiestDay.total / totalOut) * 100)}% of the entire week in a single day. If that day keeps being expensive, it's worth naming what makes it so.`);
   }
 
-  // Para 5 -income note if any
   if (totalIn > 0) {
     const net = totalIn - totalOut;
-    if (net >= 0) {
-      paras.push(`The money-in side: ${fmt(totalIn)} received this week. Net position: +${fmt(net)}. You spent less than you received -which is the foundational requirement for everything else in personal finance. Everything else is details.`);
-    } else {
-      paras.push(`You received ${fmt(totalIn)} this week, which means the net position was ${fmt(Math.abs(net))} in the red. Spending exceeded income this week. That's survivable if it's a one-off; it becomes a pattern if it repeats. Worth watching over the next two weeks.`);
-    }
+    paras.push(net >= 0
+      ? `Income in: ${fmt(totalIn)}. Net position for the week: +${fmt(net)}. You spent less than you received. That's the foundational requirement for everything else in personal finance.`
+      : `${fmt(totalIn)} came in this week. With ${fmt(totalOut)} going out, the net was ${fmt(Math.abs(net))} in the red. Spending exceeded income this week. Survivable once; worth watching if it repeats.`);
   }
 
-  // Para 6 -closing challenge
-  const closers = [
-    `One thing to try this coming week: before any purchase over ₦5,000, ask yourself whether it would survive a 10-minute wait. Not because the answer is always no -sometimes it's a clear yes and you move on. But the pause tends to catch the impulse buys that end up in the ledger looking lonely and purposeless.`,
-    `The week is done, the numbers are in, and you've read this far -which means you're paying attention. Paying attention is the first and most important step. See you next week.`,
-    `Homework for the week ahead: look at the category that surprised you most in this report. Not to cut it -just to watch it consciously for 7 days. Awareness before action.`,
-    `If one thing from this report sticks, let it be the biggest transaction this week. Was it worth it? If yes, no note. If uncertain, that's the thing to examine. Not everything on the ledger deserves a second thought; but one thing usually does.`,
-  ];
-  paras.push(closers[new Date().getDay() % closers.length]);
-
+  paras.push(`One thing to carry into next week: pick the single category that surprised you most in this report and watch it consciously for seven days. Not to cut it. Just to see it clearly. Awareness before action.`);
   return paras;
 }
 
@@ -195,6 +250,7 @@ function buildEmailHtml({
   essentialTotal, discretionaryTotal,
   monthTotal, monthDaysElapsed, monthTotalDays,
   budgetOverall,
+  rbcParas,
 }) {
   const weekChange   = prevWeekTotal > 0 ? Math.round(((totalOut - prevWeekTotal) / prevWeekTotal) * 100) : null;
   const net          = totalIn - totalOut;
@@ -206,12 +262,6 @@ function buildEmailHtml({
   const maxCatAmount = Math.max(...categoryBreakdown.map(c => c.amount), 1);
   const discPct      = totalOut > 0 ? Math.round((discretionaryTotal / totalOut) * 100) : 0;
   const essPct       = 100 - discPct;
-
-  const rbcParas = buildRbcBriefing({
-    userName, totalOut, prevTotal: prevWeekTotal,
-    categoryBreakdown, essentialTotal, discretionaryTotal,
-    totalIn, dayBreakdown, allEntries,
-  });
 
   // ── Category rows ────────────────────────────────────────────────────────
   const catRows = categoryBreakdown.map((c, i) => {
@@ -613,6 +663,7 @@ export async function POST() {
     { data: prevEntries },
     { data: monthEntries },
     { data: budgetData },
+    { data: aiSettings },
   ] = await Promise.all([
     supabase.from("entries").select("*").eq("user_id", user.id)
       .gte("date", fromDate).lte("date", toDate).order("date").order("created_at"),
@@ -621,6 +672,7 @@ export async function POST() {
     supabase.from("entries").select("amount, flow, essentiality").eq("user_id", user.id)
       .gte("date", monthStart).lte("date", toDate),
     supabase.from("budgets").select("overall, category_budgets").eq("user_id", user.id).maybeSingle(),
+    supabase.from("user_ai_settings").select("provider, gemini_key_encrypted, groq_key_encrypted, claude_key_encrypted").eq("user_id", user.id).maybeSingle(),
   ]);
 
   const allEntries = (entries || []).sort((a,b) => a.date.localeCompare(b.date) || (a.created_at||"").localeCompare(b.created_at||""));
@@ -661,9 +713,19 @@ export async function POST() {
     });
   }
 
-  const userName = user.user_metadata?.full_name || user.email?.split("@")[0] || "Taiwo";
+  const userName  = user.user_metadata?.full_name || user.email?.split("@")[0] || "Taiwo";
   const weekStart = fmtShort(fromDate);
   const weekEnd   = fmtShort(toDate);
+
+  const rbcParas = await generateRbcBriefing({
+    settings: aiSettings,
+    userName,
+    totalOut, prevTotal,
+    categoryBreakdown, essentialTotal, discretionaryTotal,
+    totalIn, dayBreakdown, allEntries,
+    weekStart: fmtFull(fromDate),
+    weekEnd:   fmtFull(toDate),
+  });
 
   const html = buildEmailHtml({
     userName,
@@ -680,6 +742,7 @@ export async function POST() {
     monthDaysElapsed,
     monthTotalDays,
     budgetOverall: budgetData?.overall || null,
+    rbcParas,
   });
 
   const fromName  = "Trakit7";
@@ -695,7 +758,7 @@ export async function POST() {
     body: JSON.stringify({
       sender:      { name: fromName, email: fromEmail },
       to:          [{ email: user.email, name: user.user_metadata?.full_name || user.email }],
-      subject:     pickSubject(weekStart, weekEnd, totalOut),
+      subject:     pickHeaderLine(),
       htmlContent: html,
     }),
   });
