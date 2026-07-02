@@ -74,8 +74,8 @@ export default function StatsStrip({ entries, year, month, selectedDay }) {
       background: "var(--ink)",
       borderTop:    "1px solid var(--rule)",
       borderBottom: "1px solid var(--rule)",
-      padding: "12px 24px",
     }}>
+      <div style={{ maxWidth: 1120, margin: "0 auto", padding: "12px 24px" }}>
       <div className="stats-strip-scroll">
       <div className="stats-strip-grid">
         {cells.map((c) => (
@@ -123,6 +123,7 @@ export default function StatsStrip({ entries, year, month, selectedDay }) {
             </span>
           </div>
         ))}
+      </div>
       </div>
       </div>
     </div>

@@ -117,9 +117,8 @@ export default function EntriesPage() {
   }
 
   return (
-    <div className="page-root">
-
-      {/* ── NAVIGATION HEADER ─────────────────────────────────────────── */}
+    <>
+      {/* ── NAVIGATION HEADER — full-bleed sticky ─────────────────────── */}
       <div
         style={{
           background: "var(--ink-2)",
@@ -129,60 +128,70 @@ export default function EntriesPage() {
           zIndex: 10,
         }}
       >
-        <MonthNav year={year} month={month} onChange={(y, m) => { setYear(y); setMonth(m); setSelectedDay(null); }} />
+        <div style={{ maxWidth: 1120, margin: "0 auto" }}>
+          <MonthNav year={year} month={month} onChange={(y, m) => { setYear(y); setMonth(m); setSelectedDay(null); }} />
+        </div>
       </div>
 
+      {/* Stats strip — full-bleed (StatsStrip centers its own content) */}
       <StatsStrip entries={entries} year={year} month={month} selectedDay={selectedDay} />
 
+      {/* Day strip — full-bleed */}
       <div style={{ background: "var(--ink-2)", borderBottom: "1px solid var(--rule)", overflow: "hidden", minWidth: 0 }}>
-        <DayStrip
-          entries={entries}
-          budgets={budgets}
-          year={year}
-          month={month}
-          selectedDay={selectedDay}
-          onSelectDay={setSelectedDay}
-        />
+        <div style={{ maxWidth: 1120, margin: "0 auto" }}>
+          <DayStrip
+            entries={entries}
+            budgets={budgets}
+            year={year}
+            month={month}
+            selectedDay={selectedDay}
+            onSelectDay={setSelectedDay}
+          />
+        </div>
       </div>
 
-      {/* Daily summary — shown when a day is selected */}
+      {/* Daily summary — shown when a day is selected, full-bleed */}
       {selectedDay && (
-        <div
-          style={{
-            background: "var(--ink-3)",
-            borderBottom: "1px solid var(--rule)",
-            padding: "12px 24px",
-            display: "flex",
-            alignItems: "center",
-            gap: 20,
-            flexWrap: "wrap",
-          }}
-        >
-          <span style={{ color: "var(--gold)", fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 13 }}>
-            {(() => {
-              if (!dayStr) return "";
-              const d = new Date(dayStr + "T00:00:00");
-              const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-              return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
-            })()}
-          </span>
-          <span style={{ color: "var(--red)", fontFamily: "var(--font-mono)", fontSize: 13 }}>
-            Out: {formatNaira(dayOut)}
-          </span>
-          <span style={{ color: "var(--green)", fontFamily: "var(--font-mono)", fontSize: 13 }}>
-            In: {formatNaira(dayIn)}
-          </span>
-          <span style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-mono)", fontSize: 13 }}>
-            Net: {formatNaira(dayIn - dayOut)}
-          </span>
-          <button
-            onClick={() => setSelectedDay(null)}
-            style={{ marginLeft: "auto", fontSize: 11, color: "var(--ink-text-dim)", cursor: "pointer", fontFamily: "var(--font-sans)" }}
+        <div style={{ background: "var(--ink-3)", borderBottom: "1px solid var(--rule)" }}>
+          <div
+            style={{
+              maxWidth: 1120,
+              margin: "0 auto",
+              padding: "12px 24px",
+              display: "flex",
+              alignItems: "center",
+              gap: 20,
+              flexWrap: "wrap",
+            }}
           >
-            ✕ Clear filter
-          </button>
+            <span style={{ color: "var(--gold)", fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 13 }}>
+              {(() => {
+                if (!dayStr) return "";
+                const d = new Date(dayStr + "T00:00:00");
+                const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+                return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+              })()}
+            </span>
+            <span style={{ color: "var(--red)", fontFamily: "var(--font-mono)", fontSize: 13 }}>
+              Out: {formatNaira(dayOut)}
+            </span>
+            <span style={{ color: "var(--green)", fontFamily: "var(--font-mono)", fontSize: 13 }}>
+              In: {formatNaira(dayIn)}
+            </span>
+            <span style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-mono)", fontSize: 13 }}>
+              Net: {formatNaira(dayIn - dayOut)}
+            </span>
+            <button
+              onClick={() => setSelectedDay(null)}
+              style={{ marginLeft: "auto", fontSize: 11, color: "var(--ink-text-dim)", cursor: "pointer", fontFamily: "var(--font-sans)" }}
+            >
+              ✕ Clear filter
+            </button>
+          </div>
         </div>
       )}
+
+    <div className="page-root">
 
       {/* ── 1. ADD ENTRIES ────────────────────────────────────────────────
           Three input methods, all for the same job: getting data in.
@@ -325,6 +334,7 @@ export default function EntriesPage() {
         </div>
       </div>
 
-    </div>
+    </div>{/* end page-root */}
+    </> /* end fragment */
   );
 }

@@ -85,6 +85,12 @@ export default function SettingsDrawer({ open, onClose, onStartTour }) {
   const [backupStatus,     setBackupStatus]     = useState("");
   const [restoringId,      setRestoringId]      = useState(null);
 
+  // ── Notification state ────────────────────────────────────
+  const [digestEnabled,  setDigestEnabled]  = useState(false);
+  const [digestConfirm,  setDigestConfirm]  = useState(false);
+  const [digestSending,  setDigestSending]  = useState(false);
+  const [digestStatus,   setDigestStatus]   = useState("");
+
   // ── Account actions state ─────────────────────────────────
   const [signingOut,       setSigningOut]       = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -96,7 +102,9 @@ export default function SettingsDrawer({ open, onClose, onStartTour }) {
     if (!open) return;
     setAiStatus(""); setKeyWarning(""); setNameStatus(""); setPassStatus("");
     setNewPassword(""); setConfirmPassword(""); setClearChatStatus(""); setExportStatus("");
-    setBackupStatus(""); setBackupsLoaded(false);
+    setBackupStatus(""); setBackupsLoaded(false); setDigestStatus(""); setDigestConfirm(false);
+    // Load digest toggle from localStorage
+    setDigestEnabled(localStorage.getItem("trakit7:weekly-digest") === "true");
 
     async function loadSettings() {
       const { data: { user } } = await supabase.auth.getUser();
@@ -306,6 +314,23 @@ export default function SettingsDrawer({ open, onClose, onStartTour }) {
     setRestoringId(null);
   }
 
+  // ── Notification handlers ──────────────────────────────────
+  function toggleDigest(val) {
+    setDigestEnabled(val);
+    localStorage.setItem("trakit7:weekly-digest", val ? "true" : "false");
+  }
+
+  async function sendDigestNow() {
+    setDigestSending(true); setDigestStatus("Sending…"); setDigestConfirm(false);
+    try {
+      const res  = await fetch("/api/email/weekly-digest", { method: "POST" });
+      const data = await res.json();
+      if (res.ok) setDigestStatus(`Sent to ${data.sentTo} ✓`);
+      else setDigestStatus(data.error || "Failed to send.");
+    } catch { setDigestStatus("Network error."); }
+    setDigestSending(false);
+  }
+
   if (!open) return null;
 
   const inputStyle = {
@@ -510,23 +535,111 @@ export default function SettingsDrawer({ open, onClose, onStartTour }) {
 
           {/* ── Notifications ────────────────────────── */}
           <CollapsibleSection title="Notifications" color="var(--teal)">
-            <div className="flex flex-col gap-2.5">
-              {[
-                { label: "Payday reminder", desc: "Alert 2 days before your next payday" },
-                { label: "Budget breach alert", desc: "When a category exceeds its cap" },
-                { label: "Weekly spend digest", desc: "Sunday summary of the week's transactions" },
-                { label: "Large transaction alert", desc: "When a single expense exceeds ₦50,000" },
-              ].map(({ label, desc }) => (
-                <div key={label} className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-xs font-medium" style={{ color: "var(--ink-text)", fontFamily: "var(--font-sans)" }}>{label}</p>
-                    <p className="text-xs mt-0.5" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>{desc}</p>
+            <div className="flex flex-col gap-3">
+
+              {/* Weekly digest card */}
+              <div className="px-3 py-3 rounded-xl" style={{ background: "rgba(27,191,174,0.05)", border: "1px solid rgba(27,191,174,0.18)" }}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1">
+                    <p className="text-xs font-semibold" style={{ color: "var(--ink-text)", fontFamily: "var(--font-sans)" }}>
+                      Weekly spend digest
+                    </p>
+                    <p className="text-xs mt-1 leading-relaxed" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>
+                      A beautiful email every Sunday — top categories, biggest transactions, and a word from Coach RBC.
+                    </p>
                   </div>
-                  <span className="text-xs px-2 py-0.5 rounded-full shrink-0 mt-0.5" style={{ background: "var(--ink-3)", color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", border: "1px solid var(--rule)" }}>
-                    Coming soon
-                  </span>
+                  {/* Toggle switch */}
+                  <button
+                    onClick={() => toggleDigest(!digestEnabled)}
+                    role="switch"
+                    aria-checked={digestEnabled}
+                    className="shrink-0 mt-0.5"
+                    style={{
+                      width: 40, height: 22, borderRadius: 11, position: "relative",
+                      cursor: "pointer", border: "none", padding: 0,
+                      background: digestEnabled ? "var(--teal)" : "var(--ink-3)",
+                      transition: "background 0.2s",
+                    }}
+                  >
+                    <div style={{
+                      position: "absolute", top: 3, left: digestEnabled ? 20 : 3,
+                      width: 16, height: 16, borderRadius: "50%",
+                      background: digestEnabled ? "#fff" : "var(--ink-text-dim)",
+                      transition: "left 0.18s",
+                    }} />
+                  </button>
                 </div>
-              ))}
+              </div>
+
+              {/* Send now / confirm */}
+              {!digestConfirm ? (
+                <button
+                  onClick={() => { setDigestConfirm(true); setDigestStatus(""); }}
+                  disabled={digestSending}
+                  className="w-full py-2.5 rounded-lg text-sm font-semibold"
+                  style={{
+                    background: digestSending
+                      ? "var(--ink-3)"
+                      : "linear-gradient(135deg, var(--teal), #149d8e)",
+                    color: "#fff", fontFamily: "var(--font-sans)",
+                    opacity: digestSending ? 0.6 : 1,
+                    border: "none", cursor: digestSending ? "default" : "pointer",
+                  }}
+                >
+                  {digestSending ? "Sending…" : "Send digest now"}
+                </button>
+              ) : (
+                <div className="px-3 py-3 rounded-xl flex flex-col gap-2.5" style={{ background: "rgba(47,122,86,0.07)", border: "1px solid rgba(47,122,86,0.22)" }}>
+                  <p className="text-xs font-semibold" style={{ color: "var(--green)", fontFamily: "var(--font-sans)" }}>
+                    Send your weekly digest now?
+                  </p>
+                  <p className="text-xs leading-relaxed" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>
+                    A spending summary for the last 7 days will be emailed to your account address.
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setDigestConfirm(false)}
+                      className="flex-1 py-2 rounded-lg text-xs font-medium"
+                      style={{ background: "var(--ink-3)", border: "1px solid var(--rule)", color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", cursor: "pointer" }}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={sendDigestNow}
+                      className="flex-1 py-2 rounded-lg text-xs font-bold"
+                      style={{ background: "var(--green)", color: "#fff", fontFamily: "var(--font-sans)", border: "none", cursor: "pointer" }}
+                    >
+                      Yes, send it
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {digestStatus && (
+                <p className="text-xs" style={{
+                  color: digestStatus.includes("✓") ? "var(--green)"
+                    : digestStatus.includes("Sending") ? "var(--ink-text-dim)"
+                    : "var(--amber)",
+                  fontFamily: "var(--font-mono)",
+                }}>
+                  {digestStatus}
+                </p>
+              )}
+
+              {/* Setup note */}
+              <div className="px-3 py-2.5 rounded-xl" style={{ background: "rgba(169,133,79,0.06)", border: "1px solid rgba(169,133,79,0.18)" }}>
+                <p className="text-xs leading-relaxed" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>
+                  <span style={{ color: "var(--gold)", fontWeight: 700 }}>Setup required:</span>{" "}
+                  Add{" "}
+                  <span style={{ fontFamily: "var(--font-mono)", color: "var(--ink-text)", fontSize: 11 }}>RESEND_API_KEY</span>
+                  {" "}to your Vercel environment variables. Free key at{" "}
+                  <a href="https://resend.com" target="_blank" rel="noopener noreferrer" style={{ color: "var(--gold)", textDecoration: "underline" }}>
+                    resend.com
+                  </a>
+                  {" "}(100 emails/day free).
+                </p>
+              </div>
+
             </div>
           </CollapsibleSection>
 
