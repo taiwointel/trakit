@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { Resend } from "resend";
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 const M_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
@@ -518,7 +517,7 @@ export async function POST() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Not authenticated." }, { status: 401 });
 
-  const apiKey = process.env.RESEND_API_KEY;
+  const apiKey = process.env.BREVO_API_KEY;
   if (!apiKey) {
     return NextResponse.json({ error: "Email service is temporarily unavailable." }, { status: 503 });
   }
@@ -609,16 +608,28 @@ export async function POST() {
     budgetOverall: budgetData?.overall || null,
   });
 
-  const resend    = new Resend(apiKey);
-  const fromEmail = process.env.RESEND_FROM_EMAIL || "Trakit7 <onboarding@resend.dev>";
+  const fromName  = "Trakit7";
+  const fromEmail = process.env.BREVO_FROM_EMAIL || "taiwointel@gmail.com";
 
-  const { error } = await resend.emails.send({
-    from:    fromEmail,
-    to:      user.email,
-    subject: pickSubject(weekStart, weekEnd, totalOut),
-    html,
+  const res = await fetch("https://api.brevo.com/v3/smtp/email", {
+    method: "POST",
+    headers: {
+      "accept":       "application/json",
+      "content-type": "application/json",
+      "api-key":      apiKey,
+    },
+    body: JSON.stringify({
+      sender:      { name: fromName, email: fromEmail },
+      to:          [{ email: user.email, name: user.user_metadata?.full_name || user.email }],
+      subject:     pickSubject(weekStart, weekEnd, totalOut),
+      htmlContent: html,
+    }),
   });
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    return NextResponse.json({ error: errData.message || "Failed to send email." }, { status: 500 });
+  }
+
   return NextResponse.json({ ok: true, sentTo: user.email });
 }
