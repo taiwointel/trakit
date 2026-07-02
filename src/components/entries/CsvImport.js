@@ -87,6 +87,133 @@ function parseCsv(text) {
   return rows;
 }
 
+// ── Label modal ───────────────────────────────────────────────────────────────
+
+function LabelModal({ count, onConfirm, onCancel }) {
+  const [label, setLabel] = useState("");
+
+  return (
+    <div
+      style={{
+        position: "fixed", inset: 0, zIndex: 9999,
+        background: "rgba(0,0,0,0.55)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        padding: "1rem",
+      }}
+      onClick={(e) => { if (e.target === e.currentTarget) onCancel(); }}
+    >
+      <div
+        style={{
+          background: "var(--ink-2)",
+          border: "1px solid var(--gold)",
+          borderRadius: 16,
+          padding: "24px 28px",
+          width: "100%",
+          maxWidth: 440,
+          display: "flex",
+          flexDirection: "column",
+          gap: 16,
+          boxShadow: "0 8px 48px rgba(0,0,0,0.5)",
+        }}
+      >
+        {/* Header */}
+        <div>
+          <p style={{ color: "var(--gold)", fontFamily: "var(--font-sans)", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", margin: "0 0 6px" }}>
+            Label {count} selected transaction{count !== 1 ? "s" : ""}
+          </p>
+          <p style={{ color: "var(--ink-text)", fontFamily: "var(--font-serif)", fontSize: 17, fontWeight: 600, margin: 0 }}>
+            What were these for?
+          </p>
+        </div>
+
+        {/* Explanation */}
+        <p style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", fontSize: 13, lineHeight: 1.6, margin: 0 }}>
+          We noticed the exact purpose for {count > 1 ? "these transactions" : "this transaction"} isn't clear from the bank narration alone. Adding a label helps AI assign the right category and makes your ledger easier to read later.
+        </p>
+
+        {/* Examples */}
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+          {["Fuel", "Suya", "Salary", "Crypto inflow", "School fees", "Airtime"].map((ex) => (
+            <button
+              key={ex}
+              onClick={() => setLabel(ex)}
+              style={{
+                background: label === ex ? "rgba(169,133,79,0.22)" : "var(--ink-3)",
+                border: `1px solid ${label === ex ? "var(--gold)" : "var(--rule)"}`,
+                color: label === ex ? "var(--gold)" : "var(--ink-text-dim)",
+                borderRadius: 20,
+                padding: "3px 10px",
+                fontFamily: "var(--font-sans)",
+                fontSize: 11,
+                cursor: "pointer",
+              }}
+            >
+              {ex}
+            </button>
+          ))}
+        </div>
+
+        {/* Input */}
+        <input
+          autoFocus
+          type="text"
+          value={label}
+          onChange={(e) => setLabel(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter" && label.trim()) onConfirm(label); }}
+          placeholder="e.g. Fuel, Salary, Suya, Rent…"
+          style={{
+            background: "var(--ink-3)",
+            border: "1px solid var(--rule)",
+            borderRadius: 8,
+            color: "var(--ink-text)",
+            fontFamily: "var(--font-sans)",
+            fontSize: 14,
+            padding: "10px 14px",
+            outline: "none",
+            width: "100%",
+          }}
+        />
+
+        <p style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", fontSize: 11, margin: 0 }}>
+          The label will be prepended to the description — e.g. "Fuel — NIP TRANSFER 5000". You can still edit individual rows in the table.
+        </p>
+
+        {/* Buttons */}
+        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+          <button
+            onClick={onCancel}
+            style={{
+              background: "var(--ink-3)", border: "1px solid var(--rule)",
+              color: "var(--ink-text-dim)", borderRadius: 8,
+              padding: "8px 18px", fontFamily: "var(--font-sans)",
+              fontSize: 13, cursor: "pointer",
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => { if (label.trim()) onConfirm(label.trim()); }}
+            disabled={!label.trim()}
+            style={{
+              background: label.trim() ? "var(--gold)" : "var(--ink-3)",
+              border: "none",
+              color: label.trim() ? "#fff" : "var(--ink-text-dim)",
+              borderRadius: 8,
+              padding: "8px 20px",
+              fontFamily: "var(--font-sans)",
+              fontWeight: 700,
+              fontSize: 13,
+              cursor: label.trim() ? "pointer" : "not-allowed",
+            }}
+          >
+            Apply label
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 const MAX_BYTES = 4 * 1024 * 1024;
@@ -103,17 +230,20 @@ const inputBase = {
 };
 
 export default function CsvImport({ onImported }) {
-  const [open,       setOpen]       = useState(false);
-  const [rows,       setRows]       = useState([]);
-  const [dragging,   setDragging]   = useState(false);
-  const [status,     setStatus]     = useState(null);
-  const [extracting, setExtracting] = useState(false);
-  const [importing,  setImporting]  = useState(false);
+  const [open,        setOpen]        = useState(false);
+  const [rows,        setRows]        = useState([]);
+  const [selected,    setSelected]    = useState(new Set());
+  const [labelModal,  setLabelModal]  = useState(false);
+  const [dragging,    setDragging]    = useState(false);
+  const [status,      setStatus]      = useState(null);
+  const [extracting,  setExtracting]  = useState(false);
+  const [importing,   setImporting]   = useState(false);
   const fileRef = useRef(null);
 
   const processFile = useCallback(async (file) => {
     setStatus(null);
     setRows([]);
+    setSelected(new Set());
 
     if (file.size > MAX_BYTES) {
       setStatus({ type: "error", msg: "File too large (max 4 MB). For PDFs, try exporting a shorter date range from your bank." });
@@ -159,8 +289,44 @@ export default function CsvImport({ onImported }) {
 
   const updateRow = (i, field, val) =>
     setRows((prev) => prev.map((r, idx) => idx === i ? { ...r, [field]: val } : r));
-  const deleteRow = (i) =>
+
+  const deleteRow = (i) => {
     setRows((prev) => prev.filter((_, idx) => idx !== i));
+    // Adjust selected indices: remove deleted, shift down indices above it
+    setSelected((prev) => {
+      const next = new Set();
+      prev.forEach((idx) => {
+        if (idx < i) next.add(idx);
+        else if (idx > i) next.add(idx - 1);
+      });
+      return next;
+    });
+  };
+
+  const toggleSelect = (i) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(i)) next.delete(i);
+      else next.add(i);
+      return next;
+    });
+  };
+
+  const allSelected = rows.length > 0 && selected.size === rows.length;
+  const toggleAll = () => {
+    if (allSelected) setSelected(new Set());
+    else setSelected(new Set(rows.map((_, i) => i)));
+  };
+
+  const applyLabel = (label) => {
+    setRows((prev) =>
+      prev.map((r, i) =>
+        selected.has(i) ? { ...r, desc: `${label} — ${r.desc}` } : r
+      )
+    );
+    setSelected(new Set());
+    setLabelModal(false);
+  };
 
   const doImport = async () => {
     const valid = rows.filter((r) => r.date && r.desc && Number(r.amount) > 0);
@@ -179,6 +345,7 @@ export default function CsvImport({ onImported }) {
       } else {
         setStatus({ type: "success", msg: `${data.inserted} entries imported. Categories were auto-assigned. Review them in the ledger below to confirm accuracy before relying on the totals.` });
         setRows([]);
+        setSelected(new Set());
         if (onImported) onImported();
       }
     } catch {
@@ -233,7 +400,7 @@ export default function CsvImport({ onImported }) {
                   <span style={{ color: "var(--gold)" }}>click to select</span>
                 </span>
                 <span className="text-xs" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", opacity: 0.7 }}>
-                  CSV · PDF · JPG · PNG, GTBank, Access, Zenith, UBA (max 4 MB)
+                  CSV · PDF · JPG · PNG, GTBank, Access, Zenith, UBA, OPay (max 4 MB)
                 </span>
               </>
             )}
@@ -250,26 +417,64 @@ export default function CsvImport({ onImported }) {
           {/* Editable table */}
           {rows.length > 0 && (
             <div className="flex flex-col gap-2">
-              <div className="flex items-center justify-between">
+              {/* Table header row */}
+              <div className="flex items-center justify-between gap-2">
                 <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>
                   {rows.length} transactions detected. Edit or remove rows before importing.
                 </p>
-                <button
-                  onClick={() => setRows([])}
-                  className="text-xs"
-                  style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}
-                >
-                  Clear all
-                </button>
+                <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
+                  {selected.size > 0 && (
+                    <button
+                      onClick={() => setLabelModal(true)}
+                      style={{
+                        background: "rgba(169,133,79,0.15)",
+                        border: "1px solid var(--gold)",
+                        color: "var(--gold)",
+                        borderRadius: 20,
+                        padding: "3px 12px",
+                        fontFamily: "var(--font-sans)",
+                        fontSize: 11,
+                        fontWeight: 700,
+                        cursor: "pointer",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      ✦ Label selected ({selected.size})
+                    </button>
+                  )}
+                  <button
+                    onClick={() => { setRows([]); setSelected(new Set()); }}
+                    className="text-xs"
+                    style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", whiteSpace: "nowrap" }}
+                  >
+                    Clear all
+                  </button>
+                </div>
               </div>
+
+              {/* Hint when nothing selected yet */}
+              {selected.size === 0 && (
+                <p style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", fontSize: 11, margin: 0 }}>
+                  Tip: select rows with unclear narrations (like "NIP TRANSFER") and use <strong style={{ color: "var(--gold)" }}>Label selected</strong> to describe what they were for — this improves AI categorization.
+                </p>
+              )}
 
               <div
                 className="rounded-lg overflow-auto"
                 style={{ background: "var(--paper)", maxHeight: 380, border: "1px solid var(--rule-paper)" }}
               >
-                <table className="w-full text-xs" style={{ borderCollapse: "collapse", minWidth: 560 }}>
+                <table className="w-full text-xs" style={{ borderCollapse: "collapse", minWidth: 580 }}>
                   <thead>
                     <tr style={{ background: "var(--paper-2)", position: "sticky", top: 0, zIndex: 1 }}>
+                      {/* Select-all checkbox */}
+                      <th className="px-2 py-2" style={{ width: 32, borderBottom: "1px solid var(--rule-paper)" }}>
+                        <input
+                          type="checkbox"
+                          checked={allSelected}
+                          onChange={toggleAll}
+                          style={{ cursor: "pointer", accentColor: "var(--gold)" }}
+                        />
+                      </th>
                       {["Date","Description","Amount (₦)","Flow",""].map((h) => (
                         <th
                           key={h}
@@ -282,58 +487,78 @@ export default function CsvImport({ onImported }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {rows.map((row, i) => (
-                      <tr key={i} style={{ borderBottom: "1px solid var(--rule-paper)", background: i % 2 === 0 ? "var(--paper)" : "var(--paper-2)" }}>
-                        <td className="px-2 py-1" style={{ minWidth: 110 }}>
-                          <input
-                            type="date"
-                            defaultValue={row.date}
-                            onBlur={(e) => updateRow(i, "date", e.target.value)}
-                            style={{ ...inputBase, fontFamily: "var(--font-mono)", width: 110 }}
-                          />
-                        </td>
-                        <td className="px-2 py-1" style={{ minWidth: 180 }}>
-                          <input
-                            type="text"
-                            defaultValue={row.desc}
-                            onBlur={(e) => updateRow(i, "desc", e.target.value)}
-                            style={{ ...inputBase, fontFamily: "var(--font-sans)" }}
-                          />
-                        </td>
-                        <td className="px-2 py-1" style={{ minWidth: 110 }}>
-                          <input
-                            type="text"
-                            inputMode="decimal"
-                            defaultValue={row.amount}
-                            onBlur={(e) => {
-                              const v = parseFloat(String(e.target.value).replace(/,/g,""));
-                              updateRow(i, "amount", isNaN(v) ? row.amount : v);
-                            }}
-                            style={{ ...inputBase, fontFamily: "var(--font-mono)", width: 100 }}
-                          />
-                        </td>
-                        <td className="px-2 py-1" style={{ minWidth: 70 }}>
-                          <select
-                            value={row.flow}
-                            onChange={(e) => updateRow(i, "flow", e.target.value)}
-                            style={{ ...inputBase, width: "auto", paddingRight: 20 }}
-                          >
-                            <option value="out">Out</option>
-                            <option value="in">In</option>
-                          </select>
-                        </td>
-                        <td className="px-2 py-1">
-                          <button
-                            onClick={() => deleteRow(i)}
-                            title="Remove row"
-                            className="text-xs"
-                            style={{ color: "var(--red)" }}
-                          >
-                            ✕
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
+                    {rows.map((row, i) => {
+                      const isSelected = selected.has(i);
+                      return (
+                        <tr
+                          key={i}
+                          style={{
+                            borderBottom: "1px solid var(--rule-paper)",
+                            background: isSelected
+                              ? "rgba(169,133,79,0.08)"
+                              : i % 2 === 0 ? "var(--paper)" : "var(--paper-2)",
+                          }}
+                        >
+                          {/* Row checkbox */}
+                          <td className="px-2 py-1" style={{ textAlign: "center" }}>
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => toggleSelect(i)}
+                              style={{ cursor: "pointer", accentColor: "var(--gold)" }}
+                            />
+                          </td>
+                          <td className="px-2 py-1" style={{ minWidth: 110 }}>
+                            <input
+                              type="date"
+                              defaultValue={row.date}
+                              onBlur={(e) => updateRow(i, "date", e.target.value)}
+                              style={{ ...inputBase, fontFamily: "var(--font-mono)", width: 110 }}
+                            />
+                          </td>
+                          <td className="px-2 py-1" style={{ minWidth: 180 }}>
+                            <input
+                              type="text"
+                              defaultValue={row.desc}
+                              onBlur={(e) => updateRow(i, "desc", e.target.value)}
+                              style={{ ...inputBase, fontFamily: "var(--font-sans)" }}
+                            />
+                          </td>
+                          <td className="px-2 py-1" style={{ minWidth: 110 }}>
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              defaultValue={row.amount}
+                              onBlur={(e) => {
+                                const v = parseFloat(String(e.target.value).replace(/,/g,""));
+                                updateRow(i, "amount", isNaN(v) ? row.amount : v);
+                              }}
+                              style={{ ...inputBase, fontFamily: "var(--font-mono)", width: 100 }}
+                            />
+                          </td>
+                          <td className="px-2 py-1" style={{ minWidth: 70 }}>
+                            <select
+                              value={row.flow}
+                              onChange={(e) => updateRow(i, "flow", e.target.value)}
+                              style={{ ...inputBase, width: "auto", paddingRight: 20 }}
+                            >
+                              <option value="out">Out</option>
+                              <option value="in">In</option>
+                            </select>
+                          </td>
+                          <td className="px-2 py-1">
+                            <button
+                              onClick={() => deleteRow(i)}
+                              title="Remove row"
+                              className="text-xs"
+                              style={{ color: "var(--red)" }}
+                            >
+                              ✕
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -355,6 +580,15 @@ export default function CsvImport({ onImported }) {
             </div>
           )}
         </div>
+      )}
+
+      {/* Label modal */}
+      {labelModal && (
+        <LabelModal
+          count={selected.size}
+          onConfirm={applyLabel}
+          onCancel={() => setLabelModal(false)}
+        />
       )}
     </div>
   );

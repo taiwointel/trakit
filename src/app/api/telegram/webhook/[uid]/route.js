@@ -180,7 +180,8 @@ function parseExpense(text) {
 
   if (!amount || amount <= 0 || !isFinite(amount)) return null;
 
-  const description = match[2].trim();
+  // Support "2k for Suya", "15k for fuel", etc.
+  let description = match[2].trim().replace(/^for\s+/i, "").trim();
   if (!description) return null;
 
   return { amount, description, flow: isIncome ? "in" : "out" };

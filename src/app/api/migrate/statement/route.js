@@ -15,6 +15,7 @@ Rules:
 - amount: positive number, no commas or currency symbols
 - flow: "out" for debits/withdrawals/charges; "in" for credits/deposits/payments received
 - Skip opening balance, closing balance, totals, subtotals, header/footer rows
+- MULTI-SECTION STATEMENTS: If the document contains multiple account sections (e.g. OPay "Wallet Account" and "Savings Account" / "Owealth"), extract transactions from the Savings Account / Owealth section ONLY. Ignore the Wallet Account section entirely — it records internal fund movements that duplicate the savings section.
 - Return ONLY the raw JSONL lines — no markdown fences, no extra text`;
 
 const EXTRACT_PROMPT = `Extract all bank transactions from this Nigerian bank statement.\n${JSONL_RULES}`;
