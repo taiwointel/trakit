@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { callGemini, cleanGeminiError } from "@/lib/gemini";
 // pdf-parse is imported dynamically inside the handler to prevent module-level
 // test-file loading (a known pdf-parse v1 + Next.js incompatibility).
 
@@ -179,33 +180,24 @@ export async function POST(request) {
       rawText = data.content?.[0]?.text || "";
 
     } else {
-      // Gemini (default)
+      // Gemini (default) — with automatic fallback to gemini-1.5-flash on quota errors
       const key = settings?.gemini_key_encrypted;
       if (!key) return NextResponse.json({ error: "No AI key configured. Add a Gemini or Claude key in Settings." }, { status: 400 });
 
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`,
-        {
-          method:  "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{ parts: [
-              { inline_data: { mime_type: mimeType, data: base64 } },
-              { text: EXTRACT_PROMPT },
-            ]}],
-            generationConfig: { temperature: 0.1, maxOutputTokens: 8192 },
-          }),
-        },
-      );
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error?.message || "Gemini error");
-      rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+      rawText = await callGemini(key, {
+        contents: [{ parts: [
+          { inline_data: { mime_type: mimeType, data: base64 } },
+          { text: EXTRACT_PROMPT },
+        ]}],
+        generationConfig: { temperature: 0.1, maxOutputTokens: 8192 },
+      });
     }
 
     const rows = filterRows(parseAIResponse(rawText));
     return NextResponse.json({ rows });
 
   } catch (err) {
-    return NextResponse.json({ error: `Extraction failed: ${err.message}` }, { status: 500 });
+    // err.message is already human-readable (cleaned by callGemini / explicit throws above)
+    return NextResponse.json({ error: err.message || "Extraction failed. Please try again." }, { status: 500 });
   }
 }
