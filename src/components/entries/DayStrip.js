@@ -1,6 +1,7 @@
 "use client";
 
 import { datesInMonth, formatNaira } from "@/lib/format";
+import { useRef, useEffect } from "react";
 
 const DAY_LABELS = ["Su","Mo","Tu","We","Th","Fr","Sa"];
 
@@ -18,14 +19,28 @@ export default function DayStrip({ entries, budgets, year, month, selectedDay, o
   const today          = new Date().toISOString().slice(0, 10);
   const hasBudget      = !!(budgets?.overall);
   const dailyAllowance = hasBudget ? (budgets.overall / dates.length) : 0;
+  const stripRef       = useRef(null);
+
+  // Scroll today into view on mount and month change
+  useEffect(() => {
+    const el = stripRef.current;
+    if (!el) return;
+    const todayBtn = el.querySelector("[data-today]");
+    if (todayBtn) todayBtn.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" });
+  }, [year, month]);
 
   return (
     <div
+      ref={stripRef}
       style={{
-        display:       "flex",
-        flexDirection: "row",
-        padding:       "12px 16px",
-        gap:           2,
+        display:              "flex",
+        flexDirection:        "row",
+        padding:              "12px 16px",
+        gap:                  2,
+        overflowX:            "auto",
+        scrollbarWidth:       "none",
+        msOverflowStyle:      "none",
+        WebkitOverflowScrolling: "touch",
       }}
     >
       {dates.map((date) => {
@@ -41,11 +56,12 @@ export default function DayStrip({ entries, budgets, year, month, selectedDay, o
         return (
           <button
             key={date}
+            data-today={isToday || undefined}
             onClick={() => onSelectDay(isSelected ? null : dayNum)}
             title={`${date}: ${dayOut > 0 ? formatNaira(dayOut) + " out" : "No spending"}`}
             style={{
               flex:          1,
-              minWidth:      0,
+              minWidth:      28,   /* floor: mobile scrolls when cells would go below this */
               display:       "flex",
               flexDirection: "column",
               alignItems:    "center",
@@ -55,6 +71,7 @@ export default function DayStrip({ entries, budgets, year, month, selectedDay, o
               border:        isSelected ? "1px solid rgba(169,133,79,0.5)" : "1px solid transparent",
               background:    isSelected ? "rgba(169,133,79,0.1)" : "transparent",
               cursor:        "pointer",
+              flexShrink:    0,
             }}
           >
             {/* Day-of-week label */}
