@@ -7,24 +7,20 @@ const DAY_LABELS = ["Su","Mo","Tu","We","Th","Fr","Sa"];
 
 function dayColor(outflow, allowance, hasBudget) {
   if (outflow === 0) return "var(--rule)";
-  if (!hasBudget) {
-    // Relative heatmap: use amber for any spend
-    return "var(--amber)";
-  }
+  if (!hasBudget) return "var(--amber)";
   const pct = outflow / allowance;
-  if (pct <= 0.5)  return "var(--green)";
-  if (pct <= 1.0)  return "var(--amber)";
+  if (pct <= 0.5) return "var(--green)";
+  if (pct <= 1.0) return "var(--amber)";
   return "var(--red)";
 }
 
 export default function DayStrip({ entries, budgets, year, month, selectedDay, onSelectDay }) {
-  const dates       = datesInMonth(year, month);
-  const today       = new Date().toISOString().slice(0, 10);
-  const hasBudget   = !!budgets.overall;
-  const dailyAllowance = hasBudget ? budgets.overall / dates.length : 0;
-  const stripRef    = useRef(null);
+  const dates          = datesInMonth(year, month);
+  const today          = new Date().toISOString().slice(0, 10);
+  const hasBudget      = !!(budgets?.overall);
+  const dailyAllowance = hasBudget ? (budgets.overall / dates.length) : 0;
+  const stripRef       = useRef(null);
 
-  // Auto-scroll to today on first render
   useEffect(() => {
     const el = stripRef.current;
     if (!el) return;
@@ -35,14 +31,23 @@ export default function DayStrip({ entries, budgets, year, month, selectedDay, o
   return (
     <div
       ref={stripRef}
-      className="flex gap-1 py-2 px-6"
-      style={{ overflowX: "auto", scrollbarWidth: "none", msOverflowStyle: "none" }}
+      style={{
+        display:          "flex",
+        flexDirection:    "row",
+        gap:              4,
+        overflowX:        "auto",
+        padding:          "10px 24px",
+        scrollbarWidth:   "none",
+        msOverflowStyle:  "none",
+        WebkitOverflowScrolling: "touch",
+      }}
     >
       {dates.map((date) => {
-        const dayNum  = parseInt(date.slice(8), 10);
-        const dow     = new Date(date + "T00:00:00").getDay();
-        const dayOut  = entries.filter((e) => e.date === date && e.flow === "out")
-                               .reduce((s, e) => s + Number(e.amount), 0);
+        const dayNum     = parseInt(date.slice(8), 10);
+        const dow        = new Date(date + "T00:00:00").getDay();
+        const dayOut     = entries
+          .filter((e) => e.date === date && e.flow === "out")
+          .reduce((s, e) => s + Number(e.amount), 0);
         const isToday    = date === today;
         const isSelected = selectedDay === dayNum;
         const color      = dayColor(dayOut, dailyAllowance, hasBudget);
@@ -52,37 +57,50 @@ export default function DayStrip({ entries, budgets, year, month, selectedDay, o
             key={date}
             data-today={isToday || undefined}
             onClick={() => onSelectDay(isSelected ? null : dayNum)}
-            className="flex flex-col items-center gap-0.5 shrink-0 rounded px-1 py-1 transition-colors"
+            title={`${date}: ${formatNaira(dayOut)} out`}
             style={{
-              minWidth: 28,
-              background:  isSelected ? "var(--ink-3)" : "transparent",
-              outline:     isToday ? `1px solid var(--gold)` : "none",
-              borderRadius: 4,
+              display:       "flex",
+              flexDirection: "column",
+              alignItems:    "center",
+              gap:           3,
+              flexShrink:    0,
+              minWidth:      30,
+              padding:       "5px 4px",
+              borderRadius:  4,
+              border:        "none",
+              background:    isSelected ? "var(--ink-3)" : "transparent",
+              outline:       isToday ? "1px solid var(--gold)" : "none",
+              cursor:        "pointer",
             }}
-            title={`${date}: ${formatNaira(dayOut, { compact: true })} out`}
           >
-            <span
-              className="text-[9px] uppercase"
-              style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-mono)" }}
-            >
+            <span style={{
+              display:       "block",
+              fontSize:      9,
+              textTransform: "uppercase",
+              letterSpacing: "0.05em",
+              color:         "var(--ink-text-dim)",
+              fontFamily:    "var(--font-mono)",
+              lineHeight:    1,
+            }}>
               {DAY_LABELS[dow]}
             </span>
-            <span
-              className="text-[11px] font-medium"
-              style={{ color: isToday ? "var(--gold)" : "var(--ink-text-dim)", fontFamily: "var(--font-mono)" }}
-            >
+            <span style={{
+              display:    "block",
+              fontSize:   12,
+              fontWeight: 600,
+              color:      isToday ? "var(--gold)" : "var(--ink-text-dim)",
+              fontFamily: "var(--font-mono)",
+              lineHeight: 1,
+            }}>
               {dayNum}
             </span>
-            {/* Color bar */}
-            <div
-              style={{
-                width: 16,
-                height: 4,
-                borderRadius: 2,
-                background: color,
-                opacity: dayOut === 0 ? 0.25 : 1,
-              }}
-            />
+            <div style={{
+              width:       18,
+              height:      4,
+              borderRadius: 2,
+              background:  color,
+              opacity:     dayOut === 0 ? 0.25 : 1,
+            }} />
           </button>
         );
       })}
