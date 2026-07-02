@@ -1,7 +1,6 @@
 "use client";
 
 import { datesInMonth, formatNaira } from "@/lib/format";
-import { useRef, useEffect } from "react";
 
 const DAY_LABELS = ["Su","Mo","Tu","We","Th","Fr","Sa"];
 
@@ -19,27 +18,14 @@ export default function DayStrip({ entries, budgets, year, month, selectedDay, o
   const today          = new Date().toISOString().slice(0, 10);
   const hasBudget      = !!(budgets?.overall);
   const dailyAllowance = hasBudget ? (budgets.overall / dates.length) : 0;
-  const stripRef       = useRef(null);
-
-  useEffect(() => {
-    const el = stripRef.current;
-    if (!el) return;
-    const todayBtn = el.querySelector("[data-today]");
-    if (todayBtn) todayBtn.scrollIntoView({ inline: "center", block: "nearest" });
-  }, [year, month]);
 
   return (
     <div
-      ref={stripRef}
       style={{
-        display:          "flex",
-        flexDirection:    "row",
-        gap:              4,
-        overflowX:        "auto",
-        padding:          "10px 24px",
-        scrollbarWidth:   "none",
-        msOverflowStyle:  "none",
-        WebkitOverflowScrolling: "touch",
+        display:       "flex",
+        flexDirection: "row",
+        padding:       "12px 16px",
+        gap:           2,
       }}
     >
       {dates.map((date) => {
@@ -55,17 +41,16 @@ export default function DayStrip({ entries, budgets, year, month, selectedDay, o
         return (
           <button
             key={date}
-            data-today={isToday || undefined}
             onClick={() => onSelectDay(isSelected ? null : dayNum)}
             title={`${date}: ${dayOut > 0 ? formatNaira(dayOut) + " out" : "No spending"}`}
             style={{
+              flex:          1,
+              minWidth:      0,
               display:       "flex",
               flexDirection: "column",
               alignItems:    "center",
               gap:           2,
-              flexShrink:    0,
-              width:         38,
-              padding:       "8px 0 6px",
+              padding:       "8px 2px 6px",
               borderRadius:  10,
               border:        isSelected ? "1px solid rgba(169,133,79,0.5)" : "1px solid transparent",
               background:    isSelected ? "rgba(169,133,79,0.1)" : "transparent",
@@ -76,19 +61,19 @@ export default function DayStrip({ entries, budgets, year, month, selectedDay, o
             <span style={{
               fontSize:      8,
               textTransform: "uppercase",
-              letterSpacing: "0.07em",
+              letterSpacing: "0.04em",
               color:         "var(--ink-text-dim)",
               fontFamily:    "var(--font-mono)",
               lineHeight:    1,
-              opacity:       0.65,
+              opacity:       0.6,
             }}>
               {DAY_LABELS[dow]}
             </span>
 
             {/* Day number — filled gold circle for today */}
             <div style={{
-              width:          26,
-              height:         26,
+              width:          22,
+              height:         22,
               borderRadius:   "50%",
               display:        "flex",
               alignItems:     "center",
@@ -97,7 +82,7 @@ export default function DayStrip({ entries, budgets, year, month, selectedDay, o
               marginTop:      1,
             }}>
               <span style={{
-                fontSize:   12,
+                fontSize:   11,
                 fontWeight: isToday ? 700 : 500,
                 color:      isToday ? "#fff" : isSelected ? "var(--gold)" : "var(--ink-text-dim)",
                 fontFamily: "var(--font-mono)",
@@ -109,12 +94,12 @@ export default function DayStrip({ entries, budgets, year, month, selectedDay, o
 
             {/* Spend bar */}
             <div style={{
-              width:        "calc(100% - 10px)",
-              height:       5,
-              borderRadius: 3,
+              width:        "calc(100% - 6px)",
+              height:       4,
+              borderRadius: 2,
               background:   color,
               opacity:      dayOut === 0 ? 0.18 : 1,
-              marginTop:    3,
+              marginTop:    2,
             }} />
           </button>
         );

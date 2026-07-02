@@ -141,7 +141,7 @@ export default function EntriesPage() {
       {/* ── DAY STRIP ─────────────────────────────────────────────────────
           Card-constrained, same width as all other content boxes.
           Right-edge fade hints that the strip scrolls. */}
-      <div style={{ position: "relative", background: "var(--ink-2)", border: "1px solid var(--rule)", borderRadius: 16, overflow: "hidden" }}>
+      <div style={{ background: "var(--ink-2)", border: "1px solid var(--rule)", borderRadius: 16 }}>
         <DayStrip
           entries={entries}
           budgets={budgets}
@@ -150,12 +150,6 @@ export default function EntriesPage() {
           selectedDay={selectedDay}
           onSelectDay={setSelectedDay}
         />
-        {/* Right-edge fade — indicates scrollable content beyond the visible area */}
-        <div style={{
-          position: "absolute", right: 0, top: 0, bottom: 0, width: 48,
-          background: "linear-gradient(to right, transparent, var(--ink-2))",
-          pointerEvents: "none",
-        }} />
       </div>
 
       {/* Daily summary — inline card, shown when a day is selected */}
