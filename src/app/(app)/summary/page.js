@@ -390,7 +390,7 @@ export default function SummaryPage() {
           Two things only. Greeting sets the emotional tone; payday is the
           most time-sensitive number the user cares about on first load.
       ── */}
-      <div style={{ padding: "24px 24px 4px" }} className="sm:p-8 sm:pb-1">
+      <div style={{ padding: "24px 24px 4px" }} className="sm:p-8 sm:pb-1" data-tour="summary-headline">
         <div className="grid-hero">
           {/* Left: greeting */}
           <div

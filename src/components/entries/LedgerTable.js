@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { CATEGORY_NAMES, categoryDefaults } from "@/lib/categories";
 import { formatNaira, formatAmountInput, parseAmount } from "@/lib/format";
 
@@ -46,7 +46,7 @@ function ConfidenceDot({ status, confidence }) {
   const c = Number(confidence);
   const color = c >= 0.8 ? "var(--green)" : c >= 0.5 ? "var(--amber)" : "var(--red)";
   return (
-    <span title={`AI confidence: ${Math.round(c * 100)}%`} style={{
+    <span title={`Category confidence: ${Math.round(c * 100)}%`} style={{
       display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: color, flexShrink: 0,
     }} />
   );
@@ -120,9 +120,125 @@ function EditRow({ entry, onSave, onCancel }) {
   );
 }
 
+function fmtDateLong(iso) {
+  if (!iso) return "";
+  const d = new Date(iso + "T00:00:00");
+  const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const DAYS   = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+  return `${DAYS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]}`;
+}
+
+function ClearWizard({ entries, onConfirm, onCancel }) {
+  const dateGroups = useMemo(() => {
+    const map = {};
+    entries.forEach((e) => {
+      if (!map[e.date]) map[e.date] = [];
+      map[e.date].push(e);
+    });
+    return Object.entries(map).sort(([a], [b]) => b.localeCompare(a));
+  }, [entries]);
+
+  const [checked, setChecked] = useState(() => {
+    const s = new Set();
+    entries.forEach((e) => s.add(e.date));
+    return s;
+  });
+
+  function toggleDate(date) {
+    setChecked((prev) => {
+      const next = new Set(prev);
+      if (next.has(date)) next.delete(date);
+      else next.add(date);
+      return next;
+    });
+  }
+
+  function toggleAll() {
+    if (checked.size === dateGroups.length) setChecked(new Set());
+    else setChecked(new Set(dateGroups.map(([d]) => d)));
+  }
+
+  const selectedIds = entries.filter((e) => checked.has(e.date)).map((e) => e.id);
+  const allChecked  = checked.size === dateGroups.length;
+
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 9000, background: "rgba(0,0,0,0.72)", display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem" }}>
+      <div style={{ background: "var(--ink-2)", border: "1px solid var(--rule)", borderRadius: 18, width: "100%", maxWidth: 420, maxHeight: "82vh", overflow: "hidden", display: "flex", flexDirection: "column" }}>
+        {/* Header */}
+        <div style={{ padding: "18px 22px 14px", borderBottom: "1px solid var(--rule)" }}>
+          <h3 style={{ color: "var(--ink-text)", fontFamily: "var(--font-serif)", fontSize: "1.1rem", fontWeight: 700, margin: 0 }}>
+            Delete entries
+          </h3>
+          <p style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", fontSize: 12, marginTop: 4 }}>
+            Select the dates to delete. A backup is saved automatically before any deletion.
+          </p>
+        </div>
+
+        {/* Date list */}
+        <div style={{ flex: 1, overflowY: "auto", padding: "10px 22px" }}>
+          {/* Select all row */}
+          <div
+            onClick={toggleAll}
+            style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", cursor: "pointer", borderBottom: "1px solid var(--rule)", marginBottom: 4 }}
+          >
+            <div style={{ width: 16, height: 16, borderRadius: 4, border: `2px solid ${allChecked ? "var(--gold)" : "var(--rule)"}`, background: allChecked ? "var(--gold)" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              {allChecked && <span style={{ color: "#fff", fontSize: 10, fontWeight: 700 }}>✓</span>}
+            </div>
+            <span style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", fontSize: 12, fontWeight: 600 }}>
+              {allChecked ? "Deselect all" : "Select all"}
+            </span>
+            <span style={{ marginLeft: "auto", color: "var(--ink-text-dim)", fontFamily: "var(--font-mono)", fontSize: 11 }}>
+              {entries.length} total
+            </span>
+          </div>
+
+          {dateGroups.map(([date, group]) => {
+            const isOn = checked.has(date);
+            return (
+              <div
+                key={date}
+                onClick={() => toggleDate(date)}
+                style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 0", cursor: "pointer", borderBottom: "1px solid rgba(255,255,255,0.04)" }}
+              >
+                <div style={{ width: 16, height: 16, borderRadius: 4, border: `2px solid ${isOn ? "var(--gold)" : "var(--rule)"}`, background: isOn ? "var(--gold)" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  {isOn && <span style={{ color: "#fff", fontSize: 10, fontWeight: 700 }}>✓</span>}
+                </div>
+                <span style={{ color: "var(--ink-text)", fontFamily: "var(--font-sans)", fontSize: 13 }}>
+                  {fmtDateLong(date)}
+                </span>
+                <span style={{ marginLeft: "auto", color: "var(--ink-text-dim)", fontFamily: "var(--font-mono)", fontSize: 11 }}>
+                  {group.length} {group.length === 1 ? "entry" : "entries"}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Footer */}
+        <div style={{ padding: "14px 22px", borderTop: "1px solid var(--rule)", display: "flex", gap: 10 }}>
+          <button
+            onClick={onCancel}
+            style={{ flex: 1, padding: "10px", borderRadius: 10, background: "var(--ink-3)", border: "1px solid var(--rule)", color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", fontSize: 13, cursor: "pointer" }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => { if (selectedIds.length) onConfirm(selectedIds); }}
+            disabled={selectedIds.length === 0}
+            style={{ flex: 2, padding: "10px", borderRadius: 10, background: selectedIds.length ? "var(--red)" : "var(--ink-3)", border: "none", color: selectedIds.length ? "#fff" : "var(--ink-text-dim)", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 700, cursor: selectedIds.length ? "pointer" : "not-allowed" }}
+          >
+            Delete {selectedIds.length} {selectedIds.length === 1 ? "entry" : "entries"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function LedgerTable({ entries, onUpdate, onDelete, onClearAll }) {
   const [editingId,      setEditingId]      = useState(null);
-  const [recatProgress,  setRecatProgress]  = useState(null); // null | { done, total }
+  const [recatProgress,  setRecatProgress]  = useState(null);
+  const [clearWizardOpen, setClearWizardOpen] = useState(false);
 
   async function handleRecategorizeAll() {
     const targets = entries.filter(e => e.flow === "out" && e.status !== "done");
@@ -147,11 +263,8 @@ export default function LedgerTable({ entries, onUpdate, onDelete, onClearAll })
   }
 
   function handleClearAll() {
-    if (!onClearAll) return;
-    const n = entries.length;
-    if (confirm(`Delete ${n} visible entr${n === 1 ? "y" : "ies"}? A backup will be saved automatically so you can recover from Settings.`)) {
-      onClearAll();
-    }
+    if (!onClearAll || !entries.length) return;
+    setClearWizardOpen(true);
   }
 
   if (entries.length === 0) {
@@ -347,10 +460,10 @@ export default function LedgerTable({ entries, onUpdate, onDelete, onClearAll })
           {recatProgress ? (
             <>
               <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: "var(--amber)", animation: "pulse 1s infinite" }} />
-              Categorizing {recatProgress.done}/{recatProgress.total}…
+              Categorizing {recatProgress.done}/{recatProgress.total}...
             </>
           ) : (
-            <>✦ Auto-categorize all with AI</>
+            <>✦ Re-categorize all entries</>
           )}
         </button>
 
@@ -368,6 +481,15 @@ export default function LedgerTable({ entries, onUpdate, onDelete, onClearAll })
           </button>
         )}
       </div>
+
+      {/* Clear wizard modal */}
+      {clearWizardOpen && (
+        <ClearWizard
+          entries={entries}
+          onConfirm={(ids) => { setClearWizardOpen(false); onClearAll(ids); }}
+          onCancel={() => setClearWizardOpen(false)}
+        />
+      )}
     </div>
   );
 }

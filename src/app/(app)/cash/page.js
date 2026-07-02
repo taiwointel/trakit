@@ -56,7 +56,7 @@ export default function CashPage() {
           When no anchor exists, the setup form must come first since
           nothing else can render meaningful numbers without it.
       ── */}
-      <div className="section-divider">
+      <div className="section-divider" data-tour="cash-balance">
         <div className="section-divider-bar" />
         <span className="section-divider-label">Cash Balance</span>
         <div className="section-divider-rule" />
@@ -131,7 +131,7 @@ export default function CashPage() {
           "Log a new investment" sits at the bottom because it's an
           occasional action, not the daily reason for visiting this page.
       ── */}
-      <div className="section-divider">
+      <div className="section-divider" data-tour="investments-section">
         <div className="section-divider-bar" style={{ background: "var(--teal)" }} />
         <span className="section-divider-label" style={{ color: "var(--teal)" }}>Investments</span>
         <div className="section-divider-rule" />

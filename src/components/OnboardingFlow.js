@@ -285,7 +285,7 @@ export default function OnboardingFlow({ userName }) {
           icon={<IconWave />}
           badge="Getting started"
           title={`Hey ${name}, one quick setup 👋`}
-          body="Trakit7 uses a free AI service to power Coach RBC, auto-categorize your expenses, and generate spending insights. You will pick a provider and paste a key. It takes about 2 minutes and no payment is required."
+          body="Trakit7 uses a free provider key to power Coach RBC, categorize your expenses, and generate spending insights. You will pick a provider and paste a key. It takes about 2 minutes and no payment is required."
           onNext={() => setStep(1)}
           nextLabel="Let's pick a provider →"
         />
@@ -309,7 +309,7 @@ export default function OnboardingFlow({ userName }) {
               Step 1 of {total - 1}
             </span>
             <h2 style={{ color: "var(--ink-text)", fontFamily: "var(--font-serif)", fontSize: "1.3rem", fontWeight: 700 }}>
-              Choose your AI provider
+              Choose your provider
             </h2>
             <p style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", fontSize: "0.88rem", lineHeight: 1.6 }}>
               Both are free with no credit card required. Pick whichever you prefer. You can always add the other provider later in Settings.

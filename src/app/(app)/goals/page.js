@@ -66,7 +66,7 @@ export default function GoalsPage() {
           the monitoring content (targets, fund, goals) can take priority. */}
       {!hasSalary && (
         <>
-          <div className="section-divider">
+          <div className="section-divider" data-tour="salary-panel">
             <div className="section-divider-bar" />
             <span className="section-divider-label">Salary &amp; Payday</span>
             <div className="section-divider-rule" />
@@ -84,7 +84,7 @@ export default function GoalsPage() {
           The most visually compelling view — progress bars, breach badges,
           and the 50/30/20 reallocation. Promoted to top when salary is set
           so users see their financial health immediately on every visit. */}
-      <div className="section-divider">
+      <div className="section-divider" data-tour="salary-panel">
         <div className="section-divider-bar" style={{ background: "var(--violet)" }} />
         <span className="section-divider-label" style={{ color: "var(--violet)" }}>Monthly Targets (50/30/20)</span>
         <div className="section-divider-rule" />
@@ -107,7 +107,7 @@ export default function GoalsPage() {
       {/* ── EMERGENCY FUND ────────────────────────────────────────────────
           Progress bar towards the 6-month safety net — frequently checked
           and motivating to see growing. */}
-      <div className="section-divider">
+      <div className="section-divider" data-tour="emergency-fund">
         <div className="section-divider-bar" style={{ background: "var(--blue-accent)" }} />
         <span className="section-divider-label" style={{ color: "var(--blue-accent)" }}>Emergency Fund</span>
         <div className="section-divider-rule" />

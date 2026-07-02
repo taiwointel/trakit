@@ -376,6 +376,7 @@ export default function ChatPage() {
 
         {/* ── Header ── */}
         <div
+          data-tour="rbc-header"
           className="px-4 pt-4 pb-4 flex items-center justify-between gap-4 shrink-0"
           style={{
             background: "linear-gradient(to bottom, rgba(200,134,46,0.12) 0%, transparent 100%)",
@@ -456,7 +457,7 @@ export default function ChatPage() {
                   className="font-medium mt-1"
                   style={{ color: "var(--gold)", fontFamily: "var(--font-serif)", fontSize: "1.1rem" }}
                 >
-                  I&apos;m Coach RBC — your financial advisor
+                  I&apos;m Coach RBC, your financial advisor
                 </p>
                 <p
                   className="text-sm mt-2 max-w-xs mx-auto leading-relaxed"

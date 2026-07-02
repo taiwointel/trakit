@@ -88,10 +88,9 @@ export default function EntriesPage() {
     ? `${monthStr}-${String(selectedDay).padStart(2, "0")}`
     : null;
 
-  async function handleClearVisible() {
-    const ids = displayEntries.map((e) => e.id);
+  async function handleClearVisible(selectedIds) {
+    const ids = selectedIds ?? displayEntries.map((e) => e.id);
     if (!ids.length) return;
-    // Silently auto-backup before wiping
     try {
       const scope = selectedDay ? `day ${dayStr}` : `${monthStr}`;
       await fetch("/api/backups", {
@@ -200,28 +199,32 @@ export default function EntriesPage() {
       <div className="section-body">
 
         {/* ── Method 1: Type it in ── */}
+        <div data-tour="entry-form">
         <FeatureCard
           icon="✏️"
           title="Type it in"
           tag="Instant"
           tagColor="var(--gold)"
-          description="The fastest way to capture a spend the moment it happens, before it fades from memory. Type a description and the naira amount, hit Add, and the AI assigns the category, essentiality tag, and confidence score automatically. Takes under 10 seconds."
+          description="The fastest way to capture a spend the moment it happens, before it fades from memory. Type a description and the naira amount, hit Add, and Trakit7 assigns the category, essentiality tag, and confidence score automatically. Takes under 10 seconds."
         >
           <EntryForm entries={entries} onAdd={addEntry} />
         </FeatureCard>
+        </div>
 
         <OrDivider />
 
         {/* ── Method 2: Import a bank statement ── */}
+        <div data-tour="import-card">
         <FeatureCard
           icon="📄"
           title="Import a bank statement"
           tag="Bulk"
           tagColor="var(--teal)"
-          description="Drop in a PDF or CSV bank statement and AI extracts every transaction and queues them for categorization in one action. Months of history entered in under a minute. The most efficient way to catch up on weeks you have not yet tracked manually."
+          description="Drop in a PDF or CSV bank statement and Trakit7 extracts every transaction and categorizes them in one action. Months of history entered in under a minute. The most efficient way to catch up on weeks you have not yet tracked manually."
         >
           <CsvImport onImported={() => window.location.reload()} />
         </FeatureCard>
+        </div>
 
         <OrDivider />
 
@@ -231,7 +234,7 @@ export default function EntriesPage() {
           title="Telegram bot"
           tag="Anywhere"
           tagColor="var(--blue-accent)"
-          description="Log expenses without opening the app at all. Message your personal bot something like '3,500 suya at Mallam Musa' and it lands in your ledger immediately. Works from your phone lock screen, a crowded market, or any device with Telegram installed."
+          description="Log expenses without opening the app at all. Message your personal Trakit7 bot something like '3,500 suya at Mallam Musa' and it lands in your ledger immediately. Works from your phone lock screen, a crowded market, or any device with Telegram installed."
         >
           <TelegramBotSetup />
         </FeatureCard>
@@ -279,7 +282,7 @@ export default function EntriesPage() {
         Set a naira cap for each spending category and an overall monthly limit. A progress bar tracks your actual spend against each cap the moment a new entry lands. Research consistently shows that people who budget by category spend less than those who track without limits, even when they exceed individual caps.
       </p>
 
-      <div className="section-body">
+      <div className="section-body" data-tour="budgets-grid">
         <div style={{ background: "var(--ink-2)", border: "1px solid var(--rule)", borderRadius: 16, overflow: "hidden" }}>
           <button
             onClick={() => setBudgetsOpen((v) => !v)}

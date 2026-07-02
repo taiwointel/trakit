@@ -238,22 +238,16 @@ function isUnclearPattern(desc) {
   return UNCLEAR_RE.some((re) => re.test(d)) || looksLikePersonName(d);
 }
 
-// Group rows that have identical narrations (≥2) OR match known unclear patterns.
+// Group rows by identical narration — show all groups so every transaction
+// gets reviewed in the wizard, not just ambiguous ones.
 function buildLabelGroups(rows) {
-  const map = new Map(); // normalized desc → { desc, indices }
+  const map = new Map();
   rows.forEach((r, i) => {
     const key = r.desc.trim().toLowerCase();
     if (!map.has(key)) map.set(key, { desc: r.desc.trim(), indices: [] });
     map.get(key).indices.push(i);
   });
-
-  const groups = [];
-  for (const [, g] of map) {
-    if (isUnclearPattern(g.desc) || g.indices.length > 1) {
-      groups.push(g);
-    }
-  }
-  return groups;
+  return Array.from(map.values());
 }
 
 // ── Quick-pick chips ──────────────────────────────────────────────────────────
@@ -365,8 +359,8 @@ function LabelingWizard({ rows, groups, totalRows, onApply, onFinish, onSkipAll 
               fontSize: 13, lineHeight: 1.6, margin: 0,
             }}>
               {groupRows.length > 1
-                ? `These all share the same bank narration — the statement doesn't tell us the actual purpose. Adding a label gives AI the context it needs to categorize them correctly.`
-                : "This narration isn't descriptive enough for AI to confidently categorize. A short label helps."}
+                ? `These all share the same bank narration. The statement doesn't tell us the actual purpose, so adding a label helps Trakit7 categorize them correctly.`
+                : "Adding a short label helps Trakit7 categorize this transaction correctly."}
             </p>
           </div>
 
@@ -688,7 +682,7 @@ export default function CsvImport({ onImported }) {
 
       setStatus({
         type: "success",
-        msg: `${data.inserted} entries imported${categorized > 0 ? ` · ${categorized} categorized with AI` : ""}. Review them in the ledger below.`,
+        msg: `${data.inserted} entries imported${categorized > 0 ? ` · ${categorized} categorized automatically` : ""}. Review them in the ledger below.`,
       });
       setRows([]);
       if (onImported) onImported();
@@ -736,7 +730,7 @@ export default function CsvImport({ onImported }) {
             <span style={{ fontSize: 24, lineHeight: 1 }}>{extracting ? "⏳" : "📄"}</span>
             {extracting ? (
               <span className="text-sm font-medium" style={{ color: "var(--gold)", fontFamily: "var(--font-sans)" }}>
-                Extracting transactions with AI…
+                Trakit7 is extracting transactions...
               </span>
             ) : (
               <>
@@ -877,7 +871,7 @@ export default function CsvImport({ onImported }) {
                 {catProgress ? (
                   <>
                     <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: "#fff", opacity: 0.8, animation: "pulse 1s infinite" }} />
-                    Categorizing {catProgress.done}/{catProgress.total} with AI…
+                    Categorizing {catProgress.done}/{catProgress.total}...
                   </>
                 ) : importing ? (
                   "Importing…"

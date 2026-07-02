@@ -280,6 +280,20 @@ export default function SettingsDrawer({ open, onClose, onStartTour }) {
     setBackingUp(false);
   }
 
+  async function deleteBackup(id, label) {
+    if (!confirm(`Delete backup "${label}"? This cannot be undone.`)) return;
+    try {
+      const res = await fetch(`/api/backups/${id}`, { method: "DELETE" });
+      if (res.ok) {
+        setBackups((prev) => prev.filter((b) => b.id !== id));
+        setBackupStatus("Backup deleted.");
+      } else {
+        const d = await res.json();
+        setBackupStatus(d.error || "Delete failed.");
+      }
+    } catch { setBackupStatus("Network error."); }
+  }
+
   async function restoreBackup(id, label) {
     if (!confirm(`Restore "${label}"?\n\nThis will REPLACE all your current ledger entries with those in this backup. Your current data will be lost unless you create a backup first.`)) return;
     setRestoringId(id); setBackupStatus("Restoring…");
@@ -398,7 +412,7 @@ export default function SettingsDrawer({ open, onClose, onStartTour }) {
 
           {/* ── AI Connection (collapsible) ──────────── */}
           <CollapsibleSection
-            title={`AI Connection${isAiConnected ? " · Connected" : " · Not set up"}`}
+            title={`Provider Setup${isAiConnected ? " · Connected" : " · Not set up"}`}
             color="var(--blue-accent)"
             defaultOpen={false}
           >
@@ -594,19 +608,23 @@ CREATE POLICY "own_backups" ON entry_backups
                               {b.entry_count} entries · {new Date(b.created_at).toLocaleString("en-NG", { dateStyle: "medium", timeStyle: "short" })}
                             </p>
                           </div>
-                          <button
-                            onClick={() => restoreBackup(b.id, b.label)}
-                            disabled={restoringId === b.id}
-                            className="shrink-0 px-2.5 py-1 rounded text-xs font-semibold"
-                            style={{
-                              background: "var(--amber-soft)",
-                              color: "var(--amber)",
-                              fontFamily: "var(--font-sans)",
-                              opacity: restoringId === b.id ? 0.5 : 1,
-                            }}
-                          >
-                            {restoringId === b.id ? "…" : "Restore"}
-                          </button>
+                          <div className="flex gap-1.5 shrink-0">
+                            <button
+                              onClick={() => restoreBackup(b.id, b.label)}
+                              disabled={restoringId === b.id}
+                              className="px-2.5 py-1 rounded text-xs font-semibold"
+                              style={{ background: "var(--amber-soft)", color: "var(--amber)", fontFamily: "var(--font-sans)", opacity: restoringId === b.id ? 0.5 : 1 }}
+                            >
+                              {restoringId === b.id ? "…" : "Restore"}
+                            </button>
+                            <button
+                              onClick={() => deleteBackup(b.id, b.label)}
+                              className="px-2 py-1 rounded text-xs font-semibold"
+                              style={{ background: "var(--red-soft)", color: "var(--red)", fontFamily: "var(--font-sans)" }}
+                            >
+                              ✕
+                            </button>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -668,7 +686,7 @@ CREATE POLICY "own_backups" ON entry_backups
               <div className="flex flex-col gap-1.5">
                 <p className="text-xs font-medium" style={{ color: "var(--ink-text)", fontFamily: "var(--font-sans)" }}>Data storage</p>
                 <p className="text-xs leading-relaxed" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>
-                  All your data is stored securely in Supabase Postgres, protected by Row Level Security — only you can access your records. Your AI provider key is stored encrypted and is never returned to the browser in plaintext.
+                  All your data is stored securely in Supabase Postgres, protected by Row Level Security so only you can access your records. Your provider key is stored encrypted and is never returned to the browser in plain text.
                 </p>
               </div>
             </div>
