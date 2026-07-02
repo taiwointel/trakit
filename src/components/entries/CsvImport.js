@@ -467,7 +467,7 @@ function LabelingWizard({ rows, groups, totalRows, onApply, onFinish, onSkipAll 
             value={label}
             onChange={(e) => setLabel(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter" && label.trim()) advance(label); }}
-            placeholder="Or type the purpose…"
+            placeholder="e.g. Petrol at filling station, suya from Mallam, transfer to my brother — the more specific, the smarter the categorisation"
             style={{
               background:   "var(--ink-3)",
               border:       "1px solid var(--rule)",
@@ -548,7 +548,6 @@ const inputBase = {
 };
 
 export default function CsvImport({ onImported }) {
-  const [open,         setOpen]         = useState(false);
   const [rows,         setRows]         = useState([]);
   const [wizardGroups, setWizardGroups] = useState(null);
   const [dragging,     setDragging]     = useState(false);
@@ -705,24 +704,8 @@ export default function CsvImport({ onImported }) {
   };
 
   return (
-    <div style={{ borderBottom: "1px solid var(--rule)", background: "var(--ink-2)" }}>
-
-      {/* Toggle */}
-      <button
-        onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center justify-between px-4 py-2.5"
-        style={{ background: "var(--ink-2)" }}
-      >
-        <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>
-          Import from bank statement
-        </span>
-        <span className="text-xs" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-mono)" }}>
-          {open ? "▲ Collapse" : "▼ Show"}
-        </span>
-      </button>
-
-      {open && (
-        <div className="px-4 pb-4 flex flex-col gap-3">
+    <div style={{ background: "var(--ink-2)" }}>
+      <div className="px-4 pb-4 pt-3 flex flex-col gap-3">
 
           {/* Drop zone */}
           <div
@@ -892,7 +875,6 @@ export default function CsvImport({ onImported }) {
             </div>
           )}
         </div>
-      )}
 
       {/* Batch labeling wizard — renders as full-viewport overlay */}
       {wizardGroups && (

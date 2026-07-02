@@ -24,7 +24,7 @@ DECISION RULES:
 - "Soft drink", "beer", "malt" at a bar/restaurant/lounge → Dining & Lifestyle; bought from a shop/supermarket → Food & Groceries
 - "Upkeep", "allowance to girlfriend/wife/partner", "money for [person]" → Family & Dependents
 - "Data bundle", "airtime", "recharge" → Housing & Utilities
-- Nigerian bank charges (Stamp Duty, Electronic Money Transfer Levy, USSD Charge) → Miscellaneous
+- Nigerian bank charges (Stamp Duty, EMTL, USSD Charge, SMS alert fee, maintenance fee, COT, VAT on charges) → Miscellaneous, subcategory MUST be "Bank charges"
 - When torn between Food & Groceries and Dining & Lifestyle: if eaten out or delivered → Dining; if cooked at home → Groceries
 
 Return ONLY raw JSON (no markdown fences) in this exact shape:

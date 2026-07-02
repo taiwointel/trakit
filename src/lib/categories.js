@@ -20,6 +20,7 @@ export const CATEGORY_COLORS = [
 ];
 
 const FALLBACK_RULES = [
+  { pattern: /stamp duty|emtl|electronic money transfer levy|ussd charge|service charge|bank charge|vat charge|sms alert|account maintenance|card maintenance|annual fee|quarterly charge|commission on turnover|cot\b/i, category: "Miscellaneous", subcategory: "Bank charges" },
   { pattern: /rent|mortgage|electric|nepa|phcn|water bill|generator|diesel|estate due|dstv|internet|wifi|\bdata\b|airtime|recharge/i, category: "Housing & Utilities" },
   { pattern: /uber|bolt|fuel|petrol|fare|transport|keke|bus|flight|car service/i,                                   category: "Transportation" },
   { pattern: /market|grocery|foodstuff|supermarket|provisions|noodles|indomie|spaghetti|\beggs?\b|bread(?! ?fruit)|rice|beans|yam|pasta|tomato|pepper|onion|garlic|\bfish\b|\bchicken\b|\bmeat\b|vegetables|groundnut|palm oil|stockfish/i, category: "Food & Groceries" },
@@ -42,7 +43,7 @@ export function fallbackCategorize(description) {
         essentiality:  cat.essentiality,
         nature:        cat.nature,
         confidence:    0.5,
-        subcategory:   "",
+        subcategory:   rule.subcategory || "",
         note:          "Keyword match",
         status:        "fallback",
       };
