@@ -406,7 +406,7 @@ export default function SummaryPage() {
   }
 
   return (
-    <div className="page-root">
+    <>
       <style>{`
         @media print {
           .app-topbar, .app-bottom-nav, .page-root, [data-no-print] { display: none !important; }
@@ -417,7 +417,7 @@ export default function SummaryPage() {
         #print-report { display: none; }
       `}</style>
 
-      {/* ── PRINT REPORT ── white-background design, renders without "Background graphics" ── */}
+      {/* ── PRINT REPORT ── outside page-root so it isn't hidden by the print rule ── */}
       <div id="print-report" style={{ fontFamily: "Arial, Helvetica, sans-serif", background: "#ffffff", color: "#15191F", minHeight: "100vh", padding: "0" }}>
 
         {/* Gold top accent bar */}
@@ -545,6 +545,7 @@ export default function SummaryPage() {
         </div>
       </div>
 
+      <div className="page-root">
       {/* ── HERO: greeting + payday ──────────────────────────────────────
           Two things only. Greeting sets the emotional tone; payday is the
           most time-sensitive number the user cares about on first load.
@@ -821,6 +822,7 @@ export default function SummaryPage() {
           salary={goals.salary}
         />
       </div>
-    </div>
+      </div>
+    </>
   );
 }
