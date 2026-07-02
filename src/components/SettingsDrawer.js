@@ -103,8 +103,9 @@ export default function SettingsDrawer({ open, onClose, onStartTour }) {
     setAiStatus(""); setKeyWarning(""); setNameStatus(""); setPassStatus("");
     setNewPassword(""); setConfirmPassword(""); setClearChatStatus(""); setExportStatus("");
     setBackupStatus(""); setBackupsLoaded(false); setDigestStatus(""); setDigestConfirm(false);
-    // Load digest toggle from localStorage
-    setDigestEnabled(localStorage.getItem("trakit7:weekly-digest") === "true");
+    // Load digest toggle from localStorage — default ON for new users
+    const stored = localStorage.getItem("trakit7:weekly-digest");
+    setDigestEnabled(stored === null ? true : stored === "true");
 
     async function loadSettings() {
       const { data: { user } } = await supabase.auth.getUser();
@@ -545,7 +546,7 @@ export default function SettingsDrawer({ open, onClose, onStartTour }) {
                       Weekly spend digest
                     </p>
                     <p className="text-xs mt-1 leading-relaxed" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>
-                      A beautiful email every Sunday — top categories, biggest transactions, and a word from Coach RBC.
+                      A beautiful email every Sunday: top categories, biggest transactions, and a word from Coach RBC.
                     </p>
                   </div>
                   {/* Toggle switch */}

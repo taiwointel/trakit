@@ -40,72 +40,72 @@ function buildRbcBriefing({ userName, totalOut, prevTotal, categoryBreakdown, es
   const activeDays = dayBreakdown.filter(d=>d.total>0).length;
   const dailyAvg = activeDays > 0 ? totalOut / activeDays : 0;
 
-  // Para 1 — overall verdict
+  // Para 1 -overall verdict
   if (totalOut === 0) {
-    paras.push(`${userName}, I've looked at this week's numbers and I have to say — there's nothing to look at. Zero recorded spend. Either you had a genuinely quiet week, you're living off last week's groceries, or you forgot to log things in the app. All three are valid. The ledger remains ready to receive confessions whenever you are.`);
+    paras.push(`${userName}, I've looked at this week's numbers and I have to say -there's nothing to look at. Zero recorded spend. Either you had a genuinely quiet week, you're living off last week's groceries, or you forgot to log things in the app. All three are valid. The ledger remains ready to receive confessions whenever you are.`);
   } else if (weekChange === null) {
-    paras.push(`${userName}, first week on record — so no previous week to benchmark against. But here's what I can tell you: ${fmt(totalOut)} across ${activeDays} active day${activeDays !== 1 ? "s" : ""} gives us a daily average of ${fmtK(dailyAvg)}. That's the baseline. Every week from here is a comparison point.`);
+    paras.push(`${userName}, first week on record -so no previous week to benchmark against. But here's what I can tell you: ${fmt(totalOut)} across ${activeDays} active day${activeDays !== 1 ? "s" : ""} gives us a daily average of ${fmtK(dailyAvg)}. That's the baseline. Every week from here is a comparison point.`);
   } else if (weekChange > 40) {
-    paras.push(`${userName}. ${fmt(totalOut)}. That's ${Math.abs(weekChange)}% more than last week, and that's not a rounding error — that's a meaningful jump. Before I say anything else: was this planned? Because there's a big difference between "I knew this week would be heavy" and "wait, it's already gone." If the former, we move on. If the latter, we need to talk.`);
+    paras.push(`${userName}. ${fmt(totalOut)}. That's ${Math.abs(weekChange)}% more than last week, and that's not a rounding error -that's a meaningful jump. Before I say anything else: was this planned? Because there's a big difference between "I knew this week would be heavy" and "wait, it's already gone." If the former, we move on. If the latter, we need to talk.`);
   } else if (weekChange > 15) {
-    paras.push(`Up ${Math.abs(weekChange)}% from last week. Not alarming on its own, but worth naming. ${fmt(totalOut)} against a previous ${fmt(prevTotal)} — the gap is ${fmt(totalOut - prevTotal)}. The question is always whether that gap went somewhere intentional or somewhere accidental. The ledger knows; now you do too.`);
+    paras.push(`Up ${Math.abs(weekChange)}% from last week. Not alarming on its own, but worth naming. ${fmt(totalOut)} against a previous ${fmt(prevTotal)} -the gap is ${fmt(totalOut - prevTotal)}. The question is always whether that gap went somewhere intentional or somewhere accidental. The ledger knows; now you do too.`);
   } else if (weekChange < -30) {
-    paras.push(`${userName}, I want you to sit with this for a moment: down ${Math.abs(weekChange)}% from last week. ${fmt(totalOut)} versus last week's ${fmt(prevTotal)} — you kept ${fmt(prevTotal - totalOut)} more in your pocket. Whether that was deliberate restraint or just a quiet week, the financial effect is the same. This is what a lighter week looks like. Remember it.`);
+    paras.push(`${userName}, I want you to sit with this for a moment: down ${Math.abs(weekChange)}% from last week. ${fmt(totalOut)} versus last week's ${fmt(prevTotal)} -you kept ${fmt(prevTotal - totalOut)} more in your pocket. Whether that was deliberate restraint or just a quiet week, the financial effect is the same. This is what a lighter week looks like. Remember it.`);
   } else if (weekChange < -10) {
-    paras.push(`Down ${Math.abs(weekChange)}% from last week. Steady, controlled improvement — the kind that actually adds up over months without requiring you to eat plain rice for a fortnight. ${fmt(totalOut)} is a more manageable week than ${fmt(prevTotal)}. The direction is right.`);
+    paras.push(`Down ${Math.abs(weekChange)}% from last week. Steady, controlled improvement -the kind that actually adds up over months without requiring you to eat plain rice for a fortnight. ${fmt(totalOut)} is a more manageable week than ${fmt(prevTotal)}. The direction is right.`);
   } else {
-    paras.push(`Roughly steady week — ${weekChange > 0 ? "up" : "down"} ${Math.abs(weekChange)}% from last week's ${fmt(prevTotal)}. You came in at ${fmt(totalOut)}. Consistency is underrated: it makes planning meaningful, projections accurate, and budgets actually useful. Keep the pattern visible.`);
+    paras.push(`Roughly steady week -${weekChange > 0 ? "up" : "down"} ${Math.abs(weekChange)}% from last week's ${fmt(prevTotal)}. You came in at ${fmt(totalOut)}. Consistency is underrated: it makes planning meaningful, projections accurate, and budgets actually useful. Keep the pattern visible.`);
   }
 
-  // Para 2 — top categories
+  // Para 2 -top categories
   if (top && totalOut > 0) {
     const topPct = Math.round((top.amount / totalOut) * 100);
     const catLines = {
-      "Dining & Lifestyle": `${topPct}% of this week went to Dining & Lifestyle — ${fmt(top.amount)}. Your social life is well-funded. Your savings account is watching from a distance with complicated feelings. This isn't a scolding; it's an accounting. Budget for the suya, the dinners, the everything — just make sure it's a number you chose, not a number that chose you.`,
-      "Transportation": `Transportation took the top spot at ${fmt(top.amount)} (${topPct}%). Lagos doesn't have a cheap direction and you've been moving in all of them. Uber, Bolt, fuel — it all adds up to a significant weekly overhead. Worth asking: is this level of movement typical, or was this week unusually busy?`,
-      "Food & Groceries": `${fmt(top.amount)} on Food & Groceries leads the week at ${topPct}%. Feeding yourself and your household is non-negotiable, the market prices are not negotiating, and I respect both of those facts. What I'll note is that over-shopping at the market is one of the quietest budget leaks there is — things expire, duplicates accumulate. Keep an eye on the frequency.`,
-      "Housing & Utilities": `Housing & Utilities claimed ${topPct}% — ${fmt(top.amount)}. NEPA tokens, diesel, internet, estate dues: the recurring cost of existing in a house in Nigeria. There's very little to cut here and very little point trying. What you can do is track it so you're never surprised by it.`,
+      "Dining & Lifestyle": `${topPct}% of this week went to Dining & Lifestyle -${fmt(top.amount)}. Your social life is well-funded. Your savings account is watching from a distance with complicated feelings. This isn't a scolding; it's an accounting. Budget for the suya, the dinners, the everything -just make sure it's a number you chose, not a number that chose you.`,
+      "Transportation": `Transportation took the top spot at ${fmt(top.amount)} (${topPct}%). Lagos doesn't have a cheap direction and you've been moving in all of them. Uber, Bolt, fuel -it all adds up to a significant weekly overhead. Worth asking: is this level of movement typical, or was this week unusually busy?`,
+      "Food & Groceries": `${fmt(top.amount)} on Food & Groceries leads the week at ${topPct}%. Feeding yourself and your household is non-negotiable, the market prices are not negotiating, and I respect both of those facts. What I'll note is that over-shopping at the market is one of the quietest budget leaks there is -things expire, duplicates accumulate. Keep an eye on the frequency.`,
+      "Housing & Utilities": `Housing & Utilities claimed ${topPct}% -${fmt(top.amount)}. NEPA tokens, diesel, internet, estate dues: the recurring cost of existing in a house in Nigeria. There's very little to cut here and very little point trying. What you can do is track it so you're never surprised by it.`,
       "Family & Dependents": `Family & Dependents led this week at ${fmt(top.amount)} (${topPct}%). Being the one who shows up financially is a real form of love and a real drain on cash flow. Both things are true simultaneously. The only protection is knowing the number, which you now do.`,
-      "Debt Service": `${fmt(top.amount)} to Debt Service — ${topPct}% of the week. Every one of those naira is a step closer to zero. I know it doesn't feel exciting to watch money leave for a loan, but the math is simple: this week's payments are future you's freedom. Keep going.`,
-      "Savings & Investment": `Savings & Investment leads this week at ${fmt(top.amount)} (${topPct}%). I almost never get to say this, but — well done. You paid your future self first, and that's the whole game.`,
-      "Betting": `Betting comes in at ${fmt(top.amount)} this week, taking ${topPct}% of your spend. I'm not here to lecture about betting — the entertainment value is real. I'm here to make sure you saw the number. ${fmt(top.amount)}. In one week. That's the number. Do with it what you will.`,
-      "Personal Care": `${fmt(top.amount)} on Personal Care (${topPct}%). Showing up well-groomed, well-rested, and well-presented in the world costs money. That's not waste — that's investment in yourself. Just make sure it fits the broader picture.`,
+      "Debt Service": `${fmt(top.amount)} to Debt Service -${topPct}% of the week. Every one of those naira is a step closer to zero. I know it doesn't feel exciting to watch money leave for a loan, but the math is simple: this week's payments are future you's freedom. Keep going.`,
+      "Savings & Investment": `Savings & Investment leads this week at ${fmt(top.amount)} (${topPct}%). I almost never get to say this, but -well done. You paid your future self first, and that's the whole game.`,
+      "Betting": `Betting comes in at ${fmt(top.amount)} this week, taking ${topPct}% of your spend. I'm not here to lecture about betting -the entertainment value is real. I'm here to make sure you saw the number. ${fmt(top.amount)}. In one week. That's the number. Do with it what you will.`,
+      "Personal Care": `${fmt(top.amount)} on Personal Care (${topPct}%). Showing up well-groomed, well-rested, and well-presented in the world costs money. That's not waste -that's investment in yourself. Just make sure it fits the broader picture.`,
     };
-    paras.push(catLines[top.category] || `${top.category} led the week at ${fmt(top.amount)} — ${topPct}% of total spend. ${top2 ? `Second was ${top2.category} at ${fmt(top2.amount)} (${Math.round((top2.amount/totalOut)*100)}%).` : ""} These two categories together account for ${Math.round(((top.amount + (top2?.amount||0)) / totalOut) * 100)}% of the week.`);
+    paras.push(catLines[top.category] || `${top.category} led the week at ${fmt(top.amount)} -${topPct}% of total spend. ${top2 ? `Second was ${top2.category} at ${fmt(top2.amount)} (${Math.round((top2.amount/totalOut)*100)}%).` : ""} These two categories together account for ${Math.round(((top.amount + (top2?.amount||0)) / totalOut) * 100)}% of the week.`);
   }
 
-  // Para 3 — essential vs discretionary
+  // Para 3 -essential vs discretionary
   if (totalOut > 0) {
     if (discPct > 55) {
-      paras.push(`The essential/discretionary split this week: ${essentialPct}% essential, ${discPct}% discretionary. More than half of what left your account this week was, technically, optional. That's not a verdict — context matters and some discretionary spend is genuinely important. But it is a question worth sitting with: of the ${fmt(discretionaryTotal)} discretionary spend, how much of it would you choose again?`);
+      paras.push(`The essential/discretionary split this week: ${essentialPct}% essential, ${discPct}% discretionary. More than half of what left your account this week was, technically, optional. That's not a verdict -context matters and some discretionary spend is genuinely important. But it is a question worth sitting with: of the ${fmt(discretionaryTotal)} discretionary spend, how much of it would you choose again?`);
     } else if (discPct < 20) {
-      paras.push(`${essentialPct}% of this week's spend went to essentials. That's a lean, purposeful week — the overwhelming majority of what you spent was necessary. Whether that's a budget victory or just a quiet week is yours to judge, but the pattern is worth noting.`);
+      paras.push(`${essentialPct}% of this week's spend went to essentials. That's a lean, purposeful week -the overwhelming majority of what you spent was necessary. Whether that's a budget victory or just a quiet week is yours to judge, but the pattern is worth noting.`);
     } else {
       paras.push(`Essential vs. discretionary this week: ${essentialPct}% needs (${fmt(essentialTotal)}), ${discPct}% wants (${fmt(discretionaryTotal)}). That's a relatively balanced split. The classic 50/30 target isn't far off, which means your natural spending rhythm is closer to the textbook than most people's.`);
     }
   }
 
-  // Para 4 — busiest day observation
+  // Para 4 -busiest day observation
   if (busiestDay && busiestDay.total > 0 && activeDays > 1) {
     const bPct = Math.round((busiestDay.total / totalOut) * 100);
-    paras.push(`${busiestDay.dayFull} was your heaviest day — ${fmt(busiestDay.total)} across ${busiestDay.count} transaction${busiestDay.count === 1 ? "" : "s"}, which is ${bPct}% of the entire week's spend in a single day. If ${busiestDay.dayShort} consistently spikes like this, it's worth naming what makes that day expensive. Named patterns are controllable patterns.`);
+    paras.push(`${busiestDay.dayFull} was your heaviest day -${fmt(busiestDay.total)} across ${busiestDay.count} transaction${busiestDay.count === 1 ? "" : "s"}, which is ${bPct}% of the entire week's spend in a single day. If ${busiestDay.dayShort} consistently spikes like this, it's worth naming what makes that day expensive. Named patterns are controllable patterns.`);
   }
 
-  // Para 5 — income note if any
+  // Para 5 -income note if any
   if (totalIn > 0) {
     const net = totalIn - totalOut;
     if (net >= 0) {
-      paras.push(`The money-in side: ${fmt(totalIn)} received this week. Net position: +${fmt(net)}. You spent less than you received — which is the foundational requirement for everything else in personal finance. Everything else is details.`);
+      paras.push(`The money-in side: ${fmt(totalIn)} received this week. Net position: +${fmt(net)}. You spent less than you received -which is the foundational requirement for everything else in personal finance. Everything else is details.`);
     } else {
       paras.push(`You received ${fmt(totalIn)} this week, which means the net position was ${fmt(Math.abs(net))} in the red. Spending exceeded income this week. That's survivable if it's a one-off; it becomes a pattern if it repeats. Worth watching over the next two weeks.`);
     }
   }
 
-  // Para 6 — closing challenge
+  // Para 6 -closing challenge
   const closers = [
-    `One thing to try this coming week: before any purchase over ₦5,000, ask yourself whether it would survive a 10-minute wait. Not because the answer is always no — sometimes it's a clear yes and you move on. But the pause tends to catch the impulse buys that end up in the ledger looking lonely and purposeless.`,
-    `The week is done, the numbers are in, and you've read this far — which means you're paying attention. Paying attention is the first and most important step. See you next week.`,
-    `Homework for the week ahead: look at the category that surprised you most in this report. Not to cut it — just to watch it consciously for 7 days. Awareness before action.`,
+    `One thing to try this coming week: before any purchase over ₦5,000, ask yourself whether it would survive a 10-minute wait. Not because the answer is always no -sometimes it's a clear yes and you move on. But the pause tends to catch the impulse buys that end up in the ledger looking lonely and purposeless.`,
+    `The week is done, the numbers are in, and you've read this far -which means you're paying attention. Paying attention is the first and most important step. See you next week.`,
+    `Homework for the week ahead: look at the category that surprised you most in this report. Not to cut it -just to watch it consciously for 7 days. Awareness before action.`,
     `If one thing from this report sticks, let it be the biggest transaction this week. Was it worth it? If yes, no note. If uncertain, that's the thing to examine. Not everything on the ledger deserves a second thought; but one thing usually does.`,
   ];
   paras.push(closers[new Date().getDay() % closers.length]);
@@ -113,14 +113,36 @@ function buildRbcBriefing({ userName, totalOut, prevTotal, categoryBreakdown, es
   return paras;
 }
 
+const APP_URL = "https://trakit-seven.vercel.app";
+
+// ── Rotating catchy header lines (changes each week) ───────────────────────
+function pickHeaderLine() {
+  const weekNum = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 1).getTime()) / (7 * 24 * 60 * 60 * 1000));
+  const lines = [
+    "Your wallet called. It has notes.",
+    "The receipts are in. Brace yourself.",
+    "This week's money confessional.",
+    "Where did it all go? We did the math.",
+    "Numbers don't lie. We checked yours.",
+    "Your week, in cold hard naira.",
+    "The ledger has spoken.",
+    "A full financial debrief, no filter.",
+    "Coach RBC reviewed your week.",
+    "The week in numbers. Some of them are fine.",
+    "Your spending, fully accounted for.",
+    "Everything that moved, explained.",
+  ];
+  return lines[weekNum % lines.length];
+}
+
 // ── Email subject lines ─────────────────────────────────────────────────────
 function pickSubject(weekStart, weekEnd, totalOut) {
   const opts = [
-    `${fmt(totalOut)} spent — your Trakit7 weekly report is here`,
-    `Coach RBC's weekly briefing: ${weekStart} – ${weekEnd}`,
-    `Your week in ₦ — everything that moved, explained`,
-    `The full receipts: Trakit7 weekly digest, ${weekStart}–${weekEnd}`,
-    `${weekStart}–${weekEnd} money report: ${fmt(totalOut)} out, full breakdown inside`,
+    `${fmt(totalOut)} spent - your Trakit7 weekly report is here`,
+    `Coach RBC's weekly briefing: ${weekStart} to ${weekEnd}`,
+    `Your week in naira - everything that moved, explained`,
+    `The full receipts: Trakit7 weekly digest, ${weekStart} to ${weekEnd}`,
+    `${weekStart} to ${weekEnd} money report: ${fmt(totalOut)} out, full breakdown inside`,
   ];
   return opts[new Date().getDay() % opts.length];
 }
@@ -200,7 +222,7 @@ function buildEmailHtml({
       </td>
       <td width="40" style="font-family:Arial,sans-serif;font-size:11px;color:#9CA3AF;text-align:right;vertical-align:middle;padding-right:10px;">${d.total > 0 ? `${d.count} txn${d.count!==1?"s":""}` : ""}</td>
       <td width="110" style="font-family:'Courier New',Courier,monospace;font-size:13px;color:${d.total===0?"#D1D5DB":isBest?"#EF4444":"#111827"};font-weight:${isBest?"700":"500"};text-align:right;white-space:nowrap;vertical-align:middle;">
-        ${d.total > 0 ? fmt(d.total) : "—"}${isBest ? " &nbsp;🔴" : ""}
+        ${d.total > 0 ? fmt(d.total) : "-"}${isBest ? " &nbsp;🔴" : ""}
       </td>
     </tr></table>
   </td>
@@ -233,7 +255,7 @@ function buildEmailHtml({
       </td>
       <td style="vertical-align:middle;">
         <div style="font-family:Arial,sans-serif;font-size:12px;color:#111827;font-weight:500;">${e.desc || "(no description)"}</div>
-        ${e.category ? `<div style="font-family:Arial,sans-serif;font-size:10px;color:#9CA3AF;margin-top:1px;">${e.category}${e.essentiality && e.essentiality !== "—" ? " · " + e.essentiality : ""}</div>` : ""}
+        ${e.category ? `<div style="font-family:Arial,sans-serif;font-size:10px;color:#9CA3AF;margin-top:1px;">${e.category}${e.essentiality && e.essentiality !== "-" ? " · " + e.essentiality : ""}</div>` : ""}
       </td>
       <td style="font-family:'Courier New',Courier,monospace;font-size:13px;color:${isOut?"#EF4444":"#10B981"};font-weight:700;text-align:right;white-space:nowrap;padding-left:10px;vertical-align:middle;">
         ${isOut ? "−" : "+"}${fmt(e.amount)}
@@ -285,7 +307,7 @@ ${rows}`;
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>Trakit7 — Weekly Financial Report</title>
+<title>Trakit7 -Weekly Financial Report</title>
 </head>
 <body style="margin:0;padding:0;background:#E2E8F0;font-family:Arial,Helvetica,sans-serif;">
 <center>
@@ -297,8 +319,10 @@ ${rows}`;
 <tr><td style="background:linear-gradient(135deg,#0F0A1E 0%,#1E1B4B 40%,#0F172A 100%);border-radius:20px 20px 0 0;padding:32px 40px 28px;">
   <table width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
     <td>
-      <div style="font-family:Georgia,'Times New Roman',serif;font-size:26px;font-weight:700;color:#F5A623;letter-spacing:-0.5px;">Trakit7</div>
-      <div style="font-family:Arial,sans-serif;font-size:9px;color:rgba(199,210,254,0.6);text-transform:uppercase;letter-spacing:0.18em;margin-top:4px;">Weekly Financial Report</div>
+      <a href="${APP_URL}" style="text-decoration:none;display:inline-block;">
+        <div style="font-family:Georgia,'Times New Roman',serif;font-size:26px;font-weight:700;color:#F5A623;letter-spacing:-0.5px;">Trakit7</div>
+      </a>
+      <div style="font-family:Arial,sans-serif;font-size:12px;color:rgba(199,210,254,0.85);letter-spacing:0.02em;margin-top:6px;font-style:italic;">${pickHeaderLine()}</div>
     </td>
     <td align="right" style="vertical-align:top;">
       <div style="display:inline-block;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.12);border-radius:8px;padding:7px 14px;">
@@ -314,7 +338,7 @@ ${rows}`;
 
 <!-- ═══ HERO STAT ═══ -->
 <tr><td style="background:linear-gradient(180deg,#0F172A 0%,#1E293B 100%);padding:40px 40px 32px;text-align:center;">
-  <div style="font-family:Arial,sans-serif;font-size:10px;color:#94A3B8;text-transform:uppercase;letter-spacing:0.18em;margin-bottom:12px;">Hey ${userName} — this week you spent</div>
+  <div style="font-family:Arial,sans-serif;font-size:10px;color:#94A3B8;text-transform:uppercase;letter-spacing:0.18em;margin-bottom:12px;">Hey ${userName} -this week you spent</div>
   <div style="font-family:Georgia,'Times New Roman',serif;font-size:52px;font-weight:700;color:#F1F5F9;letter-spacing:-2px;line-height:1;">${fmt(totalOut)}</div>
 
   ${weekChange !== null ? `
@@ -324,7 +348,7 @@ ${rows}`;
         ${weekChange > 0 ? "↑" : "↓"} ${Math.abs(weekChange)}% vs last week (${fmt(prevWeekTotal)})
       </span>
     </span>
-  </div>` : `<div style="margin-top:14px;font-family:Arial,sans-serif;font-size:12px;color:#64748B;">First week on record — no previous week to compare</div>`}
+  </div>` : `<div style="margin-top:14px;font-family:Arial,sans-serif;font-size:12px;color:#64748B;">First week on record -no previous week to compare</div>`}
 
   ${totalIn > 0 ? `
   <div style="margin-top:10px;font-family:'Courier New',Courier,monospace;font-size:12px;color:#94A3B8;">
@@ -350,7 +374,7 @@ ${rows}`;
       <table width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
         <td style="background:linear-gradient(135deg,#DC2626,#B91C1C);border-radius:12px;padding:14px 10px;text-align:center;">
           <div style="font-family:Arial,sans-serif;font-size:8px;color:rgba(255,255,255,0.65);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:6px;">Biggest Day</div>
-          <div style="font-family:'Courier New',Courier,monospace;font-size:13px;color:#fff;font-weight:700;">${busiestDay.total > 0 ? busiestDay.dayShort : "—"}</div>
+          <div style="font-family:'Courier New',Courier,monospace;font-size:13px;color:#fff;font-weight:700;">${busiestDay.total > 0 ? busiestDay.dayShort : "-"}</div>
         </td>
       </tr></table>
     </td>
@@ -453,7 +477,7 @@ ${incomeEntries.length > 0 ? `
 <!-- ═══ MONTHLY CONTEXT ═══ -->
 ${monthTotal > 0 ? `
 <tr><td style="background:linear-gradient(135deg,#EFF6FF,#DBEAFE);border-top:2px solid #BFDBFE;padding:24px 40px;">
-  <div style="font-family:Arial,sans-serif;font-size:10px;font-weight:700;color:#1D4ED8;text-transform:uppercase;letter-spacing:0.14em;margin-bottom:14px;">This Month So Far — ${M_FULL[new Date().getMonth()]} ${new Date().getFullYear()}</div>
+  <div style="font-family:Arial,sans-serif;font-size:10px;font-weight:700;color:#1D4ED8;text-transform:uppercase;letter-spacing:0.14em;margin-bottom:14px;">This Month So Far: ${M_FULL[new Date().getMonth()]} ${new Date().getFullYear()}</div>
   <table width="100%" cellpadding="0" cellspacing="0" border="0">
   <tr>
     <td width="33%" style="text-align:center;padding:10px;">
@@ -466,7 +490,7 @@ ${monthTotal > 0 ? `
     </td>
     <td width="33%" style="text-align:center;padding:10px;">
       <div style="font-family:Arial,sans-serif;font-size:9px;color:#3B82F6;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:5px;">Projected Full Month</div>
-      <div style="font-family:'Courier New',Courier,monospace;font-size:15px;color:#1E3A8A;font-weight:700;">${projectedMonthly > 0 ? fmt(projectedMonthly) : "—"}</div>
+      <div style="font-family:'Courier New',Courier,monospace;font-size:15px;color:#1E3A8A;font-weight:700;">${projectedMonthly > 0 ? fmt(projectedMonthly) : "-"}</div>
     </td>
   </tr>
   </table>
@@ -491,15 +515,25 @@ ${monthTotal > 0 ? `
   <div style="font-family:Georgia,'Times New Roman',serif;font-size:14px;color:#451A03;line-height:1.8;${i>0?"margin-top:16px;":""}">${p}</div>`).join("")}
 </td></tr>
 
+<!-- ═══ CTA ═══ -->
+<tr><td style="background:#0F172A;padding:32px 40px;text-align:center;">
+  <a href="${APP_URL}" style="display:inline-block;background:linear-gradient(135deg,#C8862E 0%,#A9854F 100%);color:#fff;font-family:Arial,sans-serif;font-size:14px;font-weight:700;text-decoration:none;padding:15px 40px;border-radius:30px;letter-spacing:0.04em;">
+    See full report in Trakit7 &rarr;
+  </a>
+  <div style="font-family:Arial,sans-serif;font-size:11px;color:#475569;margin-top:12px;">Your complete ledger, charts, and Coach RBC are waiting.</div>
+</td></tr>
+
 <!-- COLORED BOTTOM BAR -->
 <tr><td style="background:linear-gradient(90deg,#10B981 0%,#3B82F6 33%,#8B5CF6 66%,#EC4899 100%);height:4px;font-size:0;line-height:0;">&nbsp;</td></tr>
 
 <!-- ═══ FOOTER ═══ -->
 <tr><td style="background:linear-gradient(135deg,#0F0A1E 0%,#1E1B4B 100%);border-radius:0 0 20px 20px;padding:24px 40px;text-align:center;">
-  <div style="font-family:Georgia,'Times New Roman',serif;font-size:16px;color:#F5A623;font-weight:700;margin-bottom:6px;">Trakit7</div>
+  <a href="${APP_URL}" style="text-decoration:none;display:inline-block;margin-bottom:6px;">
+    <div style="font-family:Georgia,'Times New Roman',serif;font-size:16px;color:#F5A623;font-weight:700;">Trakit7</div>
+  </a>
   <div style="font-family:Arial,sans-serif;font-size:11px;color:rgba(148,163,184,0.55);line-height:1.9;">
-    Your personal finance tracker &middot; Keeping the receipts so you don't have to<br/>
-    To turn off these weekly digests: open the app &rarr; Settings &rarr; Notifications
+    Your personal finance tracker. Keeping the receipts so you don't have to.<br/>
+    To turn off these weekly digests: open Trakit7, go to Settings, then Notifications.
   </div>
 </td></tr>
 
