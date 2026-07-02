@@ -264,7 +264,7 @@ function IllustrationGrow() {
 const SLIDES = [
   {
     title: "Every naira, accounted for",
-    subtitle: "Log spending in seconds. AI auto-categorises every transaction and shows exactly where your money goes.",
+    subtitle: "Log spending in seconds. Trakit auto-categorises every transaction and shows exactly where your money goes.",
     bg: "radial-gradient(ellipse at 60% 30%, #1A6B4A 0%, #0D4030 40%, #071A10 100%)",
     accent: "#00E896",
     textOnAccent: "#071A10",
