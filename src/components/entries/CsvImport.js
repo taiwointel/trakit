@@ -653,7 +653,7 @@ export default function CsvImport({ onImported }) {
         return;
       }
 
-      // Step 2: AI-categorize out-entries sequentially (rate-limit friendly)
+      // Step 2: AI-categorize all out-entries in one batch call, then update in parallel
       const outEntries = (data.rows || []).filter((r) => r.flow === "out");
       let categorized = 0;
 
@@ -662,22 +662,32 @@ export default function CsvImport({ onImported }) {
         setCatProgress({ done: 0, total: outEntries.length });
         const supabase = createClient();
 
-        for (let i = 0; i < outEntries.length; i++) {
-          const e = outEntries[i];
-          try {
-            const cr = await fetch("/api/ai/categorize", {
-              method:  "POST",
-              headers: { "Content-Type": "application/json" },
-              body:    JSON.stringify({ description: e.desc, amount: e.amount }),
-            });
-            if (cr.ok) {
-              const ai = await cr.json();
-              await supabase.from("entries").update(ai).eq("id", e.id);
-              categorized++;
-            }
-          } catch { /* skip this entry */ }
-          setCatProgress({ done: i + 1, total: outEntries.length });
-        }
+        try {
+          const batchRes = await fetch("/api/ai/categorize-batch", {
+            method:  "POST",
+            headers: { "Content-Type": "application/json" },
+            body:    JSON.stringify({
+              entries: outEntries.map((e) => ({ description: e.desc, amount: e.amount })),
+            }),
+          });
+
+          if (batchRes.ok) {
+            const { results } = await batchRes.json();
+            // Update all entries in Supabase in parallel
+            await Promise.all(
+              outEntries.map(async (e, i) => {
+                const ai = results?.[i];
+                if (!ai) return;
+                try {
+                  await supabase.from("entries").update(ai).eq("id", e.id);
+                  categorized++;
+                } catch { /* skip */ }
+              })
+            );
+          }
+        } catch { /* skip categorization, entries still imported */ }
+
+        setCatProgress({ done: outEntries.length, total: outEntries.length });
       }
 
       setStatus({
