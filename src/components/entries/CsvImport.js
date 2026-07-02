@@ -94,7 +94,7 @@ const UNCLEAR_RE = [
   /^USSD/i,
   /^POS\b/i,
   /^ATM\b/i,
-  /^TRANSFER\s+(CREDIT|DEBIT)$/i,
+  /^TRANSFER\s+(CREDIT|DEBIT)/i,       // removed $ — matches "TRANSFER CREDIT - JOHN DOE"
   /^(INFLOW|OUTFLOW)$/i,
   /^STANDING\s+ORDER/i,
   /^DIRECT\s+DEBIT/i,
@@ -105,12 +105,38 @@ const UNCLEAR_RE = [
   /^INTER\s*BANK/i,
   /^MOBILE\s*TRANSFER$/i,
   /^CASH\s*(WITHDRAWAL|DEPOSIT)$/i,
+  // Person-transfer patterns common in Nigerian banks
+  /^TRF[\s\/\-]/i,                     // TRF/JOHN DOE, TRF-EMEKA
+  /^TRANSFER\s+(TO|FROM)\b/i,          // TRANSFER TO TAIWO OGUNFILE
+  /^PAYMENT\s+(TO|FROM)\b/i,           // PAYMENT FROM JOHN
+  /^(CREDIT|DEBIT)\s+(FROM|TO)\b/i,    // CREDIT FROM JANE DOE
+  /^INTRA[\s\-]?(BANK\s+)?TRANSFER/i,
+  /^FUNDS?\s+TRANSFER/i,
+  /^FASTTELLER/i,
+  /^BT\//i,
+  /^RTGS\b/i,
 ];
+
+// Words that suggest a clear merchant or category purpose — not a bare person name
+const NOT_A_PERSON = /\b(school|fee|fees|rent|fuel|petrol|food|market|grocery|groceries|loan|repayment|salary|transport|hospital|clinic|medical|drug|pharmacy|savings|invest|pension|insurance|premium|electricity|nepa|phcn|water|gas|internet|wifi|cable|dstv|airtime|data|recharge|clothes|shopping|gym|salon|barber|spa|betting|bet|purchase|subscription|maintenance|repair|service|charge|tax|tithe|offering|donation|church|mosque|toll|fare|ticket|levy|bill|fine|refund|bonus|dividend|konga|jumia|shoprite|spar|amazon|netflix|spotify|paypal|uber|bolt|flutterwave|paystack|opay|palmpay|kuda|mtn|airtel|glo|mobile)\b/i;
+
+// A bare 2–4-word all-alpha narration that looks like a person's name
+function looksLikePersonName(desc) {
+  const d = desc.trim();
+  const words = d.split(/\s+/);
+  return (
+    words.length >= 2 &&
+    words.length <= 4 &&
+    !NOT_A_PERSON.test(d) &&
+    !/\d/.test(d) &&
+    words.every((w) => /^[A-Za-z'.-]{2,}$/.test(w))
+  );
+}
 
 function isUnclearPattern(desc) {
   const d = (desc || "").trim();
   if (d.length < 6) return true;
-  return UNCLEAR_RE.some((re) => re.test(d));
+  return UNCLEAR_RE.some((re) => re.test(d)) || looksLikePersonName(d);
 }
 
 // Group rows that have identical narrations (≥2) OR match known unclear patterns.

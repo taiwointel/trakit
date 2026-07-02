@@ -34,28 +34,28 @@ export default function StatsStrip({ entries, year, month, selectedDay }) {
   const cells = [
     {
       label:    "Today out",
-      value:    formatNaira(todayOut, { compact: true }),
+      value:    formatNaira(todayOut),
       color:    "var(--red)",
       accent:   "#E84030",
       grad:     "rgba(232,64,48,0.12)",
     },
     {
       label:    "Last 7 days",
-      value:    formatNaira(last7, { compact: true }),
+      value:    formatNaira(last7),
       color:    "var(--amber)",
       accent:   "#E8920A",
       grad:     "rgba(232,146,10,0.10)",
     },
     {
       label:    isDay ? "Day out" : "Month out",
-      value:    formatNaira(monthOut, { compact: true }),
+      value:    formatNaira(monthOut),
       color:    "var(--red)",
       accent:   "#E84030",
       grad:     "rgba(232,64,48,0.12)",
     },
     {
       label:    isDay ? "Day in" : "Month in",
-      value:    formatNaira(monthIn, { compact: true }),
+      value:    formatNaira(monthIn),
       color:    "var(--green)",
       accent:   "#25B56A",
       grad:     "rgba(37,181,106,0.10)",

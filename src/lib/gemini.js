@@ -1,9 +1,9 @@
 // Gemini model fallback chain.
 // On free-tier quota errors (429 / RESOURCE_EXHAUSTED), automatically retries
 // with the next model in the list before surfacing an error to the caller.
-// gemini-2.5-flash and gemini-1.5-flash have independent free-tier quotas.
+// gemini-2.5-flash and gemini-2.0-flash-lite have independent free-tier quotas.
 
-const FALLBACK_MODELS = ["gemini-2.5-flash", "gemini-1.5-flash"];
+const FALLBACK_MODELS = ["gemini-2.5-flash", "gemini-2.0-flash-lite"];
 
 function isQuotaError(status, message) {
   return (
