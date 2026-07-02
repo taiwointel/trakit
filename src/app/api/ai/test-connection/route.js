@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { callGemini } from "@/lib/gemini";
 
 export async function POST() {
   const supabase = await createClient();
@@ -26,18 +27,11 @@ export async function POST() {
       const key = settings.gemini_key_encrypted;
       if (!key) return NextResponse.json({ message: "No Gemini key saved." }, { status: 400 });
 
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ contents: [{ parts: [{ text: "Reply with exactly one lowercase word: ok" }] }] }),
-        },
-      );
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error?.message || "Gemini error");
-      const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-      return NextResponse.json({ message: `Gemini: ${text}` });
+      const text = await callGemini(key, {
+        contents: [{ parts: [{ text: "Reply with exactly one lowercase word: ok" }] }],
+        generationConfig: { maxOutputTokens: 10 },
+      });
+      return NextResponse.json({ message: `Gemini: ${text.trim()}` });
     }
 
     if (provider === "groq") {

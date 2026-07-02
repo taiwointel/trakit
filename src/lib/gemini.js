@@ -6,7 +6,7 @@
 const FALLBACK_MODELS = [
   "gemini-2.5-flash",              //  5 RPM — primary
   "gemini-2.5-flash-lite",         // 10 RPM
-  "antigravity-preview-05-2026",   // 60 RPM — largest free quota
+  "gemini-1.5-flash",              // 15 RPM — reliable free-tier fallback
   "gemini-3.1-flash-lite",         // 15 RPM
   "gemini-3.5-flash",              //  5 RPM
   "gemini-3-flash-preview",        //  5 RPM
