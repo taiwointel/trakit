@@ -336,6 +336,35 @@ export default function SummaryPage() {
   const sparkRows  = useMemo(() => last14Days(entries, anchor.anchor_date, anchor.anchor_amount), [entries, anchor]);
 
   const monthOut   = cycleEntries.filter((e) => e.flow === "out").reduce((s, e) => s + Number(e.amount), 0);
+  const cycleIn    = cycleEntries.filter((e) => e.flow === "in").reduce((s, e) => s + Number(e.amount), 0);
+  const cycleTxCount = cycleEntries.filter((e) => e.flow === "out").length;
+
+  const cycleDaysElapsed = useMemo(() => {
+    const a = new Date(cycleStart + "T00:00:00");
+    const b = new Date(today    + "T00:00:00");
+    return Math.max(1, Math.round((b - a) / 86400000) + 1);
+  }, [cycleStart, today]);
+
+  const cycleDaysTotal = useMemo(() => {
+    if (!cycle) return 30;
+    const a = new Date(cycle.start + "T00:00:00");
+    const b = new Date(cycle.end   + "T00:00:00");
+    return Math.max(1, Math.round((b - a) / 86400000) + 1);
+  }, [cycle]);
+
+  const cycleDailyAvg = cycleDaysElapsed > 0 ? monthOut / cycleDaysElapsed : 0;
+
+  const cycleEssential = useMemo(
+    () => cycleEntries.filter((e) => e.flow === "out" && e.essentiality === "Essential").reduce((s, e) => s + Number(e.amount), 0),
+    [cycleEntries]
+  );
+  const cycleDiscretionary = useMemo(
+    () => cycleEntries.filter((e) => e.flow === "out" && e.essentiality === "Discretionary").reduce((s, e) => s + Number(e.amount), 0),
+    [cycleEntries]
+  );
+  const essPct  = monthOut > 0 ? Math.round((cycleEssential / monthOut) * 100) : 0;
+  const discPct = monthOut > 0 ? Math.round((cycleDiscretionary / monthOut) * 100) : 0;
+
   const byCategory = useMemo(() => {
     const m = {};
     cycleEntries.filter((e) => e.flow === "out" && e.category).forEach((e) => {
@@ -380,11 +409,145 @@ export default function SummaryPage() {
     <div className="page-root">
       <style>{`
         @media print {
-          .app-topbar, .app-bottom-nav, [data-no-print] { display: none !important; }
-          body { background: #fff !important; }
-          :root { --ink-text: #000 !important; }
+          * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+          .app-topbar, .app-bottom-nav, .page-root, [data-no-print] { display: none !important; }
+          #print-report { display: block !important; }
+          body { background: #0F172A !important; margin: 0 !important; padding: 0 !important; }
+          @page { margin: 0; size: A4 portrait; }
         }
+        #print-report { display: none; }
       `}</style>
+
+      {/* ── PRINT REPORT ── hidden on screen, shown on print ────────────────── */}
+      <div id="print-report" style={{ fontFamily: "Arial, Helvetica, sans-serif", background: "#0F172A", color: "#ECE9E1", minHeight: "100vh", padding: "0" }}>
+        {/* Header band */}
+        <div style={{ background: "linear-gradient(135deg, #0F0A1E 0%, #1E1B4B 50%, #0F172A 100%)", padding: "32px 40px 24px", borderBottom: "3px solid #A9854F" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+            <div>
+              <div style={{ fontFamily: "Georgia, serif", fontSize: 28, fontWeight: 700, color: "#F5A623", letterSpacing: -0.5 }}>Trakit7</div>
+              <div style={{ fontSize: 12, color: "rgba(199,210,254,0.7)", marginTop: 4, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                Financial Report · {periodLabel}
+              </div>
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <div style={{ fontSize: 11, color: "rgba(148,163,184,0.7)", letterSpacing: "0.04em" }}>Generated</div>
+              <div style={{ fontSize: 12, color: "#A9854F", fontFamily: "Courier New, monospace", marginTop: 2 }}>
+                {new Date().toLocaleDateString("en-NG", { day: "numeric", month: "long", year: "numeric" })}
+              </div>
+              {name && <div style={{ fontSize: 11, color: "rgba(148,163,184,0.55)", marginTop: 2 }}>{name}</div>}
+            </div>
+          </div>
+        </div>
+
+        {/* Gradient bar */}
+        <div style={{ height: 3, background: "linear-gradient(90deg,#7C3AED 0%,#EC4899 35%,#F59E0B 65%,#10B981 100%)" }} />
+
+        {/* Hero stat */}
+        <div style={{ padding: "36px 40px 28px", background: "linear-gradient(180deg, #0F172A 0%, #1E293B 100%)", textAlign: "center", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+          <div style={{ fontSize: 10, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.18em", marginBottom: 10 }}>Total Expenses</div>
+          <div style={{ fontFamily: "Georgia, serif", fontSize: 52, fontWeight: 700, color: "#F1F5F9", letterSpacing: -2, lineHeight: 1 }}>{formatNaira(monthOut)}</div>
+          {prevOut > 0 && (
+            <div style={{ marginTop: 12 }}>
+              <span style={{ display: "inline-block", background: delta > 0 ? "rgba(239,68,68,0.12)" : "rgba(16,185,129,0.12)", border: `1px solid ${delta > 0 ? "rgba(239,68,68,0.35)" : "rgba(16,185,129,0.35)"}`, borderRadius: 20, padding: "4px 14px" }}>
+                <span style={{ fontFamily: "Courier New, monospace", fontSize: 13, color: delta > 0 ? "#FCA5A5" : "#6EE7B7", fontWeight: 700 }}>
+                  {delta > 0 ? "↑" : "↓"} {formatNaira(Math.abs(delta))} vs prior period
+                </span>
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Quick stats row */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 0, borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+          {[
+            { label: "Transactions", value: `${cycleTxCount}` },
+            { label: "Daily Average", value: formatNaira(cycleDailyAvg, { compact: true }) },
+            { label: "Essential", value: `${essPct}%` },
+            { label: "Income In", value: cycleIn > 0 ? formatNaira(cycleIn, { compact: true }) : "—" },
+          ].map((s, i) => (
+            <div key={i} style={{ padding: "18px 20px", textAlign: "center", borderRight: i < 3 ? "1px solid rgba(255,255,255,0.06)" : "none", background: i % 2 === 0 ? "#1E293B" : "#0F172A" }}>
+              <div style={{ fontSize: 9, color: "#64748B", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 6 }}>{s.label}</div>
+              <div style={{ fontFamily: "Courier New, monospace", fontSize: 17, color: "#F1F5F9", fontWeight: 700 }}>{s.value}</div>
+            </div>
+          ))}
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0 }}>
+          {/* Category breakdown */}
+          <div style={{ padding: "28px 32px", borderRight: "1px solid rgba(255,255,255,0.06)" }}>
+            <div style={{ fontSize: 10, color: "#6366F1", textTransform: "uppercase", letterSpacing: "0.14em", fontWeight: 700, marginBottom: 16 }}>Where it went</div>
+            {byCategory.slice(0, 8).map(([cat, amt], idx) => {
+              const pct = monthOut > 0 ? (amt / monthOut) * 100 : 0;
+              const colors = ["#A9854F","#5B8FA8","#7C8C5B","#A8645B","#8A6FA8","#A89A5B","#5BA88A","#A85B86"];
+              const color  = colors[idx % colors.length];
+              return (
+                <div key={cat} style={{ marginBottom: 10 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 3 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                      <div style={{ width: 6, height: 6, borderRadius: "50%", background: color }} />
+                      <span style={{ fontSize: 11.5, color: idx < 3 ? "#ECE9E1" : "rgba(236,233,225,0.6)", fontWeight: idx < 3 ? 600 : 400 }}>{cat}</span>
+                    </div>
+                    <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                      <span style={{ fontSize: 10, color: "rgba(148,163,184,0.6)", fontFamily: "Courier New, monospace" }}>{pct.toFixed(0)}%</span>
+                      <span style={{ fontSize: 12, color, fontFamily: "Courier New, monospace", fontWeight: 700 }}>{formatNaira(amt, { compact: true })}</span>
+                    </div>
+                  </div>
+                  <div style={{ height: 5, background: "rgba(255,255,255,0.06)", borderRadius: 3 }}>
+                    <div style={{ height: 5, width: `${pct}%`, background: color, borderRadius: 3 }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Right column: essential/disc split + cash */}
+          <div style={{ padding: "28px 32px" }}>
+            <div style={{ fontSize: 10, color: "#EC4899", textTransform: "uppercase", letterSpacing: "0.14em", fontWeight: 700, marginBottom: 16 }}>Essential vs Discretionary</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 24 }}>
+              <div style={{ background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.2)", borderRadius: 10, padding: "14px" }}>
+                <div style={{ fontSize: 9, color: "#10B981", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>Essential</div>
+                <div style={{ fontFamily: "Courier New, monospace", fontSize: 16, color: "#6EE7B7", fontWeight: 700 }}>{formatNaira(cycleEssential, { compact: true })}</div>
+                <div style={{ fontSize: 11, color: "rgba(110,231,183,0.6)", marginTop: 3 }}>{essPct}% of spend</div>
+              </div>
+              <div style={{ background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.2)", borderRadius: 10, padding: "14px" }}>
+                <div style={{ fontSize: 9, color: "#F59E0B", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>Discretionary</div>
+                <div style={{ fontFamily: "Courier New, monospace", fontSize: 16, color: "#FCD34D", fontWeight: 700 }}>{formatNaira(cycleDiscretionary, { compact: true })}</div>
+                <div style={{ fontSize: 11, color: "rgba(252,211,77,0.6)", marginTop: 3 }}>{discPct}% of spend</div>
+              </div>
+            </div>
+
+            <div style={{ fontSize: 10, color: "#3B82F6", textTransform: "uppercase", letterSpacing: "0.14em", fontWeight: 700, marginBottom: 14 }}>Cash &amp; Liquidity</div>
+            {[
+              { label: "Current Balance", value: formatNaira(currentBalance) },
+              { label: "Avg Monthly Essentials", value: avgEssential ? formatNaira(avgEssential, { compact: true }) : "—" },
+              { label: "Liquidity Coverage", value: `${months?.toFixed(1) ?? "0.0"} months` },
+            ].map((r, i) => (
+              <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                <span style={{ fontSize: 11.5, color: "rgba(148,163,184,0.7)" }}>{r.label}</span>
+                <span style={{ fontFamily: "Courier New, monospace", fontSize: 12, color: "#F1F5F9", fontWeight: 600 }}>{r.value}</span>
+              </div>
+            ))}
+
+            {cycleIn > 0 && (
+              <div style={{ marginTop: 20, background: "rgba(16,185,129,0.06)", border: "1px solid rgba(16,185,129,0.18)", borderRadius: 10, padding: "14px" }}>
+                <div style={{ fontSize: 9, color: "#10B981", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>Income This Cycle</div>
+                <div style={{ fontFamily: "Courier New, monospace", fontSize: 16, color: "#6EE7B7", fontWeight: 700 }}>+{formatNaira(cycleIn)}</div>
+                <div style={{ fontSize: 11, color: "rgba(110,231,183,0.6)", marginTop: 3 }}>
+                  Net: {cycleIn >= monthOut ? "+" : ""}{formatNaira(cycleIn - monthOut)}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div style={{ background: "linear-gradient(135deg, #0F0A1E, #1E1B4B)", padding: "20px 40px", textAlign: "center", borderTop: "1px solid rgba(169,133,79,0.2)" }}>
+          <div style={{ fontFamily: "Georgia, serif", fontSize: 14, color: "#F5A623", fontWeight: 700, marginBottom: 4 }}>Trakit7</div>
+          <div style={{ fontSize: 10, color: "rgba(148,163,184,0.45)", letterSpacing: "0.04em" }}>Your personal finance tracker · trakit-seven.vercel.app</div>
+        </div>
+        {/* Bottom colour bar */}
+        <div style={{ height: 4, background: "linear-gradient(90deg,#10B981 0%,#3B82F6 33%,#8B5CF6 66%,#EC4899 100%)" }} />
+      </div>
 
       {/* ── HERO: greeting + payday ──────────────────────────────────────
           Two things only. Greeting sets the emotional tone; payday is the
@@ -453,39 +616,92 @@ export default function SummaryPage() {
               background: "var(--ink-2)",
               border: "1px solid var(--rule)",
               borderRadius: 16,
-              padding: "24px",
+              padding: "20px 22px",
               display: "flex",
               flexDirection: "column",
-              gap: 12,
+              gap: 10,
             }}
           >
+            {/* Header row */}
             <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
-              <p style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em" }}>
+              <p style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", margin: 0 }}>
                 {periodLabel}
               </p>
               <button
                 onClick={() => window.print()}
-                style={{ background: "var(--ink-3)", border: "1px solid var(--rule)", color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", fontSize: 11, padding: "4px 10px", borderRadius: 8, cursor: "pointer", whiteSpace: "nowrap" }}
+                style={{ background: "var(--ink-3)", border: "1px solid var(--rule)", color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", fontSize: 11, padding: "4px 10px", borderRadius: 8, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }}
               >
                 Print / PDF
               </button>
             </div>
-            <div style={{ color: "var(--ink-text)", fontFamily: "var(--font-serif)", fontSize: "clamp(1.8rem, 4vw, 2.5rem)", fontWeight: 700, lineHeight: 1 }}>
-              {formatNaira(monthOut)}
+
+            {/* Label + amount */}
+            <div>
+              <p style={{ color: "var(--gold)", fontFamily: "var(--font-sans)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.16em", marginBottom: 4 }}>
+                Total Expenses
+              </p>
+              <div style={{ color: "var(--ink-text)", fontFamily: "var(--font-serif)", fontSize: "clamp(1.8rem, 4vw, 2.5rem)", fontWeight: 700, lineHeight: 1 }}>
+                {formatNaira(monthOut)}
+              </div>
             </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {biggestCat && (
-                <span style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", fontSize: 13 }}>
-                  Biggest: <strong style={{ color: "var(--ink-text)" }}>{biggestCat[0]}</strong>{" "}
-                  ({formatNaira(biggestCat[1], { compact: true })})
-                </span>
-              )}
-              {prevOut > 0 && (
-                <span style={{ color: deltaColor, fontFamily: "var(--font-mono)", fontSize: 13, fontWeight: 600 }}>
-                  {deltaDir} {formatNaira(Math.abs(delta), { compact: true })} vs prior period
-                </span>
-              )}
+
+            {/* vs prior period */}
+            {prevOut > 0 && (
+              <span style={{ color: deltaColor, fontFamily: "var(--font-mono)", fontSize: 12, fontWeight: 600 }}>
+                {deltaDir} {formatNaira(Math.abs(delta), { compact: true })} vs prior period
+              </span>
+            )}
+
+            {/* Quick stats strip */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, marginTop: 2 }}>
+              {[
+                { label: "Transactions", value: `${cycleTxCount}` },
+                { label: "Daily avg", value: formatNaira(cycleDailyAvg, { compact: true }) },
+                { label: "Essential", value: `${essPct}%` },
+              ].map((s) => (
+                <div key={s.label} style={{ background: "var(--ink-3)", border: "1px solid var(--rule)", borderRadius: 10, padding: "8px 10px" }}>
+                  <p style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 3 }}>{s.label}</p>
+                  <p style={{ color: "var(--ink-text)", fontFamily: "var(--font-mono)", fontSize: 13, fontWeight: 700 }}>{s.value}</p>
+                </div>
+              ))}
             </div>
+
+            {/* Top 3 categories */}
+            {byCategory.length > 0 && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 2 }}>
+                <p style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em" }}>Top categories</p>
+                {byCategory.slice(0, 3).map(([cat, amt], idx) => {
+                  const pct    = monthOut > 0 ? (amt / monthOut) * 100 : 0;
+                  const colors = ["#A9854F", "#5B8FA8", "#7C8C5B"];
+                  const color  = colors[idx];
+                  return (
+                    <div key={cat}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 3 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <div style={{ width: 6, height: 6, borderRadius: "50%", background: color, flexShrink: 0 }} />
+                          <span style={{ color: "var(--ink-text)", fontFamily: "var(--font-sans)", fontSize: 11.5, fontWeight: 600 }}>{cat}</span>
+                        </div>
+                        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                          <span style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-mono)", fontSize: 10 }}>{pct.toFixed(0)}%</span>
+                          <span style={{ color, fontFamily: "var(--font-mono)", fontSize: 12, fontWeight: 700 }}>{formatNaira(amt, { compact: true })}</span>
+                        </div>
+                      </div>
+                      <div style={{ height: 4, background: "var(--ink-3)", borderRadius: 2 }}>
+                        <div style={{ height: 4, width: `${pct}%`, background: color, borderRadius: 2, transition: "width 0.4s ease" }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Income this cycle */}
+            {cycleIn > 0 && (
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 10px", background: "rgba(47,122,86,0.08)", border: "1px solid rgba(47,122,86,0.2)", borderRadius: 10, marginTop: 2 }}>
+                <span style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", fontSize: 11 }}>Income this cycle</span>
+                <span style={{ color: "var(--green)", fontFamily: "var(--font-mono)", fontSize: 13, fontWeight: 700 }}>+{formatNaira(cycleIn, { compact: true })}</span>
+              </div>
+            )}
           </div>
 
           <LiquidityPanel
