@@ -73,15 +73,19 @@ function EditRow({ entry, onSave, onCancel }) {
 
   return (
     <tr style={{ background: "var(--paper-2)" }}>
+      {/* Date */}
       <td className="px-3 py-2">
         <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={{ ...inputStyle, fontFamily: "var(--font-mono)" }} />
       </td>
-      <td className="px-3 py-2" colSpan={2}>
-        <div className="flex flex-col gap-1">
-          <input type="text" value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Description" style={inputStyle} />
-          <input type="text" value={bene} onChange={(e) => setBene(e.target.value)} placeholder={flow === "out" ? "To…" : "From…"} style={inputStyle} />
-        </div>
+      {/* Description */}
+      <td className="px-3 py-2">
+        <input type="text" value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Description" style={inputStyle} />
       </td>
+      {/* Beneficiary */}
+      <td className="px-3 py-2">
+        <input type="text" value={bene} onChange={(e) => setBene(e.target.value)} placeholder={flow === "out" ? "To…" : "From…"} style={inputStyle} />
+      </td>
+      {/* Amount + Flow */}
       <td className="px-3 py-2">
         <div className="flex gap-1">
           <input
@@ -97,7 +101,8 @@ function EditRow({ entry, onSave, onCancel }) {
           </select>
         </div>
       </td>
-      <td colSpan={2} className="px-3 py-2">
+      {/* Save / Cancel — spans Category + Tags + Actions */}
+      <td colSpan={3} className="px-3 py-2">
         <div className="flex gap-2">
           <button
             onClick={() => onSave({ date, desc, beneficiary: bene || null, amount: parseAmount(amount), flow })}
@@ -162,7 +167,7 @@ export default function LedgerTable({ entries, onUpdate, onDelete, onClearAll })
       <table className="w-full text-sm border-collapse">
         <thead>
           <tr style={{ background: "var(--paper-2)", borderBottom: "1px solid var(--rule-paper)" }}>
-            {["Date", "Description", "Amount", "Category", "Tags", ""].map((h) => (
+            {["Date", "Description", "Beneficiary", "Amount", "Category", "Tags", ""].map((h) => (
               <th
                 key={h}
                 className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider"
@@ -199,7 +204,7 @@ export default function LedgerTable({ entries, onUpdate, onDelete, onClearAll })
                 </td>
 
                 {/* Description */}
-                <td className="px-3 py-2" style={{ maxWidth: 260 }}>
+                <td className="px-3 py-2" style={{ maxWidth: 240 }}>
                   <div className="flex items-start gap-1.5">
                     <ConfidenceDot status={entry.status} confidence={entry.confidence} />
                     <div>
@@ -207,12 +212,22 @@ export default function LedgerTable({ entries, onUpdate, onDelete, onClearAll })
                         {entry.desc}
                       </div>
                       <div className="text-xs mt-0.5 flex items-center gap-1.5 flex-wrap" style={{ color: "var(--paper-text-dim)", fontFamily: "var(--font-sans)" }}>
-                        {[entry.subcategory, entry.note, entry.beneficiary && `${entry.flow === "out" ? "To" : "From"} ${entry.beneficiary}`]
-                          .filter(Boolean).join(" · ")}
+                        {[entry.subcategory, entry.note].filter(Boolean).join(" · ")}
                         {entry.source && <SourceTag source={entry.source} />}
                       </div>
                     </div>
                   </div>
+                </td>
+
+                {/* Beneficiary */}
+                <td className="px-3 py-2 whitespace-nowrap" style={{ minWidth: 110 }}>
+                  {entry.beneficiary ? (
+                    <span style={{ color: "var(--paper-text)", fontFamily: "var(--font-sans)", fontSize: 12 }}>
+                      {entry.beneficiary}
+                    </span>
+                  ) : (
+                    <span style={{ color: "var(--paper-text-dim)", fontFamily: "var(--font-mono)", fontSize: 12, opacity: 0.35 }}>—</span>
+                  )}
                 </td>
 
                 {/* Amount */}
@@ -245,40 +260,44 @@ export default function LedgerTable({ entries, onUpdate, onDelete, onClearAll })
                   </select>
                 </td>
 
-                {/* Tags: Essentiality + Nature stacked */}
+                {/* Tags: Essentiality + Nature — hidden for income */}
                 <td className="px-3 py-2">
-                  <div className="flex flex-col gap-1">
-                    <select
-                      value={entry.essentiality || ""}
-                      onChange={(e) => onUpdate(entry.id, { essentiality: e.target.value })}
-                      className="paper-select text-xs rounded py-0.5"
-                      style={{
-                        background:   "var(--paper-2)",
-                        border:       "1px solid var(--rule-paper)",
-                        color:        entry.essentiality === "Essential" ? "var(--green)" : entry.essentiality === "Discretionary" ? "var(--amber)" : "var(--paper-text-dim)",
-                        fontFamily:   "var(--font-sans)",
-                        paddingLeft:  6,
-                        paddingRight: 22,
-                      }}
-                    >
-                      {ESSENTIALITIES.map((e) => <option key={e} value={e}>{e}</option>)}
-                    </select>
-                    <select
-                      value={entry.nature || ""}
-                      onChange={(e) => onUpdate(entry.id, { nature: e.target.value })}
-                      className="paper-select text-xs rounded py-0.5"
-                      style={{
-                        background:   "var(--paper-2)",
-                        border:       "1px solid var(--rule-paper)",
-                        color:        "var(--paper-text-dim)",
-                        fontFamily:   "var(--font-sans)",
-                        paddingLeft:  6,
-                        paddingRight: 22,
-                      }}
-                    >
-                      {NATURES.map((n) => <option key={n} value={n}>{n}</option>)}
-                    </select>
-                  </div>
+                  {entry.flow === "in" ? (
+                    <span style={{ color: "var(--paper-text-dim)", fontFamily: "var(--font-mono)", fontSize: 12, opacity: 0.3 }}>—</span>
+                  ) : (
+                    <div className="flex flex-col gap-1">
+                      <select
+                        value={entry.essentiality || ""}
+                        onChange={(e) => onUpdate(entry.id, { essentiality: e.target.value })}
+                        className="paper-select text-xs rounded py-0.5"
+                        style={{
+                          background:   "var(--paper-2)",
+                          border:       "1px solid var(--rule-paper)",
+                          color:        entry.essentiality === "Essential" ? "var(--green)" : entry.essentiality === "Discretionary" ? "var(--amber)" : "var(--paper-text-dim)",
+                          fontFamily:   "var(--font-sans)",
+                          paddingLeft:  6,
+                          paddingRight: 22,
+                        }}
+                      >
+                        {ESSENTIALITIES.map((e) => <option key={e} value={e}>{e}</option>)}
+                      </select>
+                      <select
+                        value={entry.nature || ""}
+                        onChange={(e) => onUpdate(entry.id, { nature: e.target.value })}
+                        className="paper-select text-xs rounded py-0.5"
+                        style={{
+                          background:   "var(--paper-2)",
+                          border:       "1px solid var(--rule-paper)",
+                          color:        "var(--paper-text-dim)",
+                          fontFamily:   "var(--font-sans)",
+                          paddingLeft:  6,
+                          paddingRight: 22,
+                        }}
+                      >
+                        {NATURES.map((n) => <option key={n} value={n}>{n}</option>)}
+                      </select>
+                    </div>
+                  )}
                 </td>
 
                 {/* Actions */}

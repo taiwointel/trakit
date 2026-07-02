@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import { createClient } from "@/lib/supabase/client";
 
 // ── CSV parsing ───────────────────────────────────────────────────────────────
 
@@ -43,6 +44,76 @@ function findCol(headers, candidates) {
   return -1;
 }
 
+// ── Beneficiary extraction ────────────────────────────────────────────────────
+
+function cleanName(raw) {
+  return (raw || "")
+    .trim()
+    // Remove trailing bank codes: /GTB, /ACCESS BANK, etc.
+    .replace(/\s*\/\s*[A-Z]{2,15}(?:\s+BANK)?(?:\/.*)?$/i, "")
+    // Remove trailing account numbers after slash (8+ digits)
+    .replace(/\s*\/\s*\d{8,}.*$/, "")
+    // Remove trailing long digit strings with preceding space
+    .replace(/\s+\d{10,}.*$/, "")
+    // Remove ref suffixes
+    .replace(/\s*[-–]\s*(?:REF|TRAN|TXN)\w*$/i, "")
+    .trim();
+}
+
+function extractBeneficiary(desc) {
+  const d = (desc || "").trim();
+  let m;
+
+  // NIP/YYYYMMDD/NAME/BANK
+  m = d.match(/^NIP\/\d+\/([^\/]+)/i);
+  if (m) return cleanName(m[1]);
+
+  // NIP/NAME (no date segment)
+  m = d.match(/^NIP\s*\/\s*([A-Za-z][^\/]+?)(?:\/|$)/i);
+  if (m) return cleanName(m[1]);
+
+  // TRF/NAME, TRF-NAME, TRF NAME
+  m = d.match(/^TRF[\s\/\-]+(.+)/i);
+  if (m) return cleanName(m[1]);
+
+  // BT/NAME
+  m = d.match(/^BT\/(.+)/i);
+  if (m) return cleanName(m[1]);
+
+  // TRANSFER CREDIT - NAME, TRANSFER DEBIT - NAME
+  m = d.match(/^TRANSFER\s+(?:CREDIT|DEBIT)\s*[-–]\s*(.+)/i);
+  if (m) return cleanName(m[1]);
+
+  // TRANSFER TO/FROM NAME, FUNDS TRANSFER TO/FROM NAME
+  m = d.match(/^(?:FUNDS?\s+)?TRANSFER\s+(?:TO|FROM)\s+(.+)/i);
+  if (m) return cleanName(m[1]);
+
+  // PAYMENT TO/FROM NAME
+  m = d.match(/^PAYMENT\s+(?:TO|FROM)\s+(.+)/i);
+  if (m) return cleanName(m[1]);
+
+  // CREDIT FROM NAME, DEBIT TO NAME
+  m = d.match(/^(?:CREDIT|DEBIT)\s+(?:FROM|TO)\s+(.+)/i);
+  if (m) return cleanName(m[1]);
+
+  // INTRA BANK TRANSFER/NAME or INTRA-BANK TRANSFER/NAME
+  m = d.match(/^INTRA[\s\-]?(?:BANK\s+)?TRANSFER[\s\/]+(.+?)(?:\/\d+)?$/i);
+  if (m) return cleanName(m[1]);
+
+  // RTGS/NAME
+  m = d.match(/^RTGS\s*\/\s*(.+)/i);
+  if (m) return cleanName(m[1]);
+
+  // FASTTELLER NAME or FASTTELLER/NAME
+  m = d.match(/^FASTTELLER[\s\/]+(.+)/i);
+  if (m) return cleanName(m[1]);
+
+  // Bare person name (2–4 all-alpha words, no digits, no known merchant)
+  if (looksLikePersonName(d)) return d.trim();
+
+  return "";
+}
+
 function parseCsv(text) {
   const lines = text.split(/\r?\n/).filter((l) => l.trim());
   if (lines.length < 2) return [];
@@ -82,7 +153,7 @@ function parseCsv(text) {
       flow   = signed < 0 ? "out" : "in";
     } else continue;
 
-    rows.push({ date, desc, amount, flow, beneficiary: "" });
+    rows.push({ date, desc, amount, flow, beneficiary: extractBeneficiary(desc) });
   }
   return rows;
 }
@@ -462,11 +533,16 @@ export default function CsvImport({ onImported }) {
   const [status,       setStatus]       = useState(null);
   const [extracting,   setExtracting]   = useState(false);
   const [importing,    setImporting]    = useState(false);
+  const [catProgress,  setCatProgress]  = useState(null); // null | { done, total }
   const fileRef = useRef(null);
 
   const launchWizard = useCallback((extractedRows) => {
-    setRows(extractedRows);
-    const groups = buildLabelGroups(extractedRows);
+    const rowsWithBene = extractedRows.map((r) => ({
+      ...r,
+      beneficiary: r.beneficiary || extractBeneficiary(r.desc) || "",
+    }));
+    setRows(rowsWithBene);
+    const groups = buildLabelGroups(rowsWithBene);
     if (groups.length > 0) {
       setWizardGroups(groups);
     }
@@ -543,6 +619,7 @@ export default function CsvImport({ onImported }) {
     setImporting(true);
     setStatus(null);
     try {
+      // Step 1: Insert all entries (keyword fallback categories applied server-side)
       const res  = await fetch("/api/entries/bulk", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
@@ -551,15 +628,47 @@ export default function CsvImport({ onImported }) {
       const data = await res.json();
       if (!res.ok) {
         setStatus({ type: "error", msg: data.error || "Import failed." });
-      } else {
-        setStatus({ type: "success", msg: `${data.inserted} entries imported and queued for AI categorization. Review them in the ledger below.` });
-        setRows([]);
-        if (onImported) onImported();
+        return;
       }
+
+      // Step 2: AI-categorize out-entries sequentially (rate-limit friendly)
+      const outEntries = (data.rows || []).filter((r) => r.flow === "out");
+      let categorized = 0;
+
+      if (outEntries.length > 0) {
+        setImporting(false);
+        setCatProgress({ done: 0, total: outEntries.length });
+        const supabase = createClient();
+
+        for (let i = 0; i < outEntries.length; i++) {
+          const e = outEntries[i];
+          try {
+            const cr = await fetch("/api/ai/categorize", {
+              method:  "POST",
+              headers: { "Content-Type": "application/json" },
+              body:    JSON.stringify({ description: e.desc, amount: e.amount }),
+            });
+            if (cr.ok) {
+              const ai = await cr.json();
+              await supabase.from("entries").update(ai).eq("id", e.id);
+              categorized++;
+            }
+          } catch { /* skip this entry */ }
+          setCatProgress({ done: i + 1, total: outEntries.length });
+        }
+      }
+
+      setStatus({
+        type: "success",
+        msg: `${data.inserted} entries imported${categorized > 0 ? ` · ${categorized} categorized with AI` : ""}. Review them in the ledger below.`,
+      });
+      setRows([]);
+      if (onImported) onImported();
     } catch {
       setStatus({ type: "error", msg: "Network error. Please try again." });
     } finally {
       setImporting(false);
+      setCatProgress(null);
     }
   };
 
@@ -642,10 +751,10 @@ export default function CsvImport({ onImported }) {
                 className="rounded-lg overflow-auto"
                 style={{ background: "var(--paper)", maxHeight: 360, border: "1px solid var(--rule-paper)" }}
               >
-                <table className="w-full text-xs" style={{ borderCollapse: "collapse", minWidth: 560 }}>
+                <table className="w-full text-xs" style={{ borderCollapse: "collapse", minWidth: 680 }}>
                   <thead>
                     <tr style={{ background: "var(--paper-2)", position: "sticky", top: 0, zIndex: 1 }}>
-                      {["Date","Description","Amount (₦)","Flow",""].map((h) => (
+                      {["Date","Description","Beneficiary","Amount (₦)","Flow",""].map((h) => (
                         <th
                           key={h}
                           className="text-left px-2 py-2"
@@ -673,6 +782,15 @@ export default function CsvImport({ onImported }) {
                             defaultValue={row.desc}
                             onBlur={(e) => updateRow(i, "desc", e.target.value)}
                             style={{ ...inputBase, fontFamily: "var(--font-sans)" }}
+                          />
+                        </td>
+                        <td className="px-2 py-1" style={{ minWidth: 120 }}>
+                          <input
+                            type="text"
+                            defaultValue={row.beneficiary || ""}
+                            onBlur={(e) => updateRow(i, "beneficiary", e.target.value.trim() || null)}
+                            placeholder="—"
+                            style={{ ...inputBase, fontFamily: "var(--font-sans)", width: 110 }}
                           />
                         </td>
                         <td className="px-2 py-1" style={{ minWidth: 110 }}>
@@ -715,17 +833,29 @@ export default function CsvImport({ onImported }) {
 
               <button
                 onClick={doImport}
-                disabled={importing}
+                disabled={importing || !!catProgress}
                 className="rounded-lg px-4 py-2 text-sm font-semibold"
                 style={{
                   background: "var(--gold)",
                   color:      "#fff",
                   fontFamily: "var(--font-sans)",
-                  opacity:    importing ? 0.6 : 1,
-                  cursor:     importing ? "not-allowed" : "pointer",
+                  opacity:    (importing || catProgress) ? 0.7 : 1,
+                  cursor:     (importing || catProgress) ? "not-allowed" : "pointer",
+                  display:    "flex",
+                  alignItems: "center",
+                  gap:        8,
                 }}
               >
-                {importing ? "Importing…" : `Import ${rows.filter((r) => r.date && r.desc && Number(r.amount) > 0).length} rows`}
+                {catProgress ? (
+                  <>
+                    <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: "#fff", opacity: 0.8, animation: "pulse 1s infinite" }} />
+                    Categorizing {catProgress.done}/{catProgress.total} with AI…
+                  </>
+                ) : importing ? (
+                  "Importing…"
+                ) : (
+                  `Import ${rows.filter((r) => r.date && r.desc && Number(r.amount) > 0).length} rows`
+                )}
               </button>
             </div>
           )}

@@ -37,17 +37,17 @@ export async function POST(request) {
     };
   });
 
-  let { data, error } = await supabase.from("entries").insert(toInsert).select("id");
+  let { data, error } = await supabase.from("entries").insert(toInsert).select("id, desc, amount, flow");
 
   // If source column doesn't exist yet (migration pending), retry without it
   if (error?.code === "42703") {
     const withoutSource = toInsert.map(({ source: _s, ...r }) => r);
-    ({ data, error } = await supabase.from("entries").insert(withoutSource).select("id"));
+    ({ data, error } = await supabase.from("entries").insert(withoutSource).select("id, desc, amount, flow"));
   }
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ inserted: (data || []).length });
+  return NextResponse.json({ inserted: (data || []).length, rows: data || [] });
 }
