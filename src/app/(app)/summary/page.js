@@ -574,29 +574,6 @@ export default function SummaryPage() {
         <FXWidget />
       </div>
 
-      {/* ── YEAR IN REVIEW ────────────────────────────────────────────────
-          Standalone section — it's a major on-demand feature, not a widget
-          to tuck beside the FX rates.
-      ── */}
-      <div id="annual-wrapped" className="section-divider">
-        <div className="section-divider-bar" style={{ background: "var(--rose)" }} />
-        <span className="section-divider-label" style={{ color: "var(--rose)" }}>Year in Review</span>
-        <div className="section-divider-rule" />
-      </div>
-      <p className="section-desc">
-        A full-year snapshot of your financial life, generated on demand. Income, spending by category, investment growth, savings rate, and your biggest financial moments — all in one place.
-      </p>
-
-      <div className="section-body">
-        <AnnualWrapped
-          entries={entries}
-          investments={investments}
-          transactions={transactions}
-          currentBalance={currentBalance}
-          salary={goals.salary}
-        />
-      </div>
-
       {/* ── HISTORY & PATTERNS ────────────────────────────────────────────
           Long-run patterns for users who want to go deeper.
       ── */}
@@ -612,6 +589,25 @@ export default function SummaryPage() {
       <div className="section-body">
         <RecurringPanel entries={entries} />
         <SpendHeatmap entries={entries} />
+      </div>
+
+      {/* ── YEAR IN REVIEW ────────────────────────────────────────────────
+          Grand finale — 7-chapter annual story, always last.
+      ── */}
+      <div id="annual-wrapped" className="section-divider">
+        <div className="section-divider-bar" style={{ background: "var(--rose)" }} />
+        <span className="section-divider-label" style={{ color: "var(--rose)" }}>Year in Review</span>
+        <div className="section-divider-rule" />
+      </div>
+      <p className="section-desc">
+        Seven chapters. One year. Your complete financial story — monthly trajectory, category breakdown, spending habits, hall-of-records moments, needs vs. wants split, and a personalised savings score — all generated from your own ledger data.
+      </p>
+
+      <div className="section-body">
+        <AnnualWrapped
+          entries={entries}
+          salary={goals.salary}
+        />
       </div>
     </div>
   );
