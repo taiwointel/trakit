@@ -23,6 +23,11 @@ export const metadata = {
   metadataBase: new URL("https://trakit-seven.vercel.app"),
   title: "Trakit7 — Daily Expense Tracker",
   description: "Track every naira. Know your net worth. Get coached by Coach RBC.",
+  icons: {
+    icon: "/icon.svg",
+    shortcut: "/icon.svg",
+    apple: "/icon.svg",
+  },
   openGraph: {
     title: "Trakit7 — Daily Expense Tracker",
     description: "Track every naira. Know your net worth. Get coached by Coach RBC.",
