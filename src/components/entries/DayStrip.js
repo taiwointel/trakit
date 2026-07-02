@@ -35,8 +35,8 @@ export default function DayStrip({ entries, budgets, year, month, selectedDay, o
   return (
     <div
       ref={stripRef}
-      className="flex gap-1 overflow-x-auto py-2 px-6"
-      style={{ scrollbarWidth: "none" }}
+      className="flex gap-1 py-2 px-6"
+      style={{ overflowX: "auto", scrollbarWidth: "none", msOverflowStyle: "none" }}
     >
       {dates.map((date) => {
         const dayNum  = parseInt(date.slice(8), 10);
