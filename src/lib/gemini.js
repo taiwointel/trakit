@@ -12,11 +12,17 @@ const FALLBACK_MODELS = [
   "gemini-3-flash-preview",        //  5 RPM
 ];
 
-function isQuotaError(status, message) {
+function isRetryableError(status, message) {
   return (
     status === 429 ||
-    /resource.?exhausted|quota|rate.?limit/i.test(message || "")
+    /resource.?exhausted|quota|rate.?limit/i.test(message || "") ||
+    /modality.*not.*enabled|input modality.*not.*enabled|not.*support.*image/i.test(message || "")
   );
+}
+
+// Keep old name for cleanGeminiError call-sites
+function isQuotaError(status, message) {
+  return /resource.?exhausted|quota|rate.?limit/i.test(message || "") || status === 429;
 }
 
 export function cleanGeminiError(message) {
@@ -56,7 +62,7 @@ export async function callGemini(key, body) {
     const msg = data.error?.message || `Gemini error (HTTP ${res.status})`;
     lastErr    = new Error(cleanGeminiError(msg));
 
-    if (!isQuotaError(res.status, msg)) throw lastErr; // hard error — don't retry
+    if (!isRetryableError(res.status, msg)) throw lastErr; // hard error — don't retry
     // quota error — fall through to next model
   }
 
