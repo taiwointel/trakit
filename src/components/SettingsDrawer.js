@@ -22,12 +22,17 @@ function Divider() {
   return <div style={{ height: 1, background: "var(--rule)", margin: "4px 0" }} />;
 }
 
-function CollapsibleSection({ title, color = "var(--ink-text-dim)", defaultOpen = false, children }) {
+function CollapsibleSection({ title, color = "var(--ink-text-dim)", defaultOpen = false, onOpen, children }) {
   const [open, setOpen] = useState(defaultOpen);
+  function toggle() {
+    const next = !open;
+    setOpen(next);
+    if (next) onOpen?.();
+  }
   return (
     <div className="flex flex-col gap-0">
       <button
-        onClick={() => setOpen((v) => !v)}
+        onClick={toggle}
         className="flex items-center justify-between w-full py-1"
         style={{ background: "none", border: "none", cursor: "pointer" }}
       >
@@ -72,6 +77,14 @@ export default function SettingsDrawer({ open, onClose, onStartTour }) {
   const [clearingChat,     setClearingChat]     = useState(false);
   const [exportStatus,     setExportStatus]     = useState("");
 
+  // ── Backup state ──────────────────────────────────────────
+  const [backups,          setBackups]          = useState([]);
+  const [backupsLoaded,    setBackupsLoaded]    = useState(false);
+  const [needsMigration,   setNeedsMigration]   = useState(false);
+  const [backingUp,        setBackingUp]        = useState(false);
+  const [backupStatus,     setBackupStatus]     = useState("");
+  const [restoringId,      setRestoringId]      = useState(null);
+
   // ── Account actions state ─────────────────────────────────
   const [signingOut,       setSigningOut]       = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -83,6 +96,7 @@ export default function SettingsDrawer({ open, onClose, onStartTour }) {
     if (!open) return;
     setAiStatus(""); setKeyWarning(""); setNameStatus(""); setPassStatus("");
     setNewPassword(""); setConfirmPassword(""); setClearChatStatus(""); setExportStatus("");
+    setBackupStatus(""); setBackupsLoaded(false);
 
     async function loadSettings() {
       const { data: { user } } = await supabase.auth.getUser();
@@ -231,6 +245,48 @@ export default function SettingsDrawer({ open, onClose, onStartTour }) {
       router.push("/auth");
       router.refresh();
     } catch { setDeleteStatus("Network error. Try again."); setDeleting(false); }
+  }
+
+  // ── Backup handlers ────────────────────────────────────────
+  async function loadBackups() {
+    if (backupsLoaded) return;
+    try {
+      const res = await fetch("/api/backups");
+      const d   = await res.json();
+      setBackups(d.backups || []);
+      setNeedsMigration(!!d.needsMigration);
+      setBackupsLoaded(true);
+    } catch { setBackupStatus("Could not load backups."); }
+  }
+
+  async function createBackup() {
+    setBackingUp(true); setBackupStatus("Creating backup…");
+    try {
+      const res = await fetch("/api/backups", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ label: `Manual backup — ${new Date().toLocaleString("en-NG")}` }),
+      });
+      const d = await res.json();
+      if (!res.ok) { setBackupStatus(d.error || "Backup failed."); }
+      else {
+        setBackups((prev) => [d.backup, ...prev]);
+        setBackupStatus(`Backed up ${d.backup.entry_count} entries.`);
+      }
+    } catch { setBackupStatus("Network error."); }
+    setBackingUp(false);
+  }
+
+  async function restoreBackup(id, label) {
+    if (!confirm(`Restore "${label}"?\n\nThis will REPLACE all your current ledger entries with those in this backup. Your current data will be lost unless you create a backup first.`)) return;
+    setRestoringId(id); setBackupStatus("Restoring…");
+    try {
+      const res = await fetch(`/api/backups/${id}/restore`, { method: "POST" });
+      const d   = await res.json();
+      if (!res.ok) { setBackupStatus(d.error || "Restore failed."); }
+      else { setBackupStatus(`Restored ${d.restored} entries. Reload the page to see them.`); }
+    } catch { setBackupStatus("Network error."); }
+    setRestoringId(null);
   }
 
   if (!open) return null;
@@ -454,6 +510,106 @@ export default function SettingsDrawer({ open, onClose, onStartTour }) {
                   </span>
                 </div>
               ))}
+            </div>
+          </CollapsibleSection>
+
+          <Divider />
+
+          {/* ── Ledger Backups ──────────────────────── */}
+          <CollapsibleSection title="Ledger Backups" color="var(--green)" defaultOpen={false} onOpen={loadBackups}>
+            <div className="flex flex-col gap-3">
+              <p className="text-xs leading-relaxed" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>
+                Save a snapshot of all your ledger entries at any point in time. Backups are stored in your account and can be restored if you accidentally clear your data. A backup is also created automatically before any bulk delete.
+              </p>
+
+              {needsMigration ? (
+                <div className="px-3 py-2.5 rounded-xl" style={{ background: "var(--amber-soft)", border: "1px solid rgba(200,134,46,0.3)" }}>
+                  <p className="text-xs font-semibold" style={{ color: "var(--amber)", fontFamily: "var(--font-sans)" }}>Database migration required</p>
+                  <p className="text-xs mt-1 leading-relaxed" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>
+                    Run this SQL in your Supabase SQL editor to enable backups:
+                  </p>
+                  <pre className="text-xs mt-2 p-2 rounded overflow-x-auto" style={{ background: "var(--ink-3)", color: "var(--ink-text)", fontFamily: "var(--font-mono)", whiteSpace: "pre-wrap", fontSize: 10 }}>
+{`CREATE TABLE IF NOT EXISTS entry_backups (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid REFERENCES auth.users NOT NULL,
+  created_at timestamptz DEFAULT now(),
+  label text NOT NULL DEFAULT 'Manual backup',
+  entry_count integer NOT NULL DEFAULT 0,
+  data jsonb NOT NULL DEFAULT '[]'
+);
+ALTER TABLE entry_backups ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "own_backups" ON entry_backups
+  FOR ALL USING (auth.uid() = user_id);`}
+                  </pre>
+                </div>
+              ) : (
+                <>
+                  <button
+                    onClick={createBackup}
+                    disabled={backingUp}
+                    className="w-full py-2.5 rounded-lg text-sm font-semibold"
+                    style={{
+                      background: backingUp ? "var(--ink-3)" : "linear-gradient(135deg, var(--green), #3a9967)",
+                      color: "#fff", fontFamily: "var(--font-sans)",
+                      opacity: backingUp ? 0.6 : 1,
+                    }}
+                  >
+                    {backingUp ? "Backing up…" : "Back up ledger now"}
+                  </button>
+
+                  {backupStatus && (
+                    <p className="text-xs" style={{
+                      color: backupStatus.includes("Backed up") || backupStatus.includes("Restored") ? "var(--green)" : "var(--amber)",
+                      fontFamily: "var(--font-mono)",
+                    }}>
+                      {backupStatus}
+                    </p>
+                  )}
+
+                  {backups.length === 0 && backupsLoaded && (
+                    <p className="text-xs text-center py-2" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>
+                      No backups yet.
+                    </p>
+                  )}
+
+                  {backups.length > 0 && (
+                    <div className="flex flex-col gap-1.5">
+                      <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>
+                        Saved backups
+                      </p>
+                      {backups.map((b) => (
+                        <div
+                          key={b.id}
+                          className="flex items-center gap-2 px-3 py-2 rounded-lg"
+                          style={{ background: "var(--ink-3)", border: "1px solid var(--rule)" }}
+                        >
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-medium truncate" style={{ color: "var(--ink-text)", fontFamily: "var(--font-sans)" }}>
+                              {b.label}
+                            </p>
+                            <p className="text-xs mt-0.5" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-mono)" }}>
+                              {b.entry_count} entries · {new Date(b.created_at).toLocaleString("en-NG", { dateStyle: "medium", timeStyle: "short" })}
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => restoreBackup(b.id, b.label)}
+                            disabled={restoringId === b.id}
+                            className="shrink-0 px-2.5 py-1 rounded text-xs font-semibold"
+                            style={{
+                              background: "var(--amber-soft)",
+                              color: "var(--amber)",
+                              fontFamily: "var(--font-sans)",
+                              opacity: restoringId === b.id ? 0.5 : 1,
+                            }}
+                          >
+                            {restoringId === b.id ? "…" : "Restore"}
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           </CollapsibleSection>
 

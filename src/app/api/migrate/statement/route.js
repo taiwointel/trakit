@@ -7,22 +7,33 @@ import { callGemini, cleanGeminiError } from "@/lib/gemini";
 export const maxDuration = 60;
 
 const JSONL_RULES = `Output format — JSONL: one compact JSON object per line, NO wrapper array or object, NO markdown:
-{"date":"YYYY-MM-DD","description":"narration","amount":1234.56,"flow":"out"}
+{"date":"YYYY-MM-DD","description":"narration","amount":1234.56,"flow":"out","beneficiary":"NAME IF IDENTIFIABLE"}
 {"date":"YYYY-MM-DD","description":"narration","amount":500.00,"flow":"in"}
 
 IMPORTANT: This document may span MULTIPLE PAGES. Read and process every page from start to finish before producing any output. Do not stop at a page break or a new section header — continue until the very last line of the last page.
 
 Rules:
-- date: YYYY-MM-DD. Convert DD/MM/YYYY or DD-Mon-YYYY. Infer year from context if missing.
+- date: YYYY-MM-DD. Convert DD/MM/YYYY, DD-Mon-YYYY, or MM/DD/YYYY. Infer year from the statement period header if missing.
 - description: the narration/reference text. CRITICAL: strip all double-quote characters from it; replace with single quotes or remove.
 - amount: positive number, no commas or currency symbols
-- flow: "out" for debits/withdrawals/charges; "in" for credits/deposits/payments received
+- flow: "out" for debits/withdrawals/charges/fees; "in" for credits/deposits/payments received
+- beneficiary: (optional field) include ONLY when a real person or business name is clearly named in the narration — e.g. "Send to OPEYEMI JOY AKANDE" → beneficiary: "OPEYEMI JOY AKANDE". Omit for POS, ATM, data bundles, bank charges, and unnamed transactions.
 - Skip opening balance, closing balance, totals, subtotals, header/footer rows
-- OPAY STATEMENTS: OPay generates a "Wallet Account" section and a "Savings Account" (OWealth) section.
+
+OPAY STATEMENTS:
   • Extract ONLY from the Wallet Account section — it contains real external transactions.
-  • Within the Wallet Account, SKIP any row where the description is "Auto-save to OWealth Balance" or "OWealth Withdrawal(Transaction Payment)" — these are internal fund movements between the wallet and the OWealth savings bucket, not real expenses or income.
-  • Ignore the Savings Account / OWealth section entirely — it only mirrors those internal movements from the savings side.
-- OTHER MULTI-SECTION STATEMENTS: If a statement has multiple account sections, extract only from the section that records actual transfers to/from external parties, merchants, or people. Skip the section that only records internal movements.
+  • SKIP "Auto-save to OWealth Balance" and "OWealth Withdrawal(Transaction Payment)" — internal movements.
+  • Ignore the Savings Account / OWealth section entirely.
+
+PALMPAY STATEMENTS: PalmPay statements include internal CashBox savings movements and self-transfers.
+  • SKIP "CashBox Auto Save" rows — these are internal transfers to the user's own CashBox savings pocket.
+  • SKIP "CashBox Interest" rows — internal interest credits, not real income.
+  • SKIP any "Received from [NAME]" or "Send to [NAME]" row where [NAME] is the SAME as the account holder name shown in the statement header — these are self-transfers between the user's own accounts.
+  • KEEP all "Send to [DIFFERENT_NAME]" rows — these are real outflows to other people.
+  • KEEP "Buy Data bundle", "Top up Airtime", "Card Payment-POS", "Betting Deposit", "Stamp Duty", "Electronic Money Transfer Levy", "USSD Charge" — these are all real transactions.
+  • For "Send to NAME" and "Received from NAME" rows (where NAME is NOT the account holder), set beneficiary to that NAME.
+
+OTHER MULTI-SECTION STATEMENTS: Extract only from the section recording actual external transfers. Skip internal-movement-only sections.
 - Return ONLY the raw JSONL lines — no markdown fences, no extra text`;
 
 const EXTRACT_PROMPT = `Extract all bank transactions from this Nigerian bank statement.\n${JSONL_RULES}`;
@@ -31,19 +42,23 @@ function textExtractPrompt(text) {
   return `Extract all bank transactions from the Nigerian bank statement text below.\n${JSONL_RULES}\n\nSTATEMENT TEXT:\n${text}`;
 }
 
-// OPay internal fund-movement rows — never real expenses/income
-const OPAY_INTERNAL = /^(auto.?save to o.?wealth|o.?wealth withdrawal|o.?wealth interest)/i;
+// Internal fund-movement rows — never real expenses/income
+const OPAY_INTERNAL    = /^(auto.?save to o.?wealth|o.?wealth withdrawal|o.?wealth interest)/i;
+const PALMPAY_INTERNAL = /^(cashbox auto save|cashbox interest)/i;
 
 function filterRows(transactions) {
   return transactions
     .filter((t) => t.date && (t.description || t.desc) && Number(t.amount || t.amt) > 0)
-    .filter((t) => !OPAY_INTERNAL.test((t.description || t.desc || "").trim()))
+    .filter((t) => {
+      const d = (t.description || t.desc || "").trim();
+      return !OPAY_INTERNAL.test(d) && !PALMPAY_INTERNAL.test(d);
+    })
     .map((t) => ({
       date:        String(t.date).trim(),
       desc:        String(t.description || t.desc || "").trim(),
       amount:      Number(t.amount || t.amt),
       flow:        (t.flow || t.fl) === "in" ? "in" : "out",
-      beneficiary: null,
+      beneficiary: t.beneficiary ? String(t.beneficiary).trim() : null,
     }));
 }
 

@@ -127,6 +127,14 @@ export function useEntries() {
     }
   }, [userId, supabase]);
 
+  const deleteEntries = useCallback(async (ids) => {
+    if (!ids?.length) return;
+    setEntries((prev) => prev.filter((e) => !ids.includes(e.id)));
+    if (userId && supabase) {
+      await supabase.from("entries").delete().in("id", ids).eq("user_id", userId);
+    }
+  }, [userId, supabase]);
+
   const clearAllEntries = useCallback(async () => {
     setEntries([]);
     if (userId && supabase) {
@@ -134,5 +142,5 @@ export function useEntries() {
     }
   }, [userId, supabase]);
 
-  return { entries, budgets, loading, addEntry, updateEntry, deleteEntry, saveBudget, clearAllEntries };
+  return { entries, budgets, loading, addEntry, updateEntry, deleteEntry, deleteEntries, saveBudget, clearAllEntries };
 }

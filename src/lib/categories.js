@@ -22,14 +22,14 @@ export const CATEGORY_COLORS = [
 const FALLBACK_RULES = [
   { pattern: /rent|mortgage|electric|nepa|phcn|water bill|generator|diesel|estate due|dstv|internet|wifi|\bdata\b|airtime|recharge/i, category: "Housing & Utilities" },
   { pattern: /uber|bolt|fuel|petrol|fare|transport|keke|bus|flight|car service/i,                                   category: "Transportation" },
-  { pattern: /market|grocery|foodstuff|supermarket|provisions/i,                                                    category: "Food & Groceries" },
-  { pattern: /restaurant|suya|lounge|bar|bukka|dining|takeout|delivery|cafe|coffee/i,                              category: "Dining & Lifestyle" },
+  { pattern: /market|grocery|foodstuff|supermarket|provisions|noodles|indomie|spaghetti|\beggs?\b|bread(?! ?fruit)|rice|beans|yam|pasta|tomato|pepper|onion|garlic|\bfish\b|\bchicken\b|\bmeat\b|vegetables|groundnut|palm oil|stockfish/i, category: "Food & Groceries" },
+  { pattern: /restaurant|suya|lounge|bar|bukka|dining|takeout|delivery|cafe|coffee|soft drink|chapman|malt\b|smoothie|snack/i, category: "Dining & Lifestyle" },
   { pattern: /hospital|clinic|pharmacy|drug|medical|health insurance/i,                                            category: "Healthcare" },
-  { pattern: /school fee|fees|family|dependant|dependent|relative|allowance/i,                                     category: "Family & Dependents" },
+  { pattern: /school fee|fees|family|dependant|dependent|relative|upkeep|girlfriend|boyfriend|wife|husband|mother|father|sister|brother|uncle|aunt|parents|spouse/i, category: "Family & Dependents" },
   { pattern: /loan|repayment|credit card payment|debt/i,                                                           category: "Debt Service" },
   { pattern: /savings|invest|mutual fund|stocks|treasury|fixed deposit|target save/i,                              category: "Savings & Investment" },
   { pattern: /salon|barber|spa|gym|clothes|shopping|skincare/i,                                                    category: "Personal Care" },
-  { pattern: /bet9ja|sportybet|nairabet|1xbet|betway|betking|merrybet|stake\.com|bet\b|wager|odds|parlay|accumulator/i, category: "Betting" },
+  { pattern: /bet9ja|sportybet|nairabet|1xbet|betway|betking|merrybet|stake\.com|bet\b|wager|odds|parlay|accumulator|betting deposit/i, category: "Betting" },
 ];
 
 export function fallbackCategorize(description) {

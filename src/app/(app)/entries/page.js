@@ -66,7 +66,7 @@ export default function EntriesPage() {
   const [budgetsOpen,   setBudgetsOpen]   = useState(false);
   const [toolsOpen,     setToolsOpen]     = useState(false);
 
-  const { entries, budgets, loading, addEntry, updateEntry, deleteEntry, saveBudget, clearAllEntries } = useEntries();
+  const { entries, budgets, loading, addEntry, updateEntry, deleteEntry, deleteEntries, saveBudget, clearAllEntries } = useEntries();
   const { goals } = useGoals();
   const salary = goals.salary || null;
 
@@ -87,6 +87,21 @@ export default function EntriesPage() {
   const dayStr = selectedDay
     ? `${monthStr}-${String(selectedDay).padStart(2, "0")}`
     : null;
+
+  async function handleClearVisible() {
+    const ids = displayEntries.map((e) => e.id);
+    if (!ids.length) return;
+    // Silently auto-backup before wiping
+    try {
+      const scope = selectedDay ? `day ${dayStr}` : `${monthStr}`;
+      await fetch("/api/backups", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ label: `Auto-backup before clear — ${scope} (${ids.length} entries)` }),
+      });
+    } catch { /* don't block the delete if backup fails */ }
+    await deleteEntries(ids);
+  }
 
   const dayEntries = dayStr ? entries.filter((e) => e.date === dayStr) : [];
   const dayOut     = dayEntries.filter((e) => e.flow === "out").reduce((s, e) => s + Number(e.amount), 0);
@@ -248,7 +263,7 @@ export default function EntriesPage() {
               {ledgerOpen ? "▲ Collapse" : "▼ Show"}
             </span>
           </button>
-          {ledgerOpen && <LedgerTable entries={displayEntries} onUpdate={updateEntry} onDelete={deleteEntry} onClearAll={clearAllEntries} />}
+          {ledgerOpen && <LedgerTable entries={displayEntries} onUpdate={updateEntry} onDelete={deleteEntry} onClearAll={handleClearVisible} />}
         </div>
       </div>
 

@@ -3,14 +3,34 @@ import { createClient } from "@/lib/supabase/server";
 import { CATEGORY_NAMES, fallbackCategorize } from "@/lib/categories";
 import { callGemini } from "@/lib/gemini";
 
-const SYSTEM_PROMPT = `You are an expense categorizer for a Nigerian personal finance app.
-Given a transaction description and amount, classify it into exactly one category from this list:
-${CATEGORY_NAMES.join(", ")}
+const SYSTEM_PROMPT = `You are an expense categorizer for a Nigerian personal finance app called Trakit7.
+Given a transaction description and amount in Naira, classify it into exactly one of these 11 categories.
+
+CATEGORIES — what belongs in each:
+- Housing & Utilities: rent, electricity (NEPA/PHCN), water bill, generator fuel/diesel, internet/WiFi, DSTV/cable TV, estate dues, mobile data bundles, airtime top-ups, phone recharge
+- Transportation: Uber, Bolt, fuel/petrol, bus/keke/okada fare, flight tickets, car maintenance
+- Food & Groceries: market shopping, supermarket, raw foodstuff, noodles (Indomie etc.), eggs, bread, rice, beans, yam, pasta, tomatoes, pepper, onion, fish, chicken, meat, vegetables, cooking ingredients, provisions — anything bought raw or for home cooking
+- Dining & Lifestyle: restaurants, bukas, suya spots, fast food, takeout, food delivery apps (Chowdeck/Glovo), cafes, coffee, soft drinks at a bar/restaurant, beer, wine, malt, lounges, clubs, nightlife, snacks eaten out or at entertainment venues
+- Healthcare: hospital bills, clinic visits, pharmacy, drugs/medications, lab tests, health insurance premiums
+- Family & Dependents: school fees, children's upkeep, allowance or upkeep for partner/girlfriend/boyfriend, remittance to parents or siblings, money sent to relatives, dependant support
+- Debt Service: loan repayment, credit card payment, BNPL repayment, debt settlement
+- Savings & Investment: savings deposit, investment purchase, mutual fund, stocks, treasury bills, fixed deposit, target savings contribution
+- Personal Care: salon, barbershop, spa, gym membership, clothes, shoes, bags, skincare, cosmetics, personal shopping
+- Betting: bet9ja, sportybet, nairabet, 1xbet, betway, betking, sportybet, betting deposits, wagers, sports betting
+- Miscellaneous: bank charges (Stamp Duty, EMTL, USSD fees), transactions that genuinely don't fit any category above — use this as a last resort only
+
+DECISION RULES:
+- "Noodles", "eggs", "bread", or food items from a shop/market → Food & Groceries
+- "Soft drink", "beer", "malt" at a bar/restaurant/lounge → Dining & Lifestyle; bought from a shop/supermarket → Food & Groceries
+- "Upkeep", "allowance to girlfriend/wife/partner", "money for [person]" → Family & Dependents
+- "Data bundle", "airtime", "recharge" → Housing & Utilities
+- Nigerian bank charges (Stamp Duty, Electronic Money Transfer Levy, USSD Charge) → Miscellaneous
+- When torn between Food & Groceries and Dining & Lifestyle: if eaten out or delivered → Dining; if cooked at home → Groceries
 
 Return ONLY raw JSON (no markdown fences) in this exact shape:
 {
-  "category": "<one of the categories above>",
-  "subcategory": "<short free-text subcategory>",
+  "category": "<one of the 11 categories above>",
+  "subcategory": "<short descriptive label, e.g. 'Noodles and eggs' or 'Girlfriend upkeep'>",
   "essentiality": "<Essential | Discretionary>",
   "nature": "<Fixed | Variable>",
   "confidence": <0.0 to 1.0>,

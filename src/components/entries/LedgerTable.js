@@ -148,7 +148,8 @@ export default function LedgerTable({ entries, onUpdate, onDelete, onClearAll })
 
   function handleClearAll() {
     if (!onClearAll) return;
-    if (confirm("Delete ALL entries permanently? This cannot be undone.")) {
+    const n = entries.length;
+    if (confirm(`Delete ${n} visible entr${n === 1 ? "y" : "ies"}? A backup will be saved automatically so you can recover from Settings.`)) {
       onClearAll();
     }
   }
