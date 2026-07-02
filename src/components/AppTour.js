@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useReducer } from "react";
 import { useRouter, usePathname } from "next/navigation";
 
 const STEPS = [
@@ -105,8 +105,11 @@ export default function AppTour({ open, onClose }) {
 
   const [step,     setStep]     = useState(0);
   const [spotRect, setSpotRect] = useState(null);
-  // Tooltip is always pinned to bottom or top of viewport — no free-float
   const [tipAtTop, setTipAtTop] = useState(false);
+
+  // Drag state — null means "use default pinned position"
+  const [dragPos,  setDragPos]  = useState(null);
+  const dragRef   = useRef({ active: false, startX: 0, startY: 0, originX: 0, originY: 0 });
 
   const measure = useCallback(() => {
     if (!open) return;
@@ -195,6 +198,61 @@ export default function AppTour({ open, onClose }) {
     }
   }, [step, open, measure, router]);
 
+  // Reset drag position when step changes (tooltip snaps back to default)
+  useEffect(() => { setDragPos(null); }, [step]);
+
+  // Drag handlers — attached to the drag-handle element
+  function onDragStart(e) {
+    e.preventDefault();
+    const isTouch = e.type === "touchstart";
+    const clientX = isTouch ? e.touches[0].clientX : e.clientX;
+    const clientY = isTouch ? e.touches[0].clientY : e.clientY;
+
+    // Get current tooltip position from DOM
+    const tooltipEl = tooltipRef.current;
+    const rect = tooltipEl?.getBoundingClientRect();
+    if (!rect) return;
+
+    dragRef.current = {
+      active: true,
+      startX: clientX,
+      startY: clientY,
+      originX: rect.left,
+      originY: rect.top,
+    };
+
+    function onMove(ev) {
+      if (!dragRef.current.active) return;
+      const mx = ev.touches ? ev.touches[0].clientX : ev.clientX;
+      const my = ev.touches ? ev.touches[0].clientY : ev.clientY;
+      const dx = mx - dragRef.current.startX;
+      const dy = my - dragRef.current.startY;
+      const W  = window.innerWidth;
+      const H  = window.innerHeight;
+      const tw = tooltipRef.current?.offsetWidth  || TOOLTIP_W;
+      const th = tooltipRef.current?.offsetHeight || 280;
+      setDragPos({
+        left: Math.max(8, Math.min(dragRef.current.originX + dx, W - tw - 8)),
+        top:  Math.max(8, Math.min(dragRef.current.originY + dy, H - th - 8)),
+      });
+    }
+
+    function onUp() {
+      dragRef.current.active = false;
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup",   onUp);
+      window.removeEventListener("touchmove", onMove);
+      window.removeEventListener("touchend",  onUp);
+    }
+
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup",   onUp);
+    window.addEventListener("touchmove", onMove, { passive: false });
+    window.addEventListener("touchend",  onUp);
+  }
+
+  const tooltipRef = useRef(null);
+
   if (!open) return null;
 
   const current = STEPS[step];
@@ -204,13 +262,14 @@ export default function AppTour({ open, onClose }) {
   function next() { if (isLast) onClose(); else setStep((s) => s + 1); }
   function back() { if (step > 0) setStep((s) => s - 1); }
 
-  // Tooltip position: always fixed at bottom or top of viewport
-  // Center-modal for the privacy step (no target)
-  const tooltipStyle = isCenter
-    ? { top: "50%", left: "50%", transform: "translate(-50%, -50%)" }
-    : tipAtTop
-      ? { top: 80, left: "50%", transform: "translateX(-50%)" }
-      : { bottom: 24, left: "50%", transform: "translateX(-50%)" };
+  // If user has dragged the tooltip, use their chosen position; otherwise default pinning
+  const tooltipStyle = dragPos
+    ? { top: dragPos.top, left: dragPos.left, transform: "none" }
+    : isCenter
+      ? { top: "50%", left: "50%", transform: "translate(-50%, -50%)" }
+      : tipAtTop
+        ? { top: 80, left: "50%", transform: "translateX(-50%)" }
+        : { bottom: 24, left: "50%", transform: "translateX(-50%)" };
 
   return (
     <>
@@ -258,8 +317,9 @@ export default function AppTour({ open, onClose }) {
         />
       )}
 
-      {/* Tooltip — always fixed to bottom (or top, or center) of viewport */}
+      {/* Tooltip — always fixed to bottom (or top, or center) of viewport; draggable */}
       <div
+        ref={tooltipRef}
         key={step}
         style={{
           position:      "fixed",
@@ -267,7 +327,7 @@ export default function AppTour({ open, onClose }) {
           maxWidth:      "calc(100vw - 24px)",
           zIndex:        60,
           pointerEvents: "all",
-          animation:     isCenter
+          animation:     dragPos ? "none" : isCenter
             ? "tour-center-in 0.22s ease forwards"
             : tipAtTop
               ? "tour-tip-in-top 0.22s ease forwards"
@@ -283,6 +343,25 @@ export default function AppTour({ open, onClose }) {
           padding:      "18px 22px 18px",
           boxShadow:    "0 24px 72px rgba(0,0,0,0.7)",
         }}>
+
+          {/* Drag handle */}
+          <div
+            onMouseDown={onDragStart}
+            onTouchStart={onDragStart}
+            title="Drag to reposition"
+            style={{
+              display:       "flex",
+              justifyContent:"center",
+              alignItems:    "center",
+              marginBottom:  12,
+              cursor:        "grab",
+              padding:       "2px 0 4px",
+              touchAction:   "none",
+              userSelect:    "none",
+            }}
+          >
+            <div style={{ width: 36, height: 4, borderRadius: 2, background: "var(--ink-3)", opacity: 0.7 }} />
+          </div>
 
           {/* Progress pips + step counter */}
           <div style={{ display: "flex", gap: 5, marginBottom: 14, alignItems: "center" }}>
