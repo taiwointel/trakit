@@ -524,7 +524,7 @@ export default function SettingsDrawer({ open, onClose, onStartTour }) {
                     <li>Select any project (or &ldquo;Create in new project&rdquo;)</li>
                     <li>Copy the key and paste it below</li>
                   </ol>
-                  <p className="text-xs" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-mono)" }}>Key starts with <span style={{ color: "var(--gold)" }}>AIza</span></p>
+                  <p className="text-xs" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>Copy the full key exactly as shown in AI Studio</p>
                   <div className="mt-1 px-2 py-1.5 rounded-lg" style={{ background: "rgba(184,57,43,0.1)", border: "1px solid rgba(184,57,43,0.2)" }}>
                     <p className="text-xs leading-relaxed" style={{ color: "var(--red)", fontFamily: "var(--font-sans)" }}>
                       <strong>Important:</strong> Use AI Studio only — do <em>not</em> use Google Cloud Console. Cloud Console keys require billing enabled and won&apos;t work here.
@@ -555,7 +555,7 @@ export default function SettingsDrawer({ open, onClose, onStartTour }) {
                 type="password"
                 value={key}
                 onChange={(e) => handleKeyInput(e.target.value)}
-                placeholder={(selectedProvider === "groq" ? hasGroqKey : hasGeminiKey) ? "Paste to replace..." : selectedProvider === "groq" ? "gsk_..." : "AIza..."}
+                placeholder={(selectedProvider === "groq" ? hasGroqKey : hasGeminiKey) ? "Paste to replace..." : selectedProvider === "groq" ? "gsk_..." : "Paste Gemini key from AI Studio…"}
                 className="w-full px-3 py-2.5 rounded-lg text-sm"
                 style={{ ...inputStyle, fontFamily: "var(--font-mono)" }}
               />

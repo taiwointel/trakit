@@ -67,6 +67,16 @@ function IconClipboard() {
   );
 }
 
+function IconCheck({ color = "#2F7A56" }) {
+  return (
+    <svg width="56" height="56" viewBox="0 0 56 56" fill="none">
+      <circle cx="28" cy="28" r="28" fill={`${color}18`}/>
+      <circle cx="28" cy="28" r="18" stroke={color} strokeWidth="2.5"/>
+      <path d="M20 28l6 6 10-12" stroke={color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  );
+}
+
 function OverlayShell({ children }) {
   return (
     <div
@@ -142,378 +152,47 @@ function StepCard({ icon, badge, title, body, onNext, nextLabel = "Got it →", 
   );
 }
 
-/* ── Provider card used in the choice step ── */
-function ProviderCard({ name, tagline, detail, keyHint, onSelect, color = "var(--gold)" }) {
+/* ── Two-provider progress bar ── */
+function ProviderProgress({ groqDone, geminiDone }) {
+  const providers = [
+    { label: "Groq", done: groqDone, color: "var(--gold)" },
+    { label: "Gemini", done: geminiDone, color: "var(--blue-accent)" },
+  ];
   return (
-    <button
-      onClick={onSelect}
-      className="w-full text-left rounded-xl p-4 flex flex-col gap-2 transition-all"
-      style={{
-        background:   "var(--ink-3)",
-        border:       `1.5px solid var(--rule)`,
-        cursor:       "pointer",
-        fontFamily:   "var(--font-sans)",
-      }}
-      onMouseEnter={(e) => { e.currentTarget.style.borderColor = color; }}
-      onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--rule)"; }}
-    >
-      <div className="flex items-center justify-between">
-        <span style={{ color: "var(--ink-text)", fontWeight: 700, fontSize: "1rem" }}>{name}</span>
-        <span
-          className="text-xs font-semibold px-2 py-0.5 rounded-full"
-          style={{ background: `${color}18`, color }}
-        >
-          Free
-        </span>
-      </div>
-      <p style={{ color: "var(--ink-text-dim)", fontSize: "0.82rem", lineHeight: 1.5 }}>{tagline}</p>
-      <p style={{ color, fontSize: "0.75rem", fontFamily: "var(--font-mono)", marginTop: 2 }}>{keyHint}</p>
-      <div
-        className="w-full py-2 rounded-lg text-center text-sm font-semibold mt-1"
-        style={{ background: `${color}18`, color }}
-      >
-        Use {name} →
-      </div>
-    </button>
+    <div className="flex items-center gap-3 mb-6 w-full px-2">
+      {providers.map((p, i) => (
+        <div key={p.label} className="flex items-center gap-2 flex-1">
+          <div
+            className="flex items-center justify-center rounded-full shrink-0"
+            style={{
+              width: 24, height: 24,
+              background: p.done ? p.color : "var(--ink-3)",
+              border: `1.5px solid ${p.done ? p.color : "var(--rule)"}`,
+            }}
+          >
+            {p.done
+              ? <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              : <span style={{ color: "var(--ink-text-dim)", fontSize: 10, fontFamily: "var(--font-mono)", fontWeight: 700 }}>{i + 1}</span>
+            }
+          </div>
+          <span style={{ color: p.done ? p.color : "var(--ink-text-dim)", fontFamily: "var(--font-sans)", fontSize: 12, fontWeight: p.done ? 600 : 400 }}>
+            {p.label}
+          </span>
+          {i < providers.length - 1 && (
+            <div style={{ flex: 1, height: 1, background: groqDone ? "var(--gold)" : "var(--rule)", marginLeft: 4 }} />
+          )}
+        </div>
+      ))}
+    </div>
   );
 }
 
-/* ─────────────────────────────────────────────────────────────────── */
-
-export default function OnboardingFlow({ userName }) {
-  const [show,     setShow]     = useState(false);
-  const [checked,  setChecked]  = useState(false);
-  const [step,     setStep]     = useState(0);
-  const [provider, setProvider] = useState(null); // "groq" | "gemini"
-  const [key,      setKey]      = useState("");
-  const [status,   setStatus]   = useState("");
-  const [saving,   setSaving]   = useState(false);
-  const [done,     setDone]     = useState(false);
-
-  useEffect(() => {
-    fetch("/api/ai/settings")
-      .then((r) => r.json())
-      .then((d) => { if (!d.hasKey) setShow(true); })
-      .catch(() => {})
-      .finally(() => setChecked(true));
-  }, []);
-
-  if (!checked) {
-    return <div className="fixed inset-0 z-50" style={{ background: "var(--ink)" }} aria-hidden="true" />;
-  }
-
-  async function handleSave() {
-    const clean = key.replace(/[^\x20-\x7E]/g, "").trim();
-    if (!clean) { setStatus("Paste your API key above."); return; }
-
-    if (provider === "groq" && !clean.startsWith("gsk_")) {
-      setStatus("Groq keys start with gsk_. Double-check you copied the full key correctly.");
-      return;
-    }
-    if (provider === "gemini" && !clean.startsWith("AIza")) {
-      setStatus("Gemini keys start with AIza. Double-check you copied the full key correctly.");
-      return;
-    }
-
-    setSaving(true);
-    setStatus("Saving…");
-    try {
-      const res = await fetch("/api/ai/settings", {
-        method:  "POST",
-        headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ provider, key: clean }),
-      });
-      if (!res.ok) { const d = await res.json(); setStatus(d.error || "Save failed."); return; }
-      setStatus("Testing connection…");
-      const tr = await fetch("/api/ai/test-connection", { method: "POST" });
-      const td = await tr.json();
-      if (!tr.ok) {
-        setStatus("Key saved but test failed: " + (td.message || "unknown error"));
-      } else {
-        setDone(true);
-      }
-    } catch {
-      setStatus("Network error. Check your connection.");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  if (!show) return null;
-
-  const name = userName || "there";
-
-  /* ── Done screen ── */
-  if (done) {
-    return (
-      <OverlayShell>
-        <div
-          className="w-full rounded-2xl flex flex-col items-center gap-6 p-8 text-center"
-          style={{ background: "var(--ink-2)", border: "1px solid var(--rule)" }}
-        >
-          <div style={{ fontSize: 72 }}>🎉</div>
-          <div>
-            <h2 style={{ color: "var(--ink-text)", fontFamily: "var(--font-serif)", fontSize: "1.8rem", fontWeight: 700 }}>
-              You&apos;re all set, {name}!
-            </h2>
-            <p className="mt-2" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", lineHeight: 1.7, maxWidth: 320, margin: "0.5rem auto 0" }}>
-              Coach RBC is ready and already knows your numbers. Ask her anything. She is built for exactly this.
-            </p>
-          </div>
-          <button
-            onClick={() => setShow(false)}
-            className="w-full py-3 rounded-xl font-bold text-base"
-            style={{ background: "linear-gradient(135deg, #C8862E, #A9854F)", color: "#fff", fontFamily: "var(--font-sans)" }}
-          >
-            Enter Trakit7 →
-          </button>
-        </div>
-      </OverlayShell>
-    );
-  }
-
-  /* ── Progress dots ── */
-  // groq: step 0=welcome,1=choose,2=site,3=sidebar,4=createkey,5=paste  → total 6
-  // gemini: step 0=welcome,1=choose,2=site,3=createkey,4=paste          → total 5
-  const total  = provider === "groq" ? 6 : provider === "gemini" ? 5 : 2;
-
-  /* ── Step 0: Welcome ── */
-  if (step === 0) {
-    return (
-      <OverlayShell>
-        <StepCard
-          icon={<IconWave />}
-          badge="Getting started"
-          title={`Hey ${name}, one quick setup 👋`}
-          body="Trakit7 uses a free provider key to power Coach RBC, categorize your expenses, and generate spending insights. You will pick a provider and paste a key. It takes about 2 minutes and no payment is required."
-          onNext={() => setStep(1)}
-          nextLabel="Let's pick a provider →"
-        />
-      </OverlayShell>
-    );
-  }
-
-  /* ── Step 1: Choose provider ── */
-  if (step === 1) {
-    return (
-      <OverlayShell>
-        <div
-          className="w-full rounded-2xl flex flex-col gap-5 p-7"
-          style={{ background: "var(--ink-2)", border: "1px solid var(--rule)" }}
-        >
-          <div className="text-center flex flex-col gap-2">
-            <span
-              className="text-xs font-semibold uppercase tracking-widest px-3 py-1 rounded-full self-center"
-              style={{ background: "rgba(169,133,79,0.15)", color: "var(--gold)", fontFamily: "var(--font-sans)" }}
-            >
-              Step 1 of {total - 1}
-            </span>
-            <h2 style={{ color: "var(--ink-text)", fontFamily: "var(--font-serif)", fontSize: "1.3rem", fontWeight: 700 }}>
-              Choose your provider
-            </h2>
-            <p style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", fontSize: "0.88rem", lineHeight: 1.6 }}>
-              Both are free with no credit card required. Pick whichever you prefer. You can always add the other provider later in Settings.
-            </p>
-          </div>
-
-          <div className="flex flex-col gap-3">
-            <ProviderCard
-              name="Groq"
-              tagline="Powered by Llama 3.3 70B. Blazing fast, generous free tier, no credit card required."
-              keyHint="Key starts with gsk_..."
-              color="var(--gold)"
-              onSelect={() => { setProvider("groq"); setStep(2); }}
-            />
-            <ProviderCard
-              name="Gemini"
-              tagline="Google AI Studio. Powered by Gemini 2.5 Flash. Free tier with no card required."
-              keyHint="Key starts with AIza..."
-              color="var(--blue-accent)"
-              onSelect={() => { setProvider("gemini"); setStep(2); }}
-            />
-          </div>
-
-          <button
-            onClick={() => setStep(0)}
-            style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", fontSize: 12, background: "none", border: "none", cursor: "pointer", textAlign: "center" }}
-          >
-            ← Back
-          </button>
-        </div>
-      </OverlayShell>
-    );
-  }
-
-  /* ── GROQ steps ── */
-  if (provider === "groq") {
-    if (step === 2) {
-      return (
-        <OverlayShell>
-          <StepCard
-            icon={<IconBrowser color="#A9854F" />}
-            badge={`Step 2 of ${total - 1}`}
-            title="Open the Groq console"
-            body="In a new tab, go to console.groq.com and create a free account. Sign up with email or Google. No credit card needed at any point."
-            extra={
-              <div
-                className="flex items-center justify-between px-4 py-3 rounded-xl"
-                style={{ background: "var(--ink-3)", border: "1px solid var(--rule)" }}
-              >
-                <span style={{ color: "var(--ink-text)", fontFamily: "var(--font-mono)", fontSize: "0.9rem" }}>
-                  console.groq.com
-                </span>
-                <a
-                  href="https://console.groq.com"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs font-semibold px-3 py-1.5 rounded-lg"
-                  style={{ background: "var(--gold)", color: "#fff", fontFamily: "var(--font-sans)", textDecoration: "none" }}
-                >
-                  Open ↗
-                </a>
-              </div>
-            }
-            onBack={() => setStep(1)}
-            onNext={() => setStep(3)}
-            nextLabel="I've signed up →"
-          />
-        </OverlayShell>
-      );
-    }
-
-    if (step === 3) {
-      return (
-        <OverlayShell>
-          <StepCard
-            icon={<IconSidebar />}
-            badge={`Step 3 of ${total - 1}`}
-            title={`Click "API Keys" in the sidebar`}
-            body={`Once logged in, look at the left sidebar and click "API Keys". You will land on a page listing all your keys where you can create a new one.`}
-            extra={
-              <div
-                className="px-4 py-3 rounded-xl"
-                style={{ background: "rgba(47,122,86,0.1)", border: "1px solid rgba(47,122,86,0.3)" }}
-              >
-                <p style={{ color: "#2F7A56", fontFamily: "var(--font-sans)", fontSize: "0.85rem", lineHeight: 1.6 }}>
-                  💡 The sidebar is on the left. Look for Home, Playground, API Keys icons.
-                </p>
-              </div>
-            }
-            onBack={() => setStep(2)}
-            onNext={() => setStep(4)}
-            nextLabel="I see it →"
-          />
-        </OverlayShell>
-      );
-    }
-
-    if (step === 4) {
-      return (
-        <OverlayShell>
-          <StepCard
-            icon={<IconKey color="#A9854F" />}
-            badge={`Step 4 of ${total - 1}`}
-            title="Create a new API key"
-            body='Click "+ Create API Key", give it any name (like "Trakit7"), and copy the key immediately. Groq only shows it once.'
-            extra={
-              <div
-                className="px-4 py-3 rounded-xl"
-                style={{ background: "rgba(184,57,43,0.1)", border: "1px solid rgba(184,57,43,0.3)" }}
-              >
-                <p style={{ color: "var(--red)", fontFamily: "var(--font-sans)", fontSize: "0.85rem", lineHeight: 1.6 }}>
-                  ⚠️ Copy it now. If you close the dialog before copying, Groq does not show it again and you will need to create a new key.
-                </p>
-              </div>
-            }
-            onBack={() => setStep(3)}
-            onNext={() => setStep(5)}
-            nextLabel="I've copied the key →"
-          />
-        </OverlayShell>
-      );
-    }
-
-    if (step === 5) {
-      return <PasteStep name={name} provider="groq" keyPrefix="gsk_" total={total} onBack={() => setStep(4)} keyValue={key} onKeyChange={setKey} status={status} saving={saving} onSave={handleSave} />;
-    }
-  }
-
-  /* ── GEMINI steps ── */
-  if (provider === "gemini") {
-    if (step === 2) {
-      return (
-        <OverlayShell>
-          <StepCard
-            icon={<IconBrowser color="#5B8FA8" />}
-            badge={`Step 2 of ${total - 1}`}
-            title="Open Google AI Studio"
-            body="In a new tab, go to the API Keys page in Google AI Studio. Sign in with your Google account. No billing or credit card required at any point."
-            extra={
-              <div
-                className="flex items-center justify-between px-4 py-3 rounded-xl"
-                style={{ background: "var(--ink-3)", border: "1px solid var(--rule)" }}
-              >
-                <span style={{ color: "var(--ink-text)", fontFamily: "var(--font-mono)", fontSize: "0.82rem" }}>
-                  aistudio.google.com/apikey
-                </span>
-                <a
-                  href="https://aistudio.google.com/apikey"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs font-semibold px-3 py-1.5 rounded-lg shrink-0"
-                  style={{ background: "var(--blue-accent)", color: "#fff", fontFamily: "var(--font-sans)", textDecoration: "none" }}
-                >
-                  Open ↗
-                </a>
-              </div>
-            }
-            onBack={() => setStep(1)}
-            onNext={() => setStep(3)}
-            nextLabel="I'm on the page →"
-          />
-        </OverlayShell>
-      );
-    }
-
-    if (step === 3) {
-      return (
-        <OverlayShell>
-          <StepCard
-            icon={<IconKey color="#5B8FA8" />}
-            badge={`Step 3 of ${total - 1}`}
-            title="Create & copy your key"
-            body='Click "Create API key". Choose an existing project or create a new one. The key appears immediately. Copy it now before closing the dialog. It starts with AIza.'
-            extra={
-              <div
-                className="px-4 py-3 rounded-xl"
-                style={{ background: "rgba(91,143,168,0.1)", border: "1px solid rgba(91,143,168,0.3)" }}
-              >
-                <p style={{ color: "var(--blue-accent)", fontFamily: "var(--font-sans)", fontSize: "0.85rem", lineHeight: 1.6 }}>
-                  💡 Your key starts with <span style={{ fontFamily: "var(--font-mono)" }}>AIza</span>. Keep it secret and treat it exactly like a password. Never share it or paste it into untrusted sites.
-                </p>
-              </div>
-            }
-            onBack={() => setStep(2)}
-            onNext={() => setStep(4)}
-            nextLabel="I've copied the key →"
-          />
-        </OverlayShell>
-      );
-    }
-
-    if (step === 4) {
-      return <PasteStep name={name} provider="gemini" keyPrefix="AIza" total={total} onBack={() => setStep(3)} keyValue={key} onKeyChange={setKey} status={status} saving={saving} onSave={handleSave} />;
-    }
-  }
-
-  return null;
-}
-
-/* ── Paste step (shared between Groq and Gemini) ── */
-function PasteStep({ name, provider, keyPrefix, total, onBack, keyValue, onKeyChange, status, saving, onSave }) {
-  const isGroq = provider === "groq";
+/* ── Paste step (shared) ── */
+function PasteStep({ phase, stepLabel, total, onBack, keyValue, onKeyChange, status, saving, onSave }) {
+  const isGroq = phase === "groq";
   return (
     <OverlayShell>
+      <ProviderProgress groqDone={!isGroq} geminiDone={false} />
       <div
         className="w-full rounded-2xl flex flex-col gap-5 p-7"
         style={{ background: "var(--ink-2)", border: "1px solid var(--rule)" }}
@@ -524,16 +203,16 @@ function PasteStep({ name, provider, keyPrefix, total, onBack, keyValue, onKeyCh
             className="text-xs font-semibold uppercase tracking-widest px-3 py-1 rounded-full"
             style={{ background: "rgba(169,133,79,0.15)", color: "var(--gold)", fontFamily: "var(--font-sans)" }}
           >
-            Step {total - 1} of {total - 1} · Final step!
+            {stepLabel}
           </span>
           <h2 style={{ color: "var(--ink-text)", fontFamily: "var(--font-serif)", fontSize: "1.3rem", fontWeight: 700, lineHeight: 1.3 }}>
             Paste your {isGroq ? "Groq" : "Gemini"} key
           </h2>
           <p style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", fontSize: "0.9rem", lineHeight: 1.7 }}>
-            Your key starts with{" "}
-            <span style={{ fontFamily: "var(--font-mono)", color: isGroq ? "var(--gold)" : "var(--blue-accent)" }}>
-              {keyPrefix}
-            </span>. Paste it below. It is saved encrypted in the database and is never sent back to your browser in plain text.
+            {isGroq
+              ? <>Your key starts with <span style={{ fontFamily: "var(--font-mono)", color: "var(--gold)" }}>gsk_</span>. Paste it below.</>
+              : "Paste the full key exactly as shown in AI Studio. It is stored encrypted and never sent back to your browser in plain text."
+            }
           </p>
         </div>
 
@@ -545,12 +224,12 @@ function PasteStep({ name, provider, keyPrefix, total, onBack, keyValue, onKeyCh
               const clean = e.target.value.replace(/[^\x20-\x7E]/g, "");
               onKeyChange(clean);
             }}
-            placeholder={`${keyPrefix}...`}
+            placeholder={isGroq ? "gsk_..." : "Paste your Gemini API key…"}
             autoFocus
             className="w-full px-4 py-3 rounded-xl text-sm outline-none"
             style={{
               background:  "var(--ink-3)",
-              border:      "1px solid " + (status && !saving ? "var(--red)" : "var(--rule)"),
+              border:      "1px solid " + (status && !saving && status !== "Saving…" && status !== "Testing connection…" ? "var(--red)" : "var(--rule)"),
               color:       "var(--ink-text)",
               fontFamily:  "var(--font-mono)",
               letterSpacing: "0.04em",
@@ -560,7 +239,11 @@ function PasteStep({ name, provider, keyPrefix, total, onBack, keyValue, onKeyCh
             <p
               className="text-xs px-1"
               style={{
-                color:      status.includes("Testing") || status.includes("Saving") ? "var(--amber)" : "var(--red)",
+                color: status.includes("Testing") || status.includes("Saving")
+                  ? "var(--amber)"
+                  : status.includes("failed") || status.includes("error") || status.includes("gsk_")
+                  ? "var(--red)"
+                  : "var(--ink-text-dim)",
                 fontFamily: "var(--font-sans)",
               }}
             >
@@ -593,9 +276,282 @@ function PasteStep({ name, provider, keyPrefix, total, onBack, keyValue, onKeyCh
         </div>
 
         <p className="text-center text-xs" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>
-          Stored securely in the database. You can switch providers anytime in Settings.
+          Stored securely in the database. Switch providers anytime in Settings.
         </p>
       </div>
     </OverlayShell>
   );
+}
+
+/* ─────────────────────────────────────────────────────────────────── */
+
+export default function OnboardingFlow({ userName }) {
+  const [show,        setShow]        = useState(false);
+  const [checked,     setChecked]     = useState(false);
+  const [phase,       setPhase]       = useState("groq"); // "groq" | "gemini" | "done"
+  const [step,        setStep]        = useState(0);
+  const [groqDone,    setGroqDone]    = useState(false);
+  const [key,         setKey]         = useState("");
+  const [status,      setStatus]      = useState("");
+  const [saving,      setSaving]      = useState(false);
+
+  useEffect(() => {
+    fetch("/api/ai/settings")
+      .then((r) => r.json())
+      .then((d) => {
+        const hasGroq   = !!d.hasGroqKey;
+        const hasGemini = !!d.hasGeminiKey;
+        if (hasGroq && hasGemini) {
+          setShow(false);
+        } else {
+          setShow(true);
+          if (hasGroq) {
+            // Groq already done — jump straight to Gemini
+            setGroqDone(true);
+            setPhase("gemini");
+            setStep(0);
+          } else {
+            setPhase("groq");
+            setStep(0);
+          }
+        }
+      })
+      .catch(() => {})
+      .finally(() => setChecked(true));
+  }, []);
+
+  if (!checked) {
+    return <div className="fixed inset-0 z-50" style={{ background: "var(--ink)" }} aria-hidden="true" />;
+  }
+
+  if (!show) return null;
+
+  const name = userName || "there";
+
+  async function handleSave() {
+    const clean = key.replace(/[^\x20-\x7E]/g, "").trim();
+    if (!clean) { setStatus("Paste your API key above."); return; }
+
+    if (phase === "groq" && !clean.startsWith("gsk_")) {
+      setStatus("Groq keys start with gsk_. Double-check you copied the full key correctly.");
+      return;
+    }
+    // Gemini: no prefix check — key format varies by account type
+
+    setSaving(true);
+    setStatus("Saving…");
+    try {
+      const res = await fetch("/api/ai/settings", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ provider: phase, key: clean }),
+      });
+      if (!res.ok) { const d = await res.json(); setStatus(d.error || "Save failed."); setSaving(false); return; }
+
+      setStatus("Testing connection…");
+      const tr = await fetch("/api/ai/test-connection", { method: "POST" });
+      const td = await tr.json();
+
+      if (!tr.ok) {
+        setStatus("Key saved but test failed: " + (td.message || "unknown error"));
+      } else if (phase === "groq") {
+        setGroqDone(true);
+        setPhase("gemini");
+        setStep(0);
+        setKey("");
+        setStatus("");
+      } else {
+        setPhase("done");
+      }
+    } catch {
+      setStatus("Network error. Check your connection.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  /* ── Done screen ── */
+  if (phase === "done") {
+    return (
+      <OverlayShell>
+        <div
+          className="w-full rounded-2xl flex flex-col items-center gap-6 p-8 text-center"
+          style={{ background: "var(--ink-2)", border: "1px solid var(--rule)" }}
+        >
+          <div style={{ fontSize: 72 }}>🎉</div>
+          <div>
+            <h2 style={{ color: "var(--ink-text)", fontFamily: "var(--font-serif)", fontSize: "1.8rem", fontWeight: 700 }}>
+              You&apos;re all set, {name}!
+            </h2>
+            <p className="mt-2" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", lineHeight: 1.7, maxWidth: 320, margin: "0.5rem auto 0" }}>
+              Both Groq and Gemini are connected. Coach RBC is ready and already knows your numbers. Ask her anything.
+            </p>
+          </div>
+          <div className="flex gap-3 w-full justify-center">
+            {[
+              { label: "Groq", color: "var(--gold)" },
+              { label: "Gemini", color: "var(--blue-accent)" },
+            ].map((p) => (
+              <div key={p.label} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full" style={{ background: `${p.color}18`, border: `1px solid ${p.color}` }}>
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke={p.color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                <span style={{ color: p.color, fontFamily: "var(--font-sans)", fontSize: 12, fontWeight: 700 }}>{p.label}</span>
+              </div>
+            ))}
+          </div>
+          <button
+            onClick={() => setShow(false)}
+            className="w-full py-3 rounded-xl font-bold text-base"
+            style={{ background: "linear-gradient(135deg, #C8862E, #A9854F)", color: "#fff", fontFamily: "var(--font-sans)" }}
+          >
+            Enter Trakit7 →
+          </button>
+        </div>
+      </OverlayShell>
+    );
+  }
+
+  /* ══════════════ GROQ PHASE ══════════════ */
+
+  if (phase === "groq") {
+
+    /* Step 0: Welcome */
+    if (step === 0) {
+      return (
+        <OverlayShell>
+          <ProviderProgress groqDone={false} geminiDone={false} />
+          <StepCard
+            icon={<IconWave />}
+            badge="Quick setup — 2 providers, ~3 minutes"
+            title={`Hey ${name}, let's power up Coach RBC 👋`}
+            body="Trakit7 uses two free AI providers — Groq and Gemini — to categorize expenses, generate insights, and run Coach RBC. You will connect both now. No payment or credit card is required for either."
+            onNext={() => setStep(1)}
+            nextLabel="Start with Groq →"
+          />
+        </OverlayShell>
+      );
+    }
+
+    /* Step 1: Open Groq */
+    if (step === 1) {
+      return (
+        <OverlayShell>
+          <ProviderProgress groqDone={false} geminiDone={false} />
+          <StepCard
+            icon={<IconBrowser color="#A9854F" />}
+            badge="Groq · Step 1 of 3"
+            title="Open the Groq console"
+            body="In a new tab, go to console.groq.com and create a free account. Sign up with email or Google. No credit card needed at any point."
+            extra={
+              <div className="flex items-center justify-between px-4 py-3 rounded-xl" style={{ background: "var(--ink-3)", border: "1px solid var(--rule)" }}>
+                <span style={{ color: "var(--ink-text)", fontFamily: "var(--font-mono)", fontSize: "0.9rem" }}>console.groq.com</span>
+                <a href="https://console.groq.com" target="_blank" rel="noopener noreferrer" className="text-xs font-semibold px-3 py-1.5 rounded-lg" style={{ background: "var(--gold)", color: "#fff", fontFamily: "var(--font-sans)", textDecoration: "none" }}>
+                  Open ↗
+                </a>
+              </div>
+            }
+            onBack={() => setStep(0)}
+            onNext={() => setStep(2)}
+            nextLabel="I've signed up →"
+          />
+        </OverlayShell>
+      );
+    }
+
+    /* Step 2: Click API Keys */
+    if (step === 2) {
+      return (
+        <OverlayShell>
+          <ProviderProgress groqDone={false} geminiDone={false} />
+          <StepCard
+            icon={<IconSidebar />}
+            badge="Groq · Step 2 of 3"
+            title={`Click "API Keys" in the sidebar`}
+            body={`Once logged in, look at the left sidebar and click "API Keys". You will land on a page where you can create a new key.`}
+            extra={
+              <div className="px-4 py-3 rounded-xl" style={{ background: "rgba(47,122,86,0.1)", border: "1px solid rgba(47,122,86,0.3)" }}>
+                <p style={{ color: "#2F7A56", fontFamily: "var(--font-sans)", fontSize: "0.85rem", lineHeight: 1.6 }}>
+                  💡 Click <strong>+ Create API Key</strong>, give it any name, then copy the key immediately. Groq only shows it once — if you close the dialog before copying, you will need to create a new one.
+                </p>
+              </div>
+            }
+            onBack={() => setStep(1)}
+            onNext={() => setStep(3)}
+            nextLabel="I've copied the key →"
+          />
+        </OverlayShell>
+      );
+    }
+
+    /* Step 3: Paste Groq */
+    if (step === 3) {
+      return <PasteStep phase="groq" stepLabel="Groq · Step 3 of 3 · Final Groq step!" onBack={() => setStep(2)} keyValue={key} onKeyChange={setKey} status={status} saving={saving} onSave={handleSave} />;
+    }
+  }
+
+  /* ══════════════ GEMINI PHASE ══════════════ */
+
+  if (phase === "gemini") {
+
+    /* Step 0: Transition / intro to Gemini */
+    if (step === 0) {
+      return (
+        <OverlayShell>
+          <ProviderProgress groqDone={true} geminiDone={false} />
+          <StepCard
+            icon={<IconCheck color="var(--green)" />}
+            badge={groqDone ? "Groq connected ✓" : "Almost there"}
+            title="Now let's add Gemini"
+            body="Gemini is Google's free AI, accessed through Google AI Studio. It takes about 60 seconds. Go to aistudio.google.com — this is different from Google Cloud Console, which is not free."
+            extra={
+              <div className="px-4 py-3 rounded-xl" style={{ background: "rgba(184,57,43,0.08)", border: "1px solid rgba(184,57,43,0.25)" }}>
+                <p style={{ color: "var(--red)", fontFamily: "var(--font-sans)", fontSize: "0.82rem", lineHeight: 1.6 }}>
+                  ⚠️ <strong>Use AI Studio only.</strong> Do not use Google Cloud Console — those keys require billing and will not work here.
+                </p>
+              </div>
+            }
+            onNext={() => setStep(1)}
+            nextLabel="Open AI Studio →"
+          />
+        </OverlayShell>
+      );
+    }
+
+    /* Step 1: Open AI Studio */
+    if (step === 1) {
+      return (
+        <OverlayShell>
+          <ProviderProgress groqDone={true} geminiDone={false} />
+          <StepCard
+            icon={<IconBrowser color="#5B8FA8" />}
+            badge="Gemini · Step 1 of 2"
+            title="Open Google AI Studio"
+            body="In a new tab, open the link below and sign in with your Google account. You will land directly on the API Keys page. No billing required."
+            extra={
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center justify-between px-4 py-3 rounded-xl" style={{ background: "var(--ink-3)", border: "1px solid var(--rule)" }}>
+                  <span style={{ color: "var(--ink-text)", fontFamily: "var(--font-mono)", fontSize: "0.8rem" }}>aistudio.google.com/apikey</span>
+                  <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" className="text-xs font-semibold px-3 py-1.5 rounded-lg shrink-0" style={{ background: "var(--blue-accent)", color: "#fff", fontFamily: "var(--font-sans)", textDecoration: "none" }}>
+                    Open ↗
+                  </a>
+                </div>
+                <p className="text-xs px-1" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>
+                  Once there, click <strong style={{ color: "var(--ink-text)" }}>Create API key</strong>, choose any project, and copy the key that appears.
+                </p>
+              </div>
+            }
+            onBack={() => setStep(0)}
+            onNext={() => setStep(2)}
+            nextLabel="I've copied the key →"
+          />
+        </OverlayShell>
+      );
+    }
+
+    /* Step 2: Paste Gemini */
+    if (step === 2) {
+      return <PasteStep phase="gemini" stepLabel="Gemini · Step 2 of 2 · Last step!" onBack={() => setStep(1)} keyValue={key} onKeyChange={setKey} status={status} saving={saving} onSave={handleSave} />;
+    }
+  }
+
+  return null;
 }
