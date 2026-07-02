@@ -84,7 +84,7 @@ const STEPS = [
 ];
 
 const SPOT_PAD = 10;
-const TOOLTIP_W = 420;
+const TOOLTIP_W = 520;
 
 function findVisibleEl(tourId) {
   const els = document.querySelectorAll(`[data-tour="${tourId}"]`);
@@ -170,19 +170,19 @@ export default function AppTour({ open, onClose }) {
       if (el) {
         el.scrollIntoView({ behavior: "smooth", block: "center" });
         // Wait for smooth scroll to settle before measuring
-        setTimeout(() => { if (!cancelled) measure(); }, 500);
+        setTimeout(() => { if (!cancelled) measure(); }, 260);
       } else {
-        // Element not in DOM yet — retry after another 600ms
+        // Element not in DOM yet — retry after another 350ms
         setTimeout(() => {
           if (cancelled) return;
           const el2 = findVisibleEl(s.target);
           if (el2) {
             el2.scrollIntoView({ behavior: "smooth", block: "center" });
-            setTimeout(() => { if (!cancelled) measure(); }, 500);
+            setTimeout(() => { if (!cancelled) measure(); }, 260);
           } else {
             if (!cancelled) measure();
           }
-        }, 600);
+        }, 350);
       }
     }
 
@@ -190,7 +190,7 @@ export default function AppTour({ open, onClose }) {
     if (needsNav) {
       router.push(s.route);
       // Give Next.js time to navigate, mount, and hydrate before looking for element
-      const t = setTimeout(doMeasure, 1400);
+      const t = setTimeout(doMeasure, 850);
       return () => { cancelled = true; clearTimeout(t); };
     } else {
       const t = setTimeout(doMeasure, 150);

@@ -122,6 +122,57 @@ function buildSnapshot({ goals, entries, anchor, investments, transactions, efBa
   };
 }
 
+/* ── Markdown renderer for assistant messages ── */
+function parseInline(text) {
+  const parts = [];
+  const regex = /\*\*(.+?)\*\*|\*([^*\n]+)\*|`([^`\n]+)`/g;
+  let last = 0, k = 0, m;
+  while ((m = regex.exec(text)) !== null) {
+    if (m.index > last) parts.push(text.slice(last, m.index));
+    if (m[1] !== undefined)
+      parts.push(<strong key={k++} style={{ fontWeight: 700 }}>{m[1]}</strong>);
+    else if (m[2] !== undefined)
+      parts.push(<em key={k++}>{m[2]}</em>);
+    else
+      parts.push(<code key={k++} style={{ background: "rgba(255,255,255,0.12)", padding: "1px 5px", borderRadius: 3, fontFamily: "var(--font-mono)", fontSize: "0.82em" }}>{m[3]}</code>);
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) parts.push(text.slice(last));
+  return parts.length === 1 ? parts[0] : parts.length === 0 ? "" : parts;
+}
+
+function renderMarkdown(text) {
+  return text.split("\n").map((line, i) => {
+    if (line.startsWith("### "))
+      return <div key={i} style={{ fontWeight: 700, fontSize: "0.88rem", marginTop: i > 0 ? 10 : 0, marginBottom: 2 }}>{parseInline(line.slice(4))}</div>;
+    if (line.startsWith("## "))
+      return <div key={i} style={{ fontWeight: 700, fontSize: "0.94rem", marginTop: i > 0 ? 10 : 0, marginBottom: 2 }}>{parseInline(line.slice(3))}</div>;
+    if (line.startsWith("# "))
+      return <div key={i} style={{ fontWeight: 700, fontSize: "1rem", marginTop: i > 0 ? 12 : 0, marginBottom: 4 }}>{parseInline(line.slice(2))}</div>;
+    if (/^[-•]\s/.test(line) || line.startsWith("* "))
+      return (
+        <div key={i} style={{ display: "flex", gap: 7, lineHeight: 1.55, marginBottom: 2 }}>
+          <span style={{ opacity: 0.4, flexShrink: 0, marginTop: 2, fontSize: "0.65em" }}>●</span>
+          <span>{parseInline(line.replace(/^[-*•]\s+/, ""))}</span>
+        </div>
+      );
+    if (/^\d+\.\s/.test(line)) {
+      const dotIdx = line.indexOf(".");
+      return (
+        <div key={i} style={{ display: "flex", gap: 7, lineHeight: 1.55, marginBottom: 2 }}>
+          <span style={{ opacity: 0.4, flexShrink: 0, fontFamily: "var(--font-mono)", fontSize: "0.8em", paddingTop: 2 }}>{line.slice(0, dotIdx + 1)}</span>
+          <span>{parseInline(line.slice(dotIdx + 2))}</span>
+        </div>
+      );
+    }
+    if (line.trim() === "---")
+      return <hr key={i} style={{ border: "none", borderTop: "1px solid var(--rule)", margin: "8px 0" }} />;
+    if (line === "")
+      return <div key={i} style={{ height: 6 }} />;
+    return <div key={i} style={{ lineHeight: 1.6 }}>{parseInline(line)}</div>;
+  });
+}
+
 /* ── Small inline avatar for bubbles ── */
 function RbcAvatarSmall() {
   return (
@@ -171,7 +222,7 @@ function MessageBubble({ message }) {
       <div className="max-w-[78%] flex flex-col gap-1.5" style={{ alignItems: isUser ? "flex-end" : "flex-start" }}>
         {mainContent.trim() && (
           <div
-            className="rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap"
+            className={`rounded-2xl px-4 py-3 text-sm leading-relaxed${isUser ? " whitespace-pre-wrap" : ""}`}
             style={isUser ? {
               background:              "linear-gradient(135deg, #C8862E, #A9854F)",
               color:                   "#1a1208",
@@ -186,7 +237,7 @@ function MessageBubble({ message }) {
               borderBottomLeftRadius:  4,
             }}
           >
-            {mainContent}
+            {isUser ? mainContent : renderMarkdown(mainContent)}
           </div>
         )}
         {attachNames.length > 0 && (
