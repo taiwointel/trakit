@@ -22,6 +22,13 @@ const sourceSerif4 = Source_Serif_4({
 export const metadata = {
   title: "Trakit7 — Daily Expense Tracker",
   description: "Personal finance tracker — track spending, invest smarter, and grow wealth.",
+  icons: {
+    icon: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+    ],
+    shortcut: "/icon.svg",
+    apple: "/icon.svg",
+  },
 };
 
 export default function RootLayout({ children }) {
