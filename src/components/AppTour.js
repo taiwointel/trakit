@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter, usePathname } from "next/navigation";
 
 const STEPS = [
@@ -84,6 +84,7 @@ const STEPS = [
 ];
 
 const TOOLTIP_W = 340;
+const TOOLTIP_H = 270; // conservative height estimate for viewport clamping
 const SPOT_PAD  = 8;
 
 function findVisibleEl(tourId) {
@@ -96,8 +97,11 @@ function findVisibleEl(tourId) {
 }
 
 export default function AppTour({ open, onClose }) {
-  const router   = useRouter();
-  const pathname = usePathname();
+  const router      = useRouter();
+  const pathname    = usePathname();
+  // Keep a ref to pathname so navigation effect doesn't re-fire on route change
+  const pathnameRef = useRef(pathname);
+  useEffect(() => { pathnameRef.current = pathname; }, [pathname]);
 
   const [step,      setStep]      = useState(0);
   const [spotRect,  setSpotRect]  = useState(null);
@@ -108,7 +112,11 @@ export default function AppTour({ open, onClose }) {
   const measure = useCallback(() => {
     if (!open) return;
     const s = STEPS[step];
-    if (!s.target) { setSpotRect(null); setTipStyle({ top: "50%", left: "50%", transform: "translate(-50%, -50%)" }); return; }
+    if (!s.target) {
+      setSpotRect(null);
+      setTipStyle({ top: "50%", left: "50%", transform: "translate(-50%, -50%)" });
+      return;
+    }
 
     const el = findVisibleEl(s.target);
     const r  = el?.getBoundingClientRect();
@@ -122,47 +130,87 @@ export default function AppTour({ open, onClose }) {
     const rawLeft = cx - TOOLTIP_W / 2;
     const left    = Math.max(12, Math.min(rawLeft, W - TOOLTIP_W - 12));
     const arrow   = Math.max(16, Math.min(cx - left - 8, TOOLTIP_W - 32));
-    const above   = r.top > H * 0.55;
-    const top     = above ? r.top - SPOT_PAD - 12 - 220 : r.bottom + SPOT_PAD + 12;
 
-    setTipStyle({ top: Math.max(8, top), left });
+    // Prefer placing tooltip below the element; fall back to above if it would overflow viewport
+    const belowTop = r.bottom + SPOT_PAD + 12;
+    const aboveTop = r.top - SPOT_PAD - 12 - TOOLTIP_H;
+
+    let top, above;
+    if (belowTop + TOOLTIP_H <= H - 8) {
+      // Fits below
+      top = belowTop; above = false;
+    } else if (aboveTop >= 8) {
+      // Fits above
+      top = aboveTop; above = true;
+    } else {
+      // Neither fits cleanly — clamp below so it's as visible as possible
+      top = Math.max(8, H - TOOLTIP_H - 8);
+      above = false;
+    }
+
+    setTipStyle({ top, left });
     setArrowLeft(arrow);
     setTipAbove(above);
   }, [open, step]);
 
+  // Resize listener — separate stable effect
+  useEffect(() => {
+    if (!open) return;
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [open, measure]);
+
+  // Reset on open
   useEffect(() => {
     if (open) { setStep(0); setSpotRect(null); }
   }, [open]);
 
+  // Navigate + scroll + measure on step change.
+  // Intentionally does NOT list `pathname` as a dep — we read it via pathnameRef
+  // so that router.push() changing pathname doesn't re-trigger this effect.
   useEffect(() => {
     if (!open) return;
     const s = STEPS[step];
+    let cancelled = false;
 
-    // Navigate to the step's page if needed
-    if (s.route && pathname !== s.route) {
-      router.push(s.route);
-    }
-
-    // Delay gives new page time to mount; scroll then measure
-    const delay = s.route && pathname !== s.route ? 700 : 80;
-    const t = setTimeout(() => {
-      if (s.target) {
-        const el = findVisibleEl(s.target);
-        if (el) {
-          el.scrollIntoView({ behavior: "smooth", block: "center" });
-          setTimeout(measure, 450);
-        } else {
-          measure();
-        }
-      } else {
+    function doMeasure() {
+      if (cancelled) return;
+      if (!s.target) {
         setSpotRect(null);
         setTipStyle({ top: "50%", left: "50%", transform: "translate(-50%, -50%)" });
+        return;
       }
-    }, delay);
 
-    window.addEventListener("resize", measure);
-    return () => { clearTimeout(t); window.removeEventListener("resize", measure); };
-  }, [measure, open, step, pathname, router]);
+      const el = findVisibleEl(s.target);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        setTimeout(() => { if (!cancelled) measure(); }, 450);
+      } else {
+        // Element not found yet — retry once after another 600ms (e.g. lazy-rendered sections)
+        setTimeout(() => {
+          if (cancelled) return;
+          const el2 = findVisibleEl(s.target);
+          if (el2) {
+            el2.scrollIntoView({ behavior: "smooth", block: "center" });
+            setTimeout(() => { if (!cancelled) measure(); }, 450);
+          } else {
+            if (!cancelled) measure();
+          }
+        }, 600);
+      }
+    }
+
+    const needsNav = s.route && pathnameRef.current !== s.route;
+    if (needsNav) {
+      router.push(s.route);
+      // 1200ms gives Next.js page time to navigate, mount, and hydrate
+      const t = setTimeout(doMeasure, 1200);
+      return () => { cancelled = true; clearTimeout(t); };
+    } else {
+      const t = setTimeout(doMeasure, 120);
+      return () => { cancelled = true; clearTimeout(t); };
+    }
+  }, [step, open, measure, router]); // no pathname dep
 
   if (!open) return null;
 
@@ -196,48 +244,53 @@ export default function AppTour({ open, onClose }) {
         }
       `}</style>
 
-      {/* Background click-blocker */}
+      {/* Backdrop — blocks background clicks but sits below the tooltip */}
       <div
-        style={{ position: "fixed", inset: 0, zIndex: 58, pointerEvents: "all", background: isCenter ? "rgba(0,0,0,0.82)" : "transparent" }}
+        style={{
+          position: "fixed", inset: 0, zIndex: 58,
+          pointerEvents: "all",
+          background: isCenter ? "rgba(0,0,0,0.82)" : "transparent",
+        }}
         onClick={onClose}
         aria-hidden="true"
       />
 
-      {/* Spotlight */}
+      {/* Spotlight ring */}
       {spotRect && !isCenter && (
         <div
           style={{
-            position:     "fixed",
-            top:          spotRect.top    - SPOT_PAD,
-            left:         spotRect.left   - SPOT_PAD,
-            width:        spotRect.width  + SPOT_PAD * 2,
-            height:       spotRect.height + SPOT_PAD * 2,
-            borderRadius: 10,
-            zIndex:       59,
-            pointerEvents:"none",
-            animation:    "tour-spot-pulse 2.4s ease-in-out infinite",
+            position:      "fixed",
+            top:           spotRect.top    - SPOT_PAD,
+            left:          spotRect.left   - SPOT_PAD,
+            width:         spotRect.width  + SPOT_PAD * 2,
+            height:        spotRect.height + SPOT_PAD * 2,
+            borderRadius:  10,
+            zIndex:        59,
+            pointerEvents: "none",
+            animation:     "tour-spot-pulse 2.4s ease-in-out infinite",
           }}
         />
       )}
 
-      {/* Tooltip / centered card */}
+      {/* Tooltip card */}
       <div
         key={step}
         style={{
-          position:     "fixed",
-          width:        TOOLTIP_W,
-          zIndex:       60,
-          pointerEvents:"all",
-          animation:    isCenter ? "tour-center-in 0.22s ease forwards" : "tour-tip-in 0.22s ease forwards",
+          position:      "fixed",
+          width:         TOOLTIP_W,
+          zIndex:        60,
+          pointerEvents: "all",
+          animation:     isCenter ? "tour-center-in 0.22s ease forwards" : "tour-tip-in 0.22s ease forwards",
           ...(isCenter
             ? { top: "50%", left: "50%", transform: "translate(-50%, -50%)" }
             : tipStyle),
         }}
       >
-        {/* Arrow (only for anchored tooltips) */}
+        {/* Arrow — below variant */}
         {spotRect && !tipAbove && !isCenter && (
           <div style={{ position: "absolute", top: -8, left: arrowLeft, width: 0, height: 0, borderLeft: "8px solid transparent", borderRight: "8px solid transparent", borderBottom: "8px solid var(--ink-2)", pointerEvents: "none", zIndex: 1 }} />
         )}
+        {/* Arrow — above variant */}
         {spotRect && tipAbove && !isCenter && (
           <div style={{ position: "absolute", bottom: -8, left: arrowLeft, width: 0, height: 0, borderLeft: "8px solid transparent", borderRight: "8px solid transparent", borderTop: "8px solid var(--ink-2)", pointerEvents: "none", zIndex: 1 }} />
         )}
@@ -273,16 +326,25 @@ export default function AppTour({ open, onClose }) {
           </p>
 
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <button onClick={onClose} style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", fontSize: 12, background: "none", border: "none", cursor: "pointer", padding: "6px 0" }}>
+            <button
+              onClick={onClose}
+              style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", fontSize: 12, background: "none", border: "none", cursor: "pointer", padding: "6px 0" }}
+            >
               Skip tour
             </button>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               {step > 0 && (
-                <button onClick={back} style={{ background: "var(--ink-3)", color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600, border: "1px solid var(--rule)", borderRadius: 8, padding: "8px 16px", cursor: "pointer" }}>
+                <button
+                  onClick={back}
+                  style={{ background: "var(--ink-3)", color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600, border: "1px solid var(--rule)", borderRadius: 8, padding: "8px 16px", cursor: "pointer" }}
+                >
                   Back
                 </button>
               )}
-              <button onClick={next} style={{ background: "linear-gradient(135deg, var(--gold-deep), var(--gold))", color: "#fff", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600, border: "none", borderRadius: 8, padding: "8px 20px", cursor: "pointer" }}>
+              <button
+                onClick={next}
+                style={{ background: "linear-gradient(135deg, var(--gold-deep), var(--gold))", color: "#fff", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600, border: "none", borderRadius: 8, padding: "8px 20px", cursor: "pointer" }}
+              >
                 {isLast ? "Let's go!" : "Next"}
               </button>
             </div>
