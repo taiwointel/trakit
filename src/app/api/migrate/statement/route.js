@@ -25,13 +25,12 @@ OPAY STATEMENTS:
   • SKIP "Auto-save to OWealth Balance" and "OWealth Withdrawal(Transaction Payment)" — internal movements.
   • Ignore the Savings Account / OWealth section entirely.
 
-PALMPAY STATEMENTS: PalmPay statements include internal CashBox savings movements and self-transfers.
+PALMPAY STATEMENTS: PalmPay statements include internal CashBox savings movements.
   • SKIP "CashBox Auto Save" rows — these are internal transfers to the user's own CashBox savings pocket.
   • SKIP "CashBox Interest" rows — internal interest credits, not real income.
-  • SKIP any "Received from [NAME]" or "Send to [NAME]" row where [NAME] is the SAME as the account holder name shown in the statement header — these are self-transfers between the user's own accounts.
-  • KEEP all "Send to [DIFFERENT_NAME]" rows — these are real outflows to other people.
+  • KEEP all "Send to [NAME]" and "Received from [NAME]" rows even when NAME matches the account holder — these are real inter-bank transfers to the user's other bank accounts and must be included.
   • KEEP "Buy Data bundle", "Top up Airtime", "Card Payment-POS", "Betting Deposit", "Stamp Duty", "Electronic Money Transfer Levy", "USSD Charge" — these are all real transactions.
-  • For "Send to NAME" and "Received from NAME" rows (where NAME is NOT the account holder), set beneficiary to that NAME.
+  • For "Send to NAME" and "Received from NAME" rows, set beneficiary to that NAME.
 
 OTHER MULTI-SECTION STATEMENTS: Extract only from the section recording actual external transfers. Skip internal-movement-only sections.
 - Return ONLY the raw JSONL lines — no markdown fences, no extra text`;
