@@ -84,7 +84,7 @@ const STEPS = [
 ];
 
 const SPOT_PAD = 10;
-const TOOLTIP_W = 680;
+const TOOLTIP_W = 860;
 
 function findVisibleEl(tourId) {
   const els = document.querySelectorAll(`[data-tour="${tourId}"]`);
