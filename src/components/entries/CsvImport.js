@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 
 // ── CSV parsing ───────────────────────────────────────────────────────────────
 
@@ -69,9 +69,9 @@ function parseCsv(text) {
 
     let amount = null, flow = "out";
     if (debitIdx !== -1 || creditIdx !== -1) {
-      const d = debitIdx  !== -1 ? parseAmt(cells[debitIdx])  : null;
+      const d  = debitIdx  !== -1 ? parseAmt(cells[debitIdx])  : null;
       const cr = creditIdx !== -1 ? parseAmt(cells[creditIdx]) : null;
-      if (d && d > 0)   { amount = d;  flow = "out"; }
+      if (d && d > 0)        { amount = d;  flow = "out"; }
       else if (cr && cr > 0) { amount = cr; flow = "in";  }
       else continue;
     } else if (amtIdx !== -1) {
@@ -87,127 +87,326 @@ function parseCsv(text) {
   return rows;
 }
 
-// ── Label modal ───────────────────────────────────────────────────────────────
+// ── Unclear narration detection ───────────────────────────────────────────────
 
-function LabelModal({ count, onConfirm, onCancel }) {
+const UNCLEAR_RE = [
+  /^NIP[\s\/\-]/i,
+  /^USSD/i,
+  /^POS\b/i,
+  /^ATM\b/i,
+  /^TRANSFER\s+(CREDIT|DEBIT)$/i,
+  /^(INFLOW|OUTFLOW)$/i,
+  /^STANDING\s+ORDER/i,
+  /^DIRECT\s+DEBIT/i,
+  /^DEBIT\s+MANDATE/i,
+  /^WEB\s+(PURCHASE|PAYMENT)/i,
+  /^BILL\s*PAYMENT$/i,
+  /^E[\-\s]?TRANZ/i,
+  /^INTER\s*BANK/i,
+  /^MOBILE\s*TRANSFER$/i,
+  /^CASH\s*(WITHDRAWAL|DEPOSIT)$/i,
+];
+
+function isUnclearPattern(desc) {
+  const d = (desc || "").trim();
+  if (d.length < 6) return true;
+  return UNCLEAR_RE.some((re) => re.test(d));
+}
+
+// Group rows that have identical narrations (≥2) OR match known unclear patterns.
+function buildLabelGroups(rows) {
+  const map = new Map(); // normalized desc → { desc, indices }
+  rows.forEach((r, i) => {
+    const key = r.desc.trim().toLowerCase();
+    if (!map.has(key)) map.set(key, { desc: r.desc.trim(), indices: [] });
+    map.get(key).indices.push(i);
+  });
+
+  const groups = [];
+  for (const [, g] of map) {
+    if (isUnclearPattern(g.desc) || g.indices.length > 1) {
+      groups.push(g);
+    }
+  }
+  return groups;
+}
+
+// ── Quick-pick chips ──────────────────────────────────────────────────────────
+
+const CHIPS = [
+  "Fuel", "Food / suya", "Transport", "Airtime", "Salary",
+  "Loan repayment", "School fees", "Rent", "Crypto", "Shopping",
+];
+
+// ── Labeling Wizard ───────────────────────────────────────────────────────────
+
+function LabelingWizard({ rows, groups, totalRows, onApply, onFinish, onSkipAll }) {
+  const [step,  setStep]  = useState(0);
   const [label, setLabel] = useState("");
+  const inputRef = useRef(null);
+
+  const group    = groups[step];
+  const isLast   = step === groups.length - 1;
+  const groupRows = group.indices.map((i) => rows[i]);
+  const progress  = (step / Math.max(groups.length, 1)) * 100;
+
+  useEffect(() => {
+    setLabel("");
+    const t = setTimeout(() => inputRef.current?.focus(), 80);
+    return () => clearTimeout(t);
+  }, [step]);
+
+  const advance = (labelStr) => {
+    onApply(group.indices, labelStr && labelStr.trim() ? labelStr.trim() : null);
+    if (isLast) {
+      onFinish();
+    } else {
+      setStep((s) => s + 1);
+    }
+  };
+
+  const totalAmt = groupRows.reduce((s, r) => s + Number(r.amount), 0);
 
   return (
     <div
       style={{
         position: "fixed", inset: 0, zIndex: 9999,
-        background: "rgba(0,0,0,0.55)",
+        background: "rgba(0,0,0,0.75)",
         display: "flex", alignItems: "center", justifyContent: "center",
         padding: "1rem",
       }}
-      onClick={(e) => { if (e.target === e.currentTarget) onCancel(); }}
     >
       <div
         style={{
-          background: "var(--ink-2)",
-          border: "1px solid var(--gold)",
-          borderRadius: 16,
-          padding: "24px 28px",
-          width: "100%",
-          maxWidth: 440,
-          display: "flex",
-          flexDirection: "column",
-          gap: 16,
-          boxShadow: "0 8px 48px rgba(0,0,0,0.5)",
+          background:   "var(--ink-2)",
+          border:       "1px solid var(--rule)",
+          borderRadius: 20,
+          width:        "100%",
+          maxWidth:     500,
+          maxHeight:    "92vh",
+          overflow:     "auto",
+          display:      "flex",
+          flexDirection:"column",
         }}
       >
-        {/* Header */}
-        <div>
-          <p style={{ color: "var(--gold)", fontFamily: "var(--font-sans)", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", margin: "0 0 6px" }}>
-            Label {count} selected transaction{count !== 1 ? "s" : ""}
-          </p>
-          <p style={{ color: "var(--ink-text)", fontFamily: "var(--font-serif)", fontSize: 17, fontWeight: 600, margin: 0 }}>
-            What were these for?
-          </p>
-        </div>
-
-        {/* Explanation */}
-        <p style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", fontSize: 13, lineHeight: 1.6, margin: 0 }}>
-          We noticed the exact purpose for {count > 1 ? "these transactions" : "this transaction"} isn't clear from the bank narration alone. Adding a label helps AI assign the right category and makes your ledger easier to read later.
-        </p>
-
-        {/* Examples */}
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-          {["Fuel", "Suya", "Salary", "Crypto inflow", "School fees", "Airtime"].map((ex) => (
+        {/* ── Top bar ─────────────────────────────────────────────── */}
+        <div style={{ padding: "18px 22px 14px", borderBottom: "1px solid var(--rule)" }}>
+          {/* Progress line */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{
+                color: "var(--gold)", fontFamily: "var(--font-mono)",
+                fontSize: 11, fontWeight: 700,
+              }}>
+                {step + 1} / {groups.length}
+              </span>
+              <span style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", fontSize: 11 }}>
+                batches to review
+              </span>
+            </div>
             <button
-              key={ex}
-              onClick={() => setLabel(ex)}
+              onClick={onSkipAll}
               style={{
-                background: label === ex ? "rgba(169,133,79,0.22)" : "var(--ink-3)",
-                border: `1px solid ${label === ex ? "var(--gold)" : "var(--rule)"}`,
-                color: label === ex ? "var(--gold)" : "var(--ink-text-dim)",
-                borderRadius: 20,
-                padding: "3px 10px",
-                fontFamily: "var(--font-sans)",
-                fontSize: 11,
-                cursor: "pointer",
+                color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)",
+                fontSize: 11, cursor: "pointer", background: "none", border: "none",
               }}
             >
-              {ex}
+              Skip all & import as-is
             </button>
-          ))}
+          </div>
+          {/* Progress bar */}
+          <div style={{ height: 3, background: "var(--rule)", borderRadius: 4, overflow: "hidden" }}>
+            <div style={{
+              height: "100%", width: `${progress}%`,
+              background: "linear-gradient(90deg, var(--gold-deep), var(--gold))",
+              borderRadius: 4, transition: "width 0.35s ease",
+            }} />
+          </div>
         </div>
 
-        {/* Input */}
-        <input
-          autoFocus
-          type="text"
-          value={label}
-          onChange={(e) => setLabel(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter" && label.trim()) onConfirm(label); }}
-          placeholder="e.g. Fuel, Salary, Suya, Rent…"
-          style={{
+        {/* ── Body ────────────────────────────────────────────────── */}
+        <div style={{ padding: "20px 22px", display: "flex", flexDirection: "column", gap: 18 }}>
+
+          {/* Headline */}
+          <div>
+            <p style={{
+              color: "var(--ink-text)", fontFamily: "var(--font-serif)",
+              fontSize: 18, fontWeight: 700, margin: "0 0 6px",
+            }}>
+              What {groupRows.length > 1 ? `were these ${groupRows.length} transactions` : "was this transaction"} for?
+            </p>
+            <p style={{
+              color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)",
+              fontSize: 13, lineHeight: 1.6, margin: 0,
+            }}>
+              {groupRows.length > 1
+                ? `These all share the same bank narration — the statement doesn't tell us the actual purpose. Adding a label gives AI the context it needs to categorize them correctly.`
+                : "This narration isn't descriptive enough for AI to confidently categorize. A short label helps."}
+            </p>
+          </div>
+
+          {/* Narration chip */}
+          <div style={{
             background: "var(--ink-3)",
-            border: "1px solid var(--rule)",
-            borderRadius: 8,
-            color: "var(--ink-text)",
-            fontFamily: "var(--font-sans)",
-            fontSize: 14,
+            border: "1px solid rgba(169,133,79,0.4)",
+            borderRadius: 10,
             padding: "10px 14px",
-            outline: "none",
-            width: "100%",
-          }}
-        />
+          }}>
+            <p style={{
+              color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)",
+              fontSize: 10, fontWeight: 700, textTransform: "uppercase",
+              letterSpacing: "0.1em", margin: "0 0 4px",
+            }}>
+              Bank narration
+            </p>
+            <p style={{ color: "var(--gold)", fontFamily: "var(--font-mono)", fontSize: 13, margin: 0 }}>
+              {group.desc}
+            </p>
+          </div>
 
-        <p style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", fontSize: 11, margin: 0 }}>
-          The label will be prepended to the description — e.g. "Fuel — NIP TRANSFER 5000". You can still edit individual rows in the table.
-        </p>
+          {/* Transaction list */}
+          <div>
+            <p style={{
+              color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)",
+              fontSize: 10, fontWeight: 700, textTransform: "uppercase",
+              letterSpacing: "0.1em", margin: "0 0 6px",
+            }}>
+              Transactions in this batch
+            </p>
+            <div style={{
+              display: "flex", flexDirection: "column", gap: 3,
+              maxHeight: 150, overflowY: "auto",
+            }}>
+              {groupRows.map((r, i) => (
+                <div
+                  key={i}
+                  style={{
+                    display: "flex", alignItems: "center",
+                    justifyContent: "space-between",
+                    background: "var(--ink-3)",
+                    borderRadius: 7,
+                    padding: "7px 12px",
+                  }}
+                >
+                  <span style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-mono)", fontSize: 11 }}>
+                    {r.date}
+                  </span>
+                  <span style={{
+                    color: r.flow === "out" ? "var(--red)" : "var(--green)",
+                    fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 13,
+                  }}>
+                    {r.flow === "out" ? "−" : "+"}₦{Number(r.amount).toLocaleString("en-NG")}
+                  </span>
+                </div>
+              ))}
+            </div>
+            {groupRows.length > 1 && (
+              <p style={{
+                color: "var(--ink-text-dim)", fontFamily: "var(--font-mono)",
+                fontSize: 11, margin: "6px 0 0", textAlign: "right",
+              }}>
+                Total: ₦{totalAmt.toLocaleString("en-NG")}
+              </p>
+            )}
+          </div>
 
-        {/* Buttons */}
-        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-          <button
-            onClick={onCancel}
+          {/* Quick picks */}
+          <div>
+            <p style={{
+              color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)",
+              fontSize: 10, fontWeight: 700, textTransform: "uppercase",
+              letterSpacing: "0.1em", margin: "0 0 8px",
+            }}>
+              Quick picks
+            </p>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              {CHIPS.map((chip) => (
+                <button
+                  key={chip}
+                  onClick={() => setLabel(chip)}
+                  style={{
+                    background: label === chip ? "rgba(169,133,79,0.2)" : "var(--ink-3)",
+                    border: `1px solid ${label === chip ? "var(--gold)" : "var(--rule)"}`,
+                    color:  label === chip ? "var(--gold)" : "var(--ink-text-dim)",
+                    borderRadius: 20,
+                    padding: "4px 12px",
+                    fontFamily: "var(--font-sans)",
+                    fontSize: 12,
+                    cursor: "pointer",
+                  }}
+                >
+                  {chip}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Text input */}
+          <input
+            ref={inputRef}
+            type="text"
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter" && label.trim()) advance(label); }}
+            placeholder="Or type the purpose…"
             style={{
-              background: "var(--ink-3)", border: "1px solid var(--rule)",
-              color: "var(--ink-text-dim)", borderRadius: 8,
-              padding: "8px 18px", fontFamily: "var(--font-sans)",
-              fontSize: 13, cursor: "pointer",
+              background:   "var(--ink-3)",
+              border:       "1px solid var(--rule)",
+              borderRadius: 10,
+              color:        "var(--ink-text)",
+              fontFamily:   "var(--font-sans)",
+              fontSize:     14,
+              padding:      "12px 16px",
+              outline:      "none",
+              width:        "100%",
             }}
-          >
-            Cancel
-          </button>
-          <button
-            onClick={() => { if (label.trim()) onConfirm(label.trim()); }}
-            disabled={!label.trim()}
-            style={{
-              background: label.trim() ? "var(--gold)" : "var(--ink-3)",
-              border: "none",
-              color: label.trim() ? "#fff" : "var(--ink-text-dim)",
-              borderRadius: 8,
-              padding: "8px 20px",
-              fontFamily: "var(--font-sans)",
-              fontWeight: 700,
-              fontSize: 13,
-              cursor: label.trim() ? "pointer" : "not-allowed",
-            }}
-          >
-            Apply label
-          </button>
+          />
+
+          {/* Actions */}
+          <div style={{ display: "flex", gap: 8 }}>
+            <button
+              onClick={() => advance(label)}
+              disabled={!label.trim()}
+              style={{
+                flex:         1,
+                background:   label.trim() ? "linear-gradient(135deg, var(--gold-deep), var(--gold))" : "var(--ink-3)",
+                border:       "none",
+                color:        label.trim() ? "#fff" : "var(--ink-text-dim)",
+                borderRadius: 10,
+                padding:      "13px",
+                fontFamily:   "var(--font-sans)",
+                fontWeight:   700,
+                fontSize:     14,
+                cursor:       label.trim() ? "pointer" : "not-allowed",
+              }}
+            >
+              Label {groupRows.length} transaction{groupRows.length !== 1 ? "s" : ""}{isLast ? " & finish" : " →"}
+            </button>
+            <button
+              onClick={() => advance(null)}
+              style={{
+                background:   "var(--ink-3)",
+                border:       "1px solid var(--rule)",
+                color:        "var(--ink-text-dim)",
+                borderRadius: 10,
+                padding:      "13px 18px",
+                fontFamily:   "var(--font-sans)",
+                fontSize:     13,
+                cursor:       "pointer",
+                whiteSpace:   "nowrap",
+              }}
+            >
+              Skip {isLast ? "& finish" : "→"}
+            </button>
+          </div>
+
+          {/* Total context */}
+          <p style={{
+            color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)",
+            fontSize: 11, margin: 0, textAlign: "center",
+          }}>
+            {totalRows} transactions ready to import · {groups.length - step - 1} batch{groups.length - step - 1 !== 1 ? "es" : ""} remaining after this
+          </p>
         </div>
       </div>
     </div>
@@ -230,20 +429,27 @@ const inputBase = {
 };
 
 export default function CsvImport({ onImported }) {
-  const [open,        setOpen]        = useState(false);
-  const [rows,        setRows]        = useState([]);
-  const [selected,    setSelected]    = useState(new Set());
-  const [labelModal,  setLabelModal]  = useState(false);
-  const [dragging,    setDragging]    = useState(false);
-  const [status,      setStatus]      = useState(null);
-  const [extracting,  setExtracting]  = useState(false);
-  const [importing,   setImporting]   = useState(false);
+  const [open,         setOpen]         = useState(false);
+  const [rows,         setRows]         = useState([]);
+  const [wizardGroups, setWizardGroups] = useState(null);
+  const [dragging,     setDragging]     = useState(false);
+  const [status,       setStatus]       = useState(null);
+  const [extracting,   setExtracting]   = useState(false);
+  const [importing,    setImporting]    = useState(false);
   const fileRef = useRef(null);
+
+  const launchWizard = useCallback((extractedRows) => {
+    setRows(extractedRows);
+    const groups = buildLabelGroups(extractedRows);
+    if (groups.length > 0) {
+      setWizardGroups(groups);
+    }
+  }, []);
 
   const processFile = useCallback(async (file) => {
     setStatus(null);
     setRows([]);
-    setSelected(new Set());
+    setWizardGroups(null);
 
     if (file.size > MAX_BYTES) {
       setStatus({ type: "error", msg: "File too large (max 4 MB). For PDFs, try exporting a shorter date range from your bank." });
@@ -253,13 +459,13 @@ export default function CsvImport({ onImported }) {
     const ext = file.name.split(".").pop().toLowerCase();
 
     if (ext === "csv" || ext === "txt") {
-      const text = await file.text();
+      const text   = await file.text();
       const parsed = parseCsv(text);
       if (!parsed.length) {
         setStatus({ type: "error", msg: "Could not detect columns. Make sure the file has Date, Narration, and Debit/Credit columns." });
         return;
       }
-      setRows(parsed);
+      launchWizard(parsed);
     } else if (ext === "pdf" || ["jpg","jpeg","png","webp"].includes(ext)) {
       setExtracting(true);
       try {
@@ -272,7 +478,7 @@ export default function CsvImport({ onImported }) {
         } else if (!data.rows?.length) {
           setStatus({ type: "error", msg: "No transactions found. Try a clearer image or a different page." });
         } else {
-          setRows(data.rows);
+          launchWizard(data.rows);
         }
       } catch {
         setStatus({ type: "error", msg: "Network error during extraction. Please try again." });
@@ -282,51 +488,28 @@ export default function CsvImport({ onImported }) {
     } else {
       setStatus({ type: "error", msg: "Unsupported format. Drop a CSV, PDF, JPG, or PNG." });
     }
-  }, []);
+  }, [launchWizard]);
 
   const onDrop = (e) => { e.preventDefault(); setDragging(false); const f = e.dataTransfer.files?.[0]; if (f) processFile(f); };
   const onPick = (e) => { const f = e.target.files?.[0]; if (f) processFile(f); e.target.value = ""; };
 
   const updateRow = (i, field, val) =>
     setRows((prev) => prev.map((r, idx) => idx === i ? { ...r, [field]: val } : r));
-
-  const deleteRow = (i) => {
+  const deleteRow = (i) =>
     setRows((prev) => prev.filter((_, idx) => idx !== i));
-    // Adjust selected indices: remove deleted, shift down indices above it
-    setSelected((prev) => {
-      const next = new Set();
-      prev.forEach((idx) => {
-        if (idx < i) next.add(idx);
-        else if (idx > i) next.add(idx - 1);
-      });
-      return next;
-    });
-  };
 
-  const toggleSelect = (i) => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(i)) next.delete(i);
-      else next.add(i);
-      return next;
-    });
-  };
-
-  const allSelected = rows.length > 0 && selected.size === rows.length;
-  const toggleAll = () => {
-    if (allSelected) setSelected(new Set());
-    else setSelected(new Set(rows.map((_, i) => i)));
-  };
-
-  const applyLabel = (label) => {
+  // Called by wizard for each batch
+  const handleWizardApply = (indices, label) => {
+    if (!label) return;
     setRows((prev) =>
       prev.map((r, i) =>
-        selected.has(i) ? { ...r, desc: `${label} — ${r.desc}` } : r
+        indices.includes(i) ? { ...r, desc: `${label} — ${r.desc}` } : r
       )
     );
-    setSelected(new Set());
-    setLabelModal(false);
   };
+
+  const handleWizardFinish  = () => setWizardGroups(null);
+  const handleWizardSkipAll = () => setWizardGroups(null);
 
   const doImport = async () => {
     const valid = rows.filter((r) => r.date && r.desc && Number(r.amount) > 0);
@@ -343,9 +526,8 @@ export default function CsvImport({ onImported }) {
       if (!res.ok) {
         setStatus({ type: "error", msg: data.error || "Import failed." });
       } else {
-        setStatus({ type: "success", msg: `${data.inserted} entries imported. Categories were auto-assigned. Review them in the ledger below to confirm accuracy before relying on the totals.` });
+        setStatus({ type: "success", msg: `${data.inserted} entries imported and queued for AI categorization. Review them in the ledger below.` });
         setRows([]);
-        setSelected(new Set());
         if (onImported) onImported();
       }
     } catch {
@@ -400,81 +582,43 @@ export default function CsvImport({ onImported }) {
                   <span style={{ color: "var(--gold)" }}>click to select</span>
                 </span>
                 <span className="text-xs" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", opacity: 0.7 }}>
-                  CSV · PDF · JPG · PNG, GTBank, Access, Zenith, UBA, OPay (max 4 MB)
+                  CSV · PDF · JPG · PNG — GTBank, Access, Zenith, UBA, OPay (max 4 MB)
                 </span>
               </>
             )}
             <input ref={fileRef} type="file" accept=".csv,.txt,.pdf,.jpg,.jpeg,.png,.webp" className="hidden" onChange={onPick} />
           </div>
 
-          {/* Status message */}
+          {/* Status */}
           {status && (
             <p className="text-sm" style={{ color: status.type === "error" ? "var(--red)" : "var(--green)", fontFamily: "var(--font-sans)" }}>
               {status.msg}
             </p>
           )}
 
-          {/* Editable table */}
-          {rows.length > 0 && (
+          {/* Preview table — visible after wizard closes */}
+          {rows.length > 0 && !wizardGroups && (
             <div className="flex flex-col gap-2">
-              {/* Table header row */}
-              <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center justify-between">
                 <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>
-                  {rows.length} transactions detected. Edit or remove rows before importing.
+                  {rows.length} transactions ready · Edit or remove rows before importing
                 </p>
-                <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
-                  {selected.size > 0 && (
-                    <button
-                      onClick={() => setLabelModal(true)}
-                      style={{
-                        background: "rgba(169,133,79,0.15)",
-                        border: "1px solid var(--gold)",
-                        color: "var(--gold)",
-                        borderRadius: 20,
-                        padding: "3px 12px",
-                        fontFamily: "var(--font-sans)",
-                        fontSize: 11,
-                        fontWeight: 700,
-                        cursor: "pointer",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      ✦ Label selected ({selected.size})
-                    </button>
-                  )}
-                  <button
-                    onClick={() => { setRows([]); setSelected(new Set()); }}
-                    className="text-xs"
-                    style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", whiteSpace: "nowrap" }}
-                  >
-                    Clear all
-                  </button>
-                </div>
+                <button
+                  onClick={() => setRows([])}
+                  className="text-xs"
+                  style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}
+                >
+                  Clear all
+                </button>
               </div>
-
-              {/* Hint when nothing selected yet */}
-              {selected.size === 0 && (
-                <p style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", fontSize: 11, margin: 0 }}>
-                  Tip: select rows with unclear narrations (like "NIP TRANSFER") and use <strong style={{ color: "var(--gold)" }}>Label selected</strong> to describe what they were for — this improves AI categorization.
-                </p>
-              )}
 
               <div
                 className="rounded-lg overflow-auto"
-                style={{ background: "var(--paper)", maxHeight: 380, border: "1px solid var(--rule-paper)" }}
+                style={{ background: "var(--paper)", maxHeight: 360, border: "1px solid var(--rule-paper)" }}
               >
-                <table className="w-full text-xs" style={{ borderCollapse: "collapse", minWidth: 580 }}>
+                <table className="w-full text-xs" style={{ borderCollapse: "collapse", minWidth: 560 }}>
                   <thead>
                     <tr style={{ background: "var(--paper-2)", position: "sticky", top: 0, zIndex: 1 }}>
-                      {/* Select-all checkbox */}
-                      <th className="px-2 py-2" style={{ width: 32, borderBottom: "1px solid var(--rule-paper)" }}>
-                        <input
-                          type="checkbox"
-                          checked={allSelected}
-                          onChange={toggleAll}
-                          style={{ cursor: "pointer", accentColor: "var(--gold)" }}
-                        />
-                      </th>
                       {["Date","Description","Amount (₦)","Flow",""].map((h) => (
                         <th
                           key={h}
@@ -487,78 +631,58 @@ export default function CsvImport({ onImported }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {rows.map((row, i) => {
-                      const isSelected = selected.has(i);
-                      return (
-                        <tr
-                          key={i}
-                          style={{
-                            borderBottom: "1px solid var(--rule-paper)",
-                            background: isSelected
-                              ? "rgba(169,133,79,0.08)"
-                              : i % 2 === 0 ? "var(--paper)" : "var(--paper-2)",
-                          }}
-                        >
-                          {/* Row checkbox */}
-                          <td className="px-2 py-1" style={{ textAlign: "center" }}>
-                            <input
-                              type="checkbox"
-                              checked={isSelected}
-                              onChange={() => toggleSelect(i)}
-                              style={{ cursor: "pointer", accentColor: "var(--gold)" }}
-                            />
-                          </td>
-                          <td className="px-2 py-1" style={{ minWidth: 110 }}>
-                            <input
-                              type="date"
-                              defaultValue={row.date}
-                              onBlur={(e) => updateRow(i, "date", e.target.value)}
-                              style={{ ...inputBase, fontFamily: "var(--font-mono)", width: 110 }}
-                            />
-                          </td>
-                          <td className="px-2 py-1" style={{ minWidth: 180 }}>
-                            <input
-                              type="text"
-                              defaultValue={row.desc}
-                              onBlur={(e) => updateRow(i, "desc", e.target.value)}
-                              style={{ ...inputBase, fontFamily: "var(--font-sans)" }}
-                            />
-                          </td>
-                          <td className="px-2 py-1" style={{ minWidth: 110 }}>
-                            <input
-                              type="text"
-                              inputMode="decimal"
-                              defaultValue={row.amount}
-                              onBlur={(e) => {
-                                const v = parseFloat(String(e.target.value).replace(/,/g,""));
-                                updateRow(i, "amount", isNaN(v) ? row.amount : v);
-                              }}
-                              style={{ ...inputBase, fontFamily: "var(--font-mono)", width: 100 }}
-                            />
-                          </td>
-                          <td className="px-2 py-1" style={{ minWidth: 70 }}>
-                            <select
-                              value={row.flow}
-                              onChange={(e) => updateRow(i, "flow", e.target.value)}
-                              style={{ ...inputBase, width: "auto", paddingRight: 20 }}
-                            >
-                              <option value="out">Out</option>
-                              <option value="in">In</option>
-                            </select>
-                          </td>
-                          <td className="px-2 py-1">
-                            <button
-                              onClick={() => deleteRow(i)}
-                              title="Remove row"
-                              className="text-xs"
-                              style={{ color: "var(--red)" }}
-                            >
-                              ✕
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
+                    {rows.map((row, i) => (
+                      <tr key={i} style={{ borderBottom: "1px solid var(--rule-paper)", background: i % 2 === 0 ? "var(--paper)" : "var(--paper-2)" }}>
+                        <td className="px-2 py-1" style={{ minWidth: 110 }}>
+                          <input
+                            type="date"
+                            defaultValue={row.date}
+                            onBlur={(e) => updateRow(i, "date", e.target.value)}
+                            style={{ ...inputBase, fontFamily: "var(--font-mono)", width: 110 }}
+                          />
+                        </td>
+                        <td className="px-2 py-1" style={{ minWidth: 180 }}>
+                          <input
+                            type="text"
+                            defaultValue={row.desc}
+                            onBlur={(e) => updateRow(i, "desc", e.target.value)}
+                            style={{ ...inputBase, fontFamily: "var(--font-sans)" }}
+                          />
+                        </td>
+                        <td className="px-2 py-1" style={{ minWidth: 110 }}>
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            defaultValue={row.amount}
+                            onBlur={(e) => {
+                              const v = parseFloat(String(e.target.value).replace(/,/g,""));
+                              updateRow(i, "amount", isNaN(v) ? row.amount : v);
+                            }}
+                            style={{ ...inputBase, fontFamily: "var(--font-mono)", width: 100 }}
+                          />
+                        </td>
+                        <td className="px-2 py-1" style={{ minWidth: 70 }}>
+                          <select
+                            value={row.flow}
+                            onChange={(e) => updateRow(i, "flow", e.target.value)}
+                            style={{ ...inputBase, width: "auto", paddingRight: 20 }}
+                          >
+                            <option value="out">Out</option>
+                            <option value="in">In</option>
+                          </select>
+                        </td>
+                        <td className="px-2 py-1">
+                          <button
+                            onClick={() => deleteRow(i)}
+                            title="Remove row"
+                            className="text-xs"
+                            style={{ color: "var(--red)" }}
+                          >
+                            ✕
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
@@ -568,11 +692,11 @@ export default function CsvImport({ onImported }) {
                 disabled={importing}
                 className="rounded-lg px-4 py-2 text-sm font-semibold"
                 style={{
-                  background:  "var(--gold)",
-                  color:       "#fff",
-                  fontFamily:  "var(--font-sans)",
-                  opacity:     importing ? 0.6 : 1,
-                  cursor:      importing ? "not-allowed" : "pointer",
+                  background: "var(--gold)",
+                  color:      "#fff",
+                  fontFamily: "var(--font-sans)",
+                  opacity:    importing ? 0.6 : 1,
+                  cursor:     importing ? "not-allowed" : "pointer",
                 }}
               >
                 {importing ? "Importing…" : `Import ${rows.filter((r) => r.date && r.desc && Number(r.amount) > 0).length} rows`}
@@ -582,12 +706,15 @@ export default function CsvImport({ onImported }) {
         </div>
       )}
 
-      {/* Label modal */}
-      {labelModal && (
-        <LabelModal
-          count={selected.size}
-          onConfirm={applyLabel}
-          onCancel={() => setLabelModal(false)}
+      {/* Batch labeling wizard — renders as full-viewport overlay */}
+      {wizardGroups && (
+        <LabelingWizard
+          rows={rows}
+          groups={wizardGroups}
+          totalRows={rows.length}
+          onApply={handleWizardApply}
+          onFinish={handleWizardFinish}
+          onSkipAll={handleWizardSkipAll}
         />
       )}
     </div>

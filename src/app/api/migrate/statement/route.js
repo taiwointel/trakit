@@ -15,13 +15,33 @@ Rules:
 - amount: positive number, no commas or currency symbols
 - flow: "out" for debits/withdrawals/charges; "in" for credits/deposits/payments received
 - Skip opening balance, closing balance, totals, subtotals, header/footer rows
-- MULTI-SECTION STATEMENTS: If the document contains multiple account sections (e.g. OPay "Wallet Account" and "Savings Account" / "Owealth"), extract transactions from the Savings Account / Owealth section ONLY. Ignore the Wallet Account section entirely — it records internal fund movements that duplicate the savings section.
+- OPAY STATEMENTS: OPay generates a "Wallet Account" section and a "Savings Account" (OWealth) section.
+  • Extract ONLY from the Wallet Account section — it contains real external transactions.
+  • Within the Wallet Account, SKIP any row where the description is "Auto-save to OWealth Balance" or "OWealth Withdrawal(Transaction Payment)" — these are internal fund movements between the wallet and the OWealth savings bucket, not real expenses or income.
+  • Ignore the Savings Account / OWealth section entirely — it only mirrors those internal movements from the savings side.
+- OTHER MULTI-SECTION STATEMENTS: If a statement has multiple account sections, extract only from the section that records actual transfers to/from external parties, merchants, or people. Skip the section that only records internal movements.
 - Return ONLY the raw JSONL lines — no markdown fences, no extra text`;
 
 const EXTRACT_PROMPT = `Extract all bank transactions from this Nigerian bank statement.\n${JSONL_RULES}`;
 
 function textExtractPrompt(text) {
   return `Extract all bank transactions from the Nigerian bank statement text below.\n${JSONL_RULES}\n\nSTATEMENT TEXT:\n${text}`;
+}
+
+// OPay internal fund-movement rows — never real expenses/income
+const OPAY_INTERNAL = /^(auto.?save to o.?wealth|o.?wealth withdrawal|o.?wealth interest)/i;
+
+function filterRows(transactions) {
+  return transactions
+    .filter((t) => t.date && (t.description || t.desc) && Number(t.amount || t.amt) > 0)
+    .filter((t) => !OPAY_INTERNAL.test((t.description || t.desc || "").trim()))
+    .map((t) => ({
+      date:        String(t.date).trim(),
+      desc:        String(t.description || t.desc || "").trim(),
+      amount:      Number(t.amount || t.amt),
+      flow:        (t.flow || t.fl) === "in" ? "in" : "out",
+      beneficiary: null,
+    }));
 }
 
 // Robust parser: handles JSONL (one object per line), full JSON array/object,
@@ -124,18 +144,7 @@ export async function POST(request) {
       if (!res.ok) throw new Error(data.error?.message || "Groq error");
 
       const rawText = data.choices?.[0]?.message?.content || "";
-      const transactions = parseAIResponse(rawText);
-
-      const rows = transactions
-        .filter((t) => t.date && (t.description || t.desc) && Number(t.amount || t.amt) > 0)
-        .map((t) => ({
-          date:        String(t.date).trim(),
-          desc:        String(t.description || t.desc || "").trim(),
-          amount:      Number(t.amount || t.amt),
-          flow:        (t.flow || t.fl) === "in" ? "in" : "out",
-          beneficiary: null,
-        }));
-
+      const rows = filterRows(parseAIResponse(rawText));
       return NextResponse.json({ rows });
     } catch (err) {
       return NextResponse.json({ error: `Extraction failed: ${err.message}` }, { status: 500 });
@@ -193,18 +202,7 @@ export async function POST(request) {
       rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
     }
 
-    const transactions = parseAIResponse(rawText);
-
-    const rows = transactions
-      .filter((t) => t.date && (t.description || t.desc) && Number(t.amount || t.amt) > 0)
-      .map((t) => ({
-        date:        String(t.date).trim(),
-        desc:        String(t.description || t.desc || "").trim(),
-        amount:      Number(t.amount || t.amt),
-        flow:        (t.flow || t.fl) === "in" ? "in" : "out",
-        beneficiary: null,
-      }));
-
+    const rows = filterRows(parseAIResponse(rawText));
     return NextResponse.json({ rows });
 
   } catch (err) {
