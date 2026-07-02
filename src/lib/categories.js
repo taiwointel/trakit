@@ -20,7 +20,7 @@ export const CATEGORY_COLORS = [
 ];
 
 const FALLBACK_RULES = [
-  { pattern: /rent|mortgage|electric|nepa|phcn|water bill|generator|diesel|estate due|dstv|internet|wifi/i,        category: "Housing & Utilities" },
+  { pattern: /rent|mortgage|electric|nepa|phcn|water bill|generator|diesel|estate due|dstv|internet|wifi|\bdata\b|airtime|recharge/i, category: "Housing & Utilities" },
   { pattern: /uber|bolt|fuel|petrol|fare|transport|keke|bus|flight|car service/i,                                   category: "Transportation" },
   { pattern: /market|grocery|foodstuff|supermarket|provisions/i,                                                    category: "Food & Groceries" },
   { pattern: /restaurant|suya|lounge|bar|bukka|dining|takeout|delivery|cafe|coffee/i,                              category: "Dining & Lifestyle" },

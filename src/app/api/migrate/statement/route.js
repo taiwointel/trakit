@@ -10,6 +10,8 @@ const JSONL_RULES = `Output format — JSONL: one compact JSON object per line, 
 {"date":"YYYY-MM-DD","description":"narration","amount":1234.56,"flow":"out"}
 {"date":"YYYY-MM-DD","description":"narration","amount":500.00,"flow":"in"}
 
+IMPORTANT: This document may span MULTIPLE PAGES. Read and process every page from start to finish before producing any output. Do not stop at a page break or a new section header — continue until the very last line of the last page.
+
 Rules:
 - date: YYYY-MM-DD. Convert DD/MM/YYYY or DD-Mon-YYYY. Infer year from context if missing.
 - description: the narration/reference text. CRITICAL: strip all double-quote characters from it; replace with single quotes or remove.

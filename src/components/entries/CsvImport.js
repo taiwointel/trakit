@@ -60,6 +60,14 @@ function cleanName(raw) {
     .trim();
 }
 
+function cleanBank(raw) {
+  return (raw || "")
+    .trim()
+    .replace(/\s*\d+[\*]+\d+.*$/, "")  // masked account: 906****707
+    .replace(/\s*\d{6,}.*$/, "")        // raw account number: 9030699800
+    .trim();
+}
+
 function extractBeneficiary(desc) {
   const d = (desc || "").trim();
   let m;
@@ -84,17 +92,37 @@ function extractBeneficiary(desc) {
   m = d.match(/^TRANSFER\s+(?:CREDIT|DEBIT)\s*[-–]\s*(.+)/i);
   if (m) return cleanName(m[1]);
 
-  // TRANSFER TO/FROM NAME, FUNDS TRANSFER TO/FROM NAME
+  // TRANSFER TO/FROM NAME | BANK | account | ... (OPay, PalmPay, etc.)
+  // Extracts "NAME | BANK" — strips account numbers and trailing duplicates
   m = d.match(/^(?:FUNDS?\s+)?TRANSFER\s+(?:TO|FROM)\s+(.+)/i);
-  if (m) return cleanName(m[1]);
+  if (m) {
+    const parts = m[1].split("|").map((s) => s.trim());
+    const name = cleanName(parts[0]);
+    const bank = parts[1] ? cleanBank(parts[1]) : null;
+    return bank && bank.length > 1 ? `${name} | ${bank}` : name;
+  }
 
-  // PAYMENT TO/FROM NAME
+  // PAYMENT TO/FROM NAME | BANK | ...
   m = d.match(/^PAYMENT\s+(?:TO|FROM)\s+(.+)/i);
-  if (m) return cleanName(m[1]);
+  if (m) {
+    const parts = m[1].split("|").map((s) => s.trim());
+    const name = cleanName(parts[0]);
+    const bank = parts[1] ? cleanBank(parts[1]) : null;
+    return bank && bank.length > 1 ? `${name} | ${bank}` : name;
+  }
 
-  // CREDIT FROM NAME, DEBIT TO NAME
+  // CREDIT FROM NAME | BANK | ..., DEBIT TO NAME | BANK | ...
   m = d.match(/^(?:CREDIT|DEBIT)\s+(?:FROM|TO)\s+(.+)/i);
-  if (m) return cleanName(m[1]);
+  if (m) {
+    const parts = m[1].split("|").map((s) => s.trim());
+    const name = cleanName(parts[0]);
+    const bank = parts[1] ? cleanBank(parts[1]) : null;
+    return bank && bank.length > 1 ? `${name} | ${bank}` : name;
+  }
+
+  // Airtime | account_number | CARRIER (OPay format)
+  m = d.match(/^Airtime\s*\|\s*[\d*]+\s*\|\s*(.+)/i);
+  if (m) return m[1].trim();
 
   // INTRA BANK TRANSFER/NAME or INTRA-BANK TRANSFER/NAME
   m = d.match(/^INTRA[\s\-]?(?:BANK\s+)?TRANSFER[\s\/]+(.+?)(?:\/\d+)?$/i);

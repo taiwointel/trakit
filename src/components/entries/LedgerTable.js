@@ -220,9 +220,15 @@ export default function LedgerTable({ entries, onUpdate, onDelete, onClearAll })
                 </td>
 
                 {/* Beneficiary */}
-                <td className="px-3 py-2 whitespace-nowrap" style={{ minWidth: 110 }}>
+                <td className="px-3 py-2" style={{ maxWidth: 130 }}>
                   {entry.beneficiary ? (
-                    <span style={{ color: "var(--paper-text)", fontFamily: "var(--font-sans)", fontSize: 12 }}>
+                    <span
+                      title={entry.beneficiary}
+                      style={{
+                        color: "var(--paper-text)", fontFamily: "var(--font-sans)", fontSize: 12,
+                        display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                      }}
+                    >
                       {entry.beneficiary}
                     </span>
                   ) : (
