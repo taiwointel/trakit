@@ -626,19 +626,6 @@ export default function SettingsDrawer({ open, onClose, onStartTour }) {
                 </p>
               )}
 
-              {/* Setup note */}
-              <div className="px-3 py-2.5 rounded-xl" style={{ background: "rgba(169,133,79,0.06)", border: "1px solid rgba(169,133,79,0.18)" }}>
-                <p className="text-xs leading-relaxed" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>
-                  <span style={{ color: "var(--gold)", fontWeight: 700 }}>Setup required:</span>{" "}
-                  Add{" "}
-                  <span style={{ fontFamily: "var(--font-mono)", color: "var(--ink-text)", fontSize: 11 }}>RESEND_API_KEY</span>
-                  {" "}to your Vercel environment variables. Free key at{" "}
-                  <a href="https://resend.com" target="_blank" rel="noopener noreferrer" style={{ color: "var(--gold)", textDecoration: "underline" }}>
-                    resend.com
-                  </a>
-                  {" "}(100 emails/day free).
-                </p>
-              </div>
 
             </div>
           </CollapsibleSection>
