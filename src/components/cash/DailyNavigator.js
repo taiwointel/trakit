@@ -28,9 +28,11 @@ export default function DailyNavigator({ entries, anchor }) {
   const noAnchor = !anchorDate;
 
   function goDay(delta) {
-    const d = new Date(date + "T00:00:00");
-    d.setDate(d.getDate() + delta);
-    setDate(d.toISOString().slice(0, 10));
+    const [y, m, d] = date.split("-").map(Number);
+    const dt = new Date(y, m - 1, d + delta); // local date, no UTC offset issues
+    setDate(
+      `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`
+    );
   }
 
   return (
