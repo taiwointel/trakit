@@ -555,7 +555,34 @@ export default function CsvImport({ onImported }) {
   const [extracting,   setExtracting]   = useState(false);
   const [importing,    setImporting]    = useState(false);
   const [catProgress,  setCatProgress]  = useState(null); // null | { done, total }
+  const [extractProgress, setExtractProgress] = useState(null); // null | { done, total }
   const fileRef = useRef(null);
+  const cancelledRef = useRef(false);
+  useEffect(() => () => { cancelledRef.current = true; }, []);
+
+  // Drives a statement-import job to completion, stepping through it one
+  // chunk at a time so extraction never exceeds free-tier AI rate limits
+  // within a single request. Backs off exactly as long as the server asks
+  // on a rate-limit hit instead of hammering the API.
+  const pollJob = useCallback(async (jobId, totalChunks) => {
+    setExtractProgress({ done: 0, total: totalChunks });
+    while (!cancelledRef.current) {
+      const res  = await fetch("/api/migrate/statement/step", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ jobId }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.status === "error") {
+        setStatus({ type: "error", msg: data.error || "Extraction failed." });
+        return null;
+      }
+      setExtractProgress({ done: data.chunkIndex, total: data.totalChunks });
+      if (data.status === "done") return data.rows;
+      await new Promise((r) => setTimeout(r, data.waitMs > 0 ? data.waitMs : 300));
+    }
+    return null;
+  }, []);
 
   const launchWizard = useCallback((extractedRows) => {
     const rowsWithBene = extractedRows.map((r) => ({
@@ -594,24 +621,37 @@ export default function CsvImport({ onImported }) {
       try {
         const fd = new FormData();
         fd.append("file", file);
-        const res  = await fetch("/api/migrate/statement", { method: "POST", body: fd });
-        const data = await res.json();
-        if (!res.ok) {
-          setStatus({ type: "error", msg: data.error || "Extraction failed." });
-        } else if (!data.rows?.length) {
+        const startRes  = await fetch("/api/migrate/statement/start", { method: "POST", body: fd });
+        const startData = await startRes.json();
+        if (!startRes.ok) {
+          setStatus({ type: "error", msg: startData.error || "Extraction failed." });
+          return;
+        }
+
+        let rows = null;
+        if (startData.status === "done") {
+          rows = startData.rows;
+        } else {
+          rows = await pollJob(startData.jobId, startData.totalChunks);
+        }
+
+        if (rows === null) {
+          // Error already surfaced by pollJob, or start.
+        } else if (!rows.length) {
           setStatus({ type: "error", msg: "No transactions found. Try a clearer image or a different page." });
         } else {
-          launchWizard(data.rows);
+          launchWizard(rows);
         }
       } catch {
         setStatus({ type: "error", msg: "Network error during extraction. Please try again." });
       } finally {
         setExtracting(false);
+        setExtractProgress(null);
       }
     } else {
       setStatus({ type: "error", msg: "Unsupported format. Drop a CSV, PDF, JPG, or PNG." });
     }
-  }, [launchWizard]);
+  }, [launchWizard, pollJob]);
 
   const onDrop = (e) => { e.preventDefault(); setDragging(false); const f = e.dataTransfer.files?.[0]; if (f) processFile(f); };
   const onPick = (e) => { const f = e.target.files?.[0]; if (f) processFile(f); e.target.value = ""; };
@@ -722,9 +762,25 @@ export default function CsvImport({ onImported }) {
           >
             <span style={{ fontSize: 24, lineHeight: 1 }}>{extracting ? "⏳" : "📄"}</span>
             {extracting ? (
-              <span className="text-sm font-medium" style={{ color: "var(--gold)", fontFamily: "var(--font-sans)" }}>
-                Trakit7 is extracting transactions...
-              </span>
+              <>
+                <span className="text-sm font-medium" style={{ color: "var(--gold)", fontFamily: "var(--font-sans)" }}>
+                  Trakit7 is extracting transactions...
+                </span>
+                {extractProgress && extractProgress.total > 1 && (
+                  <div style={{ width: "min(280px, 80%)", display: "flex", flexDirection: "column", gap: 4 }}>
+                    <div style={{ height: 6, borderRadius: 3, background: "var(--ink)", overflow: "hidden" }}>
+                      <div style={{
+                        height: "100%", borderRadius: 3, background: "var(--gold)",
+                        width: `${Math.min(100, (extractProgress.done / extractProgress.total) * 100)}%`,
+                        transition: "width 300ms ease",
+                      }} />
+                    </div>
+                    <span className="text-xs" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-mono)", textAlign: "center" }}>
+                      {extractProgress.done} of {extractProgress.total} sections processed
+                    </span>
+                  </div>
+                )}
+              </>
             ) : (
               <>
                 <span className="text-sm" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>
