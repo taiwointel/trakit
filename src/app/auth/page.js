@@ -301,7 +301,7 @@ function AuthForm({ onBack }) {
     setLoading(true);
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: `${window.location.origin}/summary` },
+      options: { redirectTo: `${window.location.origin}/auth/callback` },
     });
     if (error) {
       const raw = error?.message || JSON.stringify(error);
