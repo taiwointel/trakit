@@ -20,7 +20,8 @@ export function useUser() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const name = user?.user_metadata?.full_name || user?.email?.split("@")[0] || "";
+  const fullName = user?.user_metadata?.full_name || user?.email?.split("@")[0] || "";
+  const name = fullName.split(" ")[0];
 
   return { user, name, loading };
 }
