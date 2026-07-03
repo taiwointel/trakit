@@ -7,6 +7,7 @@ import {
 } from "@/lib/statementExtract";
 import { parseOpayStatementDebug } from "@/lib/parsers/opay";
 import { parsePalmpayStatementDebug } from "@/lib/parsers/palmpay";
+import { parseAccessStatementDebug } from "@/lib/parsers/access";
 // pdf-parse is imported dynamically below to prevent module-level test-file
 // loading (a known pdf-parse v1 + Next.js incompatibility in serverless envs).
 
@@ -96,6 +97,10 @@ export async function POST(request) {
   const palmpayDebug = parsePalmpayStatementDebug(text);
   if (palmpayDebug.ok) {
     return NextResponse.json({ status: "done", rows: filterRows(palmpayDebug.rows) });
+  }
+  const accessDebug = parseAccessStatementDebug(text);
+  if (accessDebug.ok) {
+    return NextResponse.json({ status: "done", rows: filterRows(accessDebug.rows) });
   }
 
   if (!provider) {
