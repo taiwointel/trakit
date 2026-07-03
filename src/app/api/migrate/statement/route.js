@@ -206,7 +206,13 @@ export async function POST(request) {
         );
       }
 
-      const CHUNK_SIZE = 20000;
+      // Gemini's context window is huge (1M+ tokens) — unlike Groq it rarely
+      // needs to be split at all, and the free tier only allows 5 requests
+      // per minute, so firing many chunks at once (Promise.all) can trip the
+      // rate limit on a single multi-page statement. Use a much larger chunk
+      // size and, when more than one chunk is unavoidable, run them
+      // sequentially rather than in parallel.
+      const CHUNK_SIZE = 150000;
       const lines  = text.split("\n");
       const chunks = [];
       let current  = "";
@@ -219,12 +225,13 @@ export async function POST(request) {
       }
       if (current) chunks.push(current);
 
-      const results = await Promise.all(chunks.map((chunk) =>
-        callGemini(key, {
+      const results = [];
+      for (const chunk of chunks) {
+        results.push(await callGemini(key, {
           contents: [{ parts: [{ text: textExtractPrompt(chunk) }] }],
           generationConfig: { temperature: 0.1, maxOutputTokens: 65536 },
-        }),
-      ));
+        }));
+      }
 
       const rows = filterRows(results.flatMap((rawText) => parseAIResponse(rawText)));
       return NextResponse.json({ rows });
