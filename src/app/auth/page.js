@@ -450,6 +450,17 @@ function AuthForm({ onBack }) {
     setMode("forgot");
   }
 
+  async function handleGoogle() {
+    setMsg({ text: "", ok: false });
+    setLoading(true);
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: `${window.location.origin}/summary` },
+    });
+    if (error) setMsg({ text: errorText(error), ok: false });
+    setLoading(false);
+  }
+
   const firstName = (remembered.name || "").split(" ")[0];
   const headings = {
     signup:    ["Create your account",    "Start taking control of your money."],
@@ -499,6 +510,55 @@ function AuthForm({ onBack }) {
             {subheading}
           </div>
         </div>
+
+        {/* ── GOOGLE SIGN-IN ── */}
+        {mode !== "forgot" && (
+          <>
+            <button
+              type="button"
+              onClick={handleGoogle}
+              disabled={loading}
+              style={{
+                display:        "flex",
+                alignItems:     "center",
+                justifyContent: "center",
+                gap:            10,
+                width:          "100%",
+                padding:        "12px 16px",
+                borderRadius:   14,
+                fontSize:       14,
+                fontWeight:     600,
+                fontFamily:     "var(--font-sans)",
+                border:         "1px solid var(--rule)",
+                background:     "var(--ink-3)",
+                color:          "var(--ink-text)",
+                cursor:         loading ? "not-allowed" : "pointer",
+                opacity:        loading ? 0.7 : 1,
+                transition:     "background 0.15s",
+              }}
+              onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.06)"}
+              onMouseLeave={e => e.currentTarget.style.background = "var(--ink-3)"}
+            >
+              {/* Google logo */}
+              <svg width="18" height="18" viewBox="0 0 48 48" fill="none">
+                <path d="M47.5 24.5c0-1.6-.1-3.2-.4-4.7H24v8.9h13.2c-.6 3-2.3 5.5-4.9 7.2v6h7.9c4.6-4.3 7.3-10.6 7.3-17.4z" fill="#4285F4"/>
+                <path d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.9-6c-2.1 1.4-4.9 2.3-8 2.3-6.1 0-11.3-4.1-13.2-9.7H2.6v6.2C6.6 42.8 14.7 48 24 48z" fill="#34A853"/>
+                <path d="M10.8 28.8c-.5-1.4-.7-2.8-.7-4.3s.3-3 .7-4.3v-6.2H2.6C.9 17.4 0 20.6 0 24s.9 6.6 2.6 9.5l8.2-4.7z" fill="#FBBC05"/>
+                <path d="M24 9.5c3.4 0 6.5 1.2 8.9 3.5l6.7-6.7C35.9 2.4 30.4 0 24 0 14.7 0 6.6 5.2 2.6 14.5l8.2 4.7C12.7 13.6 17.9 9.5 24 9.5z" fill="#EA4335"/>
+              </svg>
+              Continue with Google
+            </button>
+
+            {/* Divider */}
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ flex: 1, height: 1, background: "var(--rule)" }} />
+              <span style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", fontSize: 11, whiteSpace: "nowrap" }}>
+                or continue with email
+              </span>
+              <div style={{ flex: 1, height: 1, background: "var(--rule)" }} />
+            </div>
+          </>
+        )}
 
         {/* ── FORGOT PASSWORD FORM ── */}
         {mode === "forgot" && (
