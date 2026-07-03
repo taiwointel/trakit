@@ -624,7 +624,8 @@ export default function CsvImport({ onImported }) {
         const startRes  = await fetch("/api/migrate/statement/start", { method: "POST", body: fd });
         const startData = await startRes.json();
         if (!startRes.ok) {
-          setStatus({ type: "error", msg: startData.error || "Extraction failed." });
+          const msg = startData.debug ? `${startData.error}: ${JSON.stringify(startData.debug)}` : (startData.error || "Extraction failed.");
+          setStatus({ type: "error", msg });
           return;
         }
 
