@@ -21,7 +21,6 @@ import ForecastBanner    from "@/components/summary/ForecastBanner";
 import NetWorthCard      from "@/components/summary/NetWorthCard";
 import AnomalyAlerts     from "@/components/summary/AnomalyAlerts";
 import RecurringPanel    from "@/components/summary/RecurringPanel";
-import FXWidget          from "@/components/summary/FXWidget";
 import SpendHeatmap      from "@/components/summary/SpendHeatmap";
 import AnnualWrapped     from "@/components/summary/AnnualWrapped";
 
@@ -799,9 +798,8 @@ export default function SummaryPage() {
       </div>
 
       {/* ── OUTLOOK ───────────────────────────────────────────────────────
-          Forward-looking tools: cycle forecast, FX rates, annual review.
-          Below the coach because they require deliberate engagement
-          (clicking "Generate forecast", checking FX rates manually).
+          Forward-looking tools: cycle forecast, annual review.
+          Below the coach because they require deliberate engagement.
       ── */}
       <div className="section-divider">
         <div className="section-divider-bar" style={{ background: "var(--violet)" }} />
@@ -809,7 +807,7 @@ export default function SummaryPage() {
         <div className="section-divider-rule" />
       </div>
       <p className="section-desc">
-        The spend forecast tells you if your current daily spending rate will drain your salary account before the next payday and by exactly how much. The FX widget pulls live USD, GBP, and Euro rates in Naira so you can make dollar-linked decisions without leaving the app.
+        The spend forecast tells you if your current daily spending rate will drain your salary account before the next payday and by exactly how much.
       </p>
 
       <div className="section-body">
@@ -820,7 +818,6 @@ export default function SummaryPage() {
           entries={entries}
           today={today}
         />
-        <FXWidget />
       </div>
 
       {/* ── HISTORY & PATTERNS ────────────────────────────────────────────
