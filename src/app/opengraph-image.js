@@ -76,7 +76,7 @@ export default function OGImage() {
           letterSpacing: 0.5,
           display: "flex",
         }}>
-          Track every naira. Know your net worth.
+          Track every Naira. Know your net worth.
         </div>
 
         {/* Sub-tagline */}

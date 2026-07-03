@@ -22,7 +22,7 @@ const sourceSerif4 = Source_Serif_4({
 export const metadata = {
   metadataBase: new URL("https://trakit-seven.vercel.app"),
   title: "Trakit7 — Daily Expense Tracker",
-  description: "Track every naira. Know your net worth. Get coached by Coach RBC.",
+  description: "Track every Naira. Know your net worth. Get coached by Coach RBC.",
   icons: {
     icon: "/icon.svg",
     shortcut: "/icon.svg",
@@ -30,7 +30,7 @@ export const metadata = {
   },
   openGraph: {
     title: "Trakit7 — Daily Expense Tracker",
-    description: "Track every naira. Know your net worth. Get coached by Coach RBC.",
+    description: "Track every Naira. Know your net worth. Get coached by Coach RBC.",
     url: "https://trakit-seven.vercel.app",
     siteName: "Trakit7",
     type: "website",
@@ -38,7 +38,7 @@ export const metadata = {
   twitter: {
     card: "summary_large_image",
     title: "Trakit7 — Daily Expense Tracker",
-    description: "Track every naira. Know your net worth. Get coached by Coach RBC.",
+    description: "Track every Naira. Know your net worth. Get coached by Coach RBC.",
   },
 };
 

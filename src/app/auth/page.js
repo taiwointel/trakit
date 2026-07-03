@@ -263,7 +263,7 @@ function IllustrationGrow() {
 ───────────────────────────────────────────────────────────────────────── */
 const SLIDES = [
   {
-    title: "Every naira, accounted for",
+    title: "Every Naira, accounted for",
     subtitle: "Log spending in seconds. Trakit auto-categorises every transaction and shows exactly where your money goes.",
     bg: "radial-gradient(ellipse at 60% 30%, #1A6B4A 0%, #0D4030 40%, #071A10 100%)",
     accent: "#00E896",
@@ -298,15 +298,44 @@ const iStyle = {
   color: "var(--ink-text)", fontFamily: "var(--font-mono)",
 };
 
+const labelStyle = {
+  fontSize: 11, color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)",
+  textTransform: "uppercase", letterSpacing: "0.06em",
+};
+
 function AuthForm({ onBack }) {
   const router   = useRouter();
   const supabase = createClient();
-  const [mode,     setMode]     = useState("signup");
-  const [name,     setName]     = useState("");
-  const [email,    setEmail]    = useState("");
-  const [password, setPassword] = useState("");
-  const [msg,      setMsg]      = useState({ text: "", ok: false });
-  const [loading,  setLoading]  = useState(false);
+  const pwdRef   = useRef(null);
+
+  // mode: "signup" | "signin" | "returning"
+  const [mode,       setMode]       = useState("signup");
+  const [name,       setName]       = useState("");
+  const [email,      setEmail]      = useState("");
+  const [password,   setPassword]   = useState("");
+  const [showPwd,    setShowPwd]    = useState(false);
+  const [msg,        setMsg]        = useState({ text: "", ok: false });
+  const [loading,    setLoading]    = useState(false);
+  const [remembered, setRemembered] = useState({ email: null, name: null });
+
+  // On mount: check if a previous user's email is stored
+  useEffect(() => {
+    const rEmail = localStorage.getItem("trakit7:last_email");
+    const rName  = localStorage.getItem("trakit7:last_name");
+    if (rEmail) {
+      setRemembered({ email: rEmail, name: rName || rEmail.split("@")[0] });
+      setEmail(rEmail);
+      setMode("returning");
+    }
+  }, []);
+
+  // Auto-focus password when returning user form appears
+  useEffect(() => {
+    if (mode === "returning") {
+      const t = setTimeout(() => pwdRef.current?.focus(), 80);
+      return () => clearTimeout(t);
+    }
+  }, [mode]);
 
   async function submit(e) {
     e.preventDefault();
@@ -314,16 +343,27 @@ function AuthForm({ onBack }) {
     setLoading(true);
     try {
       if (mode === "signup") {
+        const fullName = name.trim() || email.split("@")[0];
         const { error } = await supabase.auth.signUp({
           email, password,
-          options: { data: { full_name: name.trim() || email.split("@")[0] } },
+          options: {
+            data: { full_name: fullName },
+            emailRedirectTo: `${window.location.origin}/summary`,
+          },
         });
         if (error) throw error;
-        setMsg({ text: "Check your email to confirm, then sign in.", ok: true });
-        setMode("signin");
+        localStorage.setItem("trakit7:last_email", email);
+        localStorage.setItem("trakit7:last_name", fullName);
+        setRemembered({ email, name: fullName });
+        setPassword("");
+        setMode("returning");
+        setMsg({ text: "Account created! Check your email to confirm it, then enter your password below to sign in.", ok: true });
       } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
+        const fullName = data.user?.user_metadata?.full_name || email.split("@")[0];
+        localStorage.setItem("trakit7:last_email", email);
+        localStorage.setItem("trakit7:last_name", fullName);
         router.push("/summary");
         router.refresh();
       }
@@ -333,6 +373,18 @@ function AuthForm({ onBack }) {
       setLoading(false);
     }
   }
+
+  function useDifferentAccount() {
+    localStorage.removeItem("trakit7:last_email");
+    localStorage.removeItem("trakit7:last_name");
+    setRemembered({ email: null, name: null });
+    setEmail("");
+    setPassword("");
+    setMsg({ text: "", ok: false });
+    setMode("signup");
+  }
+
+  const firstName = (remembered.name || "").split(" ")[0];
 
   return (
     <div style={{
@@ -346,18 +398,19 @@ function AuthForm({ onBack }) {
         color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)",
         fontSize: 13, background: "none", border: "none",
         cursor: "pointer", display: "flex", alignItems: "center", gap: 6,
-      }}>← Back
-      </button>
+      }}>← Back</button>
 
       <div style={{
         width: "100%", maxWidth: 420,
         background: "var(--ink-2)", border: "1px solid var(--rule)",
         borderRadius: 24, padding: "36px 32px",
-        display: "flex", flexDirection: "column", gap: 22,
+        display: "flex", flexDirection: "column", gap: 24,
+        boxShadow: "0 24px 64px rgba(0,0,0,0.45)",
       }} className="slide-in">
-        {/* brand */}
+
+        {/* Brand mark */}
         <div style={{ textAlign: "center" }}>
-          <div style={{ display: "inline-flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
             <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
               <rect width="28" height="28" rx="8" fill="var(--gold)" />
               <path d="M7 14h14M14 7v14" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
@@ -366,38 +419,105 @@ function AuthForm({ onBack }) {
               Trakit7
             </span>
           </div>
-          <div style={{ color: "var(--ink-text)", fontSize: 18, fontFamily: "var(--font-serif)", fontWeight: 600 }}>
-            {mode === "signup" ? "Create your account" : "Welcome back"}
-          </div>
-          <div style={{ color: "var(--ink-text-dim)", fontSize: 13, fontFamily: "var(--font-sans)", marginTop: 4 }}>
-            {mode === "signup" ? "Start taking control of your money." : "Your finances are waiting."}
-          </div>
+
+          {mode === "returning" ? (
+            <>
+              <div style={{ color: "var(--ink-text)", fontSize: 23, fontFamily: "var(--font-serif)", fontWeight: 700, lineHeight: 1.2 }}>
+                Welcome back, {firstName} 👋
+              </div>
+              <div style={{ color: "var(--ink-text-dim)", fontSize: 13, fontFamily: "var(--font-sans)", marginTop: 6 }}>
+                Your finances are waiting.
+              </div>
+            </>
+          ) : (
+            <>
+              <div style={{ color: "var(--ink-text)", fontSize: 20, fontFamily: "var(--font-serif)", fontWeight: 600 }}>
+                {mode === "signup" ? "Create your account" : "Sign in to Trakit7"}
+              </div>
+              <div style={{ color: "var(--ink-text-dim)", fontSize: 13, fontFamily: "var(--font-sans)", marginTop: 4 }}>
+                {mode === "signup" ? "Start taking control of your money." : "Your finances are waiting."}
+              </div>
+            </>
+          )}
         </div>
 
-        <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {mode === "signup" && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-              <label style={{ fontSize: 11, color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", textTransform: "uppercase", letterSpacing: "0.06em" }}>Your name</label>
-              <input type="text" value={name} onChange={e => setName(e.target.value)}
-                placeholder="e.g. Taiwo" autoComplete="name" style={iStyle} />
+        <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+
+          {/* Returning user: show stored email as a read-only chip */}
+          {mode === "returning" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <label style={labelStyle}>Signing in as</label>
+              <div style={{
+                ...iStyle, display: "flex", alignItems: "center", gap: 10,
+                color: "var(--ink-text-dim)", userSelect: "none",
+              }}>
+                <span style={{ fontSize: 16, lineHeight: 1 }}>📧</span>
+                <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {remembered.email}
+                </span>
+              </div>
             </div>
           )}
+
+          {/* Signup: name + email */}
+          {mode === "signup" && (
+            <>
+              <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                <label style={labelStyle}>Your name</label>
+                <input type="text" value={name} onChange={e => setName(e.target.value)}
+                  placeholder="e.g. Taiwo" autoComplete="name" style={iStyle} />
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                <label style={labelStyle}>Email</label>
+                <input type="email" value={email} onChange={e => setEmail(e.target.value)}
+                  placeholder="you@example.com" required autoComplete="email" style={iStyle} />
+              </div>
+            </>
+          )}
+
+          {/* Explicit sign-in: email only */}
+          {mode === "signin" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+              <label style={labelStyle}>Email</label>
+              <input type="email" value={email} onChange={e => setEmail(e.target.value)}
+                placeholder="you@example.com" required autoComplete="email" style={iStyle} />
+            </div>
+          )}
+
+          {/* Password (all modes) */}
           <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-            <label style={{ fontSize: 11, color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", textTransform: "uppercase", letterSpacing: "0.06em" }}>Email</label>
-            <input type="email" value={email} onChange={e => setEmail(e.target.value)}
-              placeholder="you@example.com" required autoComplete="email" style={iStyle} />
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-            <label style={{ fontSize: 11, color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", textTransform: "uppercase", letterSpacing: "0.06em" }}>Password</label>
-            <input type="password" value={password} onChange={e => setPassword(e.target.value)}
-              placeholder="min. 8 characters" required
-              autoComplete={mode === "signin" ? "current-password" : "new-password"} style={iStyle} />
+            <label style={labelStyle}>Password</label>
+            <div style={{ position: "relative" }}>
+              <input
+                ref={pwdRef}
+                type={showPwd ? "text" : "password"}
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                placeholder={mode === "signup" ? "min. 8 characters" : "Enter your password"}
+                required
+                autoComplete={mode === "signup" ? "new-password" : "current-password"}
+                style={{ ...iStyle, paddingRight: 44 }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPwd(v => !v)}
+                style={{
+                  position: "absolute", right: 13, top: "50%", transform: "translateY(-50%)",
+                  background: "none", border: "none", cursor: "pointer",
+                  color: "var(--ink-text-dim)", fontSize: 15, padding: 0, lineHeight: 1,
+                }}
+                aria-label={showPwd ? "Hide password" : "Show password"}
+              >
+                {showPwd ? "🙈" : "👁"}
+              </button>
+            </div>
           </div>
 
+          {/* Status message */}
           {msg.text && (
             <p style={{
-              padding: "10px 14px", borderRadius: 10, fontSize: 12.5,
-              fontFamily: "var(--font-sans)", lineHeight: 1.5,
+              padding: "10px 14px", borderRadius: 10, fontSize: 12.5, margin: 0,
+              fontFamily: "var(--font-sans)", lineHeight: 1.55,
               color: msg.ok ? "var(--green)" : "var(--red)",
               background: msg.ok ? "var(--green-soft)" : "var(--red-soft)",
             }}>
@@ -406,7 +526,7 @@ function AuthForm({ onBack }) {
           )}
 
           <button type="submit" disabled={loading} style={{
-            marginTop: 4, padding: "14px", borderRadius: 14,
+            marginTop: 2, padding: "14px", borderRadius: 14,
             fontSize: 15, fontWeight: 700, border: "none",
             cursor: loading ? "not-allowed" : "pointer",
             background: "linear-gradient(135deg, var(--gold-deep), var(--gold))",
@@ -419,13 +539,24 @@ function AuthForm({ onBack }) {
           </button>
         </form>
 
-        <p style={{ textAlign: "center", fontSize: 12.5, color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>
-          {mode === "signup" ? "Already have an account? " : "No account yet? "}
-          <button onClick={() => { setMode(m => m === "signup" ? "signin" : "signup"); setMsg({ text: "", ok: false }); }}
-            style={{ color: "var(--gold)", background: "none", border: "none", cursor: "pointer", textDecoration: "underline", fontSize: 12.5 }}>
-            {mode === "signup" ? "Sign in" : "Create one free"}
-          </button>
-        </p>
+        {/* Footer: contextual links */}
+        {mode === "returning" ? (
+          <p style={{ textAlign: "center", fontSize: 12.5, color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", margin: 0 }}>
+            Not {firstName}?{" "}
+            <button onClick={useDifferentAccount}
+              style={{ color: "var(--gold)", background: "none", border: "none", cursor: "pointer", textDecoration: "underline", fontSize: 12.5 }}>
+              Create a free account
+            </button>
+          </p>
+        ) : (
+          <p style={{ textAlign: "center", fontSize: 12.5, color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", margin: 0 }}>
+            {mode === "signup" ? "Already have an account? " : "No account yet? "}
+            <button onClick={() => { setMode(m => m === "signup" ? "signin" : "signup"); setMsg({ text: "", ok: false }); }}
+              style={{ color: "var(--gold)", background: "none", border: "none", cursor: "pointer", textDecoration: "underline", fontSize: 12.5 }}>
+              {mode === "signup" ? "Sign in" : "Create one free"}
+            </button>
+          </p>
+        )}
       </div>
     </div>
   );
