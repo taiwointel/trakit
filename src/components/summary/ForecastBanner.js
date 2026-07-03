@@ -60,7 +60,7 @@ export default function ForecastBanner({ cycleStart, cycleEnd, salary, entries, 
     return {
       status, statusColor, statusBg, verdict, barColor,
       totalSpent, dailyAvg, daysLeft, daysElapsed, cycleDays,
-      projected, salary, spentPct, projPct, salPct, timePct,
+      projected, spentPct, projPct, salPct, timePct,
       baseline, dayMap, dayValues, maxDay,
     };
   }, [cycleStart, cycleEnd, salary, entries, today]);
@@ -70,7 +70,7 @@ export default function ForecastBanner({ cycleStart, cycleEnd, salary, entries, 
   const {
     statusColor, statusBg, verdict, barColor,
     totalSpent, dailyAvg, daysLeft, daysElapsed, cycleDays,
-    projected, salary, spentPct, projPct, salPct, timePct,
+    projected, spentPct, projPct, salPct, timePct,
     baseline, dayMap, maxDay,
   } = result;
 
