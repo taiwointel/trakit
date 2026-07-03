@@ -308,28 +308,28 @@ function AuthForm({ onBack }) {
   const supabase = createClient();
   const pwdRef   = useRef(null);
 
-  // mode: "signup" | "signin" | "returning"
-  const [mode,       setMode]       = useState("signup");
-  const [name,       setName]       = useState("");
-  const [email,      setEmail]      = useState("");
-  const [password,   setPassword]   = useState("");
-  const [showPwd,    setShowPwd]    = useState(false);
-  const [msg,        setMsg]        = useState({ text: "", ok: false });
-  const [loading,    setLoading]    = useState(false);
-  const [remembered, setRemembered] = useState({ email: null, name: null });
+  // mode: "signup" | "signin" | "returning" | "forgot"
+  const [mode,        setMode]        = useState("signup");
+  const [name,        setName]        = useState("");
+  const [email,       setEmail]       = useState("");
+  const [password,    setPassword]    = useState("");
+  const [resetEmail,  setResetEmail]  = useState("");
+  const [showPwd,     setShowPwd]     = useState(false);
+  const [msg,         setMsg]         = useState({ text: "", ok: false });
+  const [loading,     setLoading]     = useState(false);
+  const [remembered,  setRemembered]  = useState({ email: null, name: null });
 
-  // On mount: check if a previous user's email is stored
   useEffect(() => {
     const rEmail = localStorage.getItem("trakit7:last_email");
     const rName  = localStorage.getItem("trakit7:last_name");
     if (rEmail) {
       setRemembered({ email: rEmail, name: rName || rEmail.split("@")[0] });
       setEmail(rEmail);
+      setResetEmail(rEmail);
       setMode("returning");
     }
   }, []);
 
-  // Auto-focus password when returning user form appears
   useEffect(() => {
     if (mode === "returning") {
       const t = setTimeout(() => pwdRef.current?.focus(), 80);
@@ -354,7 +354,9 @@ function AuthForm({ onBack }) {
         if (error) throw error;
         localStorage.setItem("trakit7:last_email", email);
         localStorage.setItem("trakit7:last_name", fullName);
+        localStorage.setItem("trakit7:newSignup", "1");
         setRemembered({ email, name: fullName });
+        setResetEmail(email);
         setPassword("");
         setMode("returning");
         setMsg({ text: "Account created! Check your email to confirm it, then enter your password below to sign in.", ok: true });
@@ -374,17 +376,49 @@ function AuthForm({ onBack }) {
     }
   }
 
+  async function sendReset(e) {
+    e.preventDefault();
+    setMsg({ text: "", ok: false });
+    setLoading(true);
+    try {
+      const target = resetEmail.trim();
+      if (!target) { setMsg({ text: "Enter your email address.", ok: false }); return; }
+      const { error } = await supabase.auth.resetPasswordForEmail(target, {
+        redirectTo: `${window.location.origin}/auth/reset`,
+      });
+      if (error) throw error;
+      setMsg({ text: `Reset link sent to ${target}. Check your inbox (and spam folder).`, ok: true });
+    } catch (err) {
+      setMsg({ text: err.message || "Something went wrong.", ok: false });
+    } finally {
+      setLoading(false);
+    }
+  }
+
   function useDifferentAccount() {
     localStorage.removeItem("trakit7:last_email");
     localStorage.removeItem("trakit7:last_name");
     setRemembered({ email: null, name: null });
     setEmail("");
     setPassword("");
+    setResetEmail("");
     setMsg({ text: "", ok: false });
     setMode("signup");
   }
 
+  function goForgot() {
+    setMsg({ text: "", ok: false });
+    setMode("forgot");
+  }
+
   const firstName = (remembered.name || "").split(" ")[0];
+  const headings = {
+    signup:    ["Create your account",    "Start taking control of your money."],
+    signin:    ["Sign in to Trakit7",     "Your finances are waiting."],
+    returning: [`Welcome back, ${firstName} 👋`, "Your finances are waiting."],
+    forgot:    ["Reset your password",    "We'll send a link to your email."],
+  };
+  const [heading, subheading] = headings[mode] || headings.signup;
 
   return (
     <div style={{
@@ -408,7 +442,7 @@ function AuthForm({ onBack }) {
         boxShadow: "0 24px 64px rgba(0,0,0,0.45)",
       }} className="slide-in">
 
-        {/* Brand mark */}
+        {/* Brand */}
         <div style={{ textAlign: "center" }}>
           <div style={{ display: "inline-flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
             <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
@@ -419,128 +453,129 @@ function AuthForm({ onBack }) {
               Trakit7
             </span>
           </div>
-
-          {mode === "returning" ? (
-            <>
-              <div style={{ color: "var(--ink-text)", fontSize: 23, fontFamily: "var(--font-serif)", fontWeight: 700, lineHeight: 1.2 }}>
-                Welcome back, {firstName} 👋
-              </div>
-              <div style={{ color: "var(--ink-text-dim)", fontSize: 13, fontFamily: "var(--font-sans)", marginTop: 6 }}>
-                Your finances are waiting.
-              </div>
-            </>
-          ) : (
-            <>
-              <div style={{ color: "var(--ink-text)", fontSize: 20, fontFamily: "var(--font-serif)", fontWeight: 600 }}>
-                {mode === "signup" ? "Create your account" : "Sign in to Trakit7"}
-              </div>
-              <div style={{ color: "var(--ink-text-dim)", fontSize: 13, fontFamily: "var(--font-sans)", marginTop: 4 }}>
-                {mode === "signup" ? "Start taking control of your money." : "Your finances are waiting."}
-              </div>
-            </>
-          )}
+          <div style={{ color: "var(--ink-text)", fontSize: mode === "returning" ? 22 : 20, fontFamily: "var(--font-serif)", fontWeight: mode === "returning" ? 700 : 600, lineHeight: 1.2 }}>
+            {heading}
+          </div>
+          <div style={{ color: "var(--ink-text-dim)", fontSize: 13, fontFamily: "var(--font-sans)", marginTop: 6 }}>
+            {subheading}
+          </div>
         </div>
 
-        <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-
-          {/* Returning user: show stored email as a read-only chip */}
-          {mode === "returning" && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              <label style={labelStyle}>Signing in as</label>
-              <div style={{
-                ...iStyle, display: "flex", alignItems: "center", gap: 10,
-                color: "var(--ink-text-dim)", userSelect: "none",
-              }}>
-                <span style={{ fontSize: 16, lineHeight: 1 }}>📧</span>
-                <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {remembered.email}
-                </span>
+        {/* ── FORGOT PASSWORD FORM ── */}
+        {mode === "forgot" && (
+          <form onSubmit={sendReset} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            {remembered.email ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <label style={labelStyle}>Send reset link to</label>
+                <div style={{ ...iStyle, display: "flex", alignItems: "center", gap: 10, color: "var(--ink-text-dim)", userSelect: "none" }}>
+                  <span style={{ fontSize: 16, lineHeight: 1 }}>📧</span>
+                  <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{remembered.email}</span>
+                </div>
               </div>
-            </div>
-          )}
-
-          {/* Signup: name + email */}
-          {mode === "signup" && (
-            <>
+            ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                <label style={labelStyle}>Your name</label>
-                <input type="text" value={name} onChange={e => setName(e.target.value)}
-                  placeholder="e.g. Taiwo" autoComplete="name" style={iStyle} />
+                <label style={labelStyle}>Your email</label>
+                <input type="email" value={resetEmail} onChange={e => setResetEmail(e.target.value)}
+                  placeholder="you@example.com" required autoComplete="email" style={iStyle} />
               </div>
+            )}
+            {msg.text && (
+              <p style={{ padding: "10px 14px", borderRadius: 10, fontSize: 12.5, margin: 0, fontFamily: "var(--font-sans)", lineHeight: 1.55, color: msg.ok ? "var(--green)" : "var(--red)", background: msg.ok ? "var(--green-soft)" : "var(--red-soft)" }}>
+                {msg.text}
+              </p>
+            )}
+            <button type="submit" disabled={loading} style={{ marginTop: 2, padding: "14px", borderRadius: 14, fontSize: 15, fontWeight: 700, border: "none", cursor: loading ? "not-allowed" : "pointer", background: "linear-gradient(135deg, var(--gold-deep), var(--gold))", color: "#fff", fontFamily: "var(--font-sans)", opacity: loading ? 0.72 : 1, boxShadow: "0 4px 20px rgba(169,133,79,0.4)" }}>
+              {loading ? "Sending…" : "Send reset link →"}
+            </button>
+            <p style={{ textAlign: "center", fontSize: 12.5, color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", margin: 0 }}>
+              <button type="button" onClick={() => { setMode(remembered.email ? "returning" : "signin"); setMsg({ text: "", ok: false }); }}
+                style={{ color: "var(--gold)", background: "none", border: "none", cursor: "pointer", textDecoration: "underline", fontSize: 12.5 }}>
+                Back to sign in
+              </button>
+            </p>
+          </form>
+        )}
+
+        {/* ── SIGN IN / SIGNUP FORM ── */}
+        {mode !== "forgot" && (
+          <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+
+            {mode === "returning" && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <label style={labelStyle}>Signing in as</label>
+                <div style={{ ...iStyle, display: "flex", alignItems: "center", gap: 10, color: "var(--ink-text-dim)", userSelect: "none" }}>
+                  <span style={{ fontSize: 16, lineHeight: 1 }}>📧</span>
+                  <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{remembered.email}</span>
+                </div>
+              </div>
+            )}
+
+            {mode === "signup" && (
+              <>
+                <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                  <label style={labelStyle}>Your name</label>
+                  <input type="text" value={name} onChange={e => setName(e.target.value)}
+                    placeholder="e.g. Taiwo" autoComplete="name" style={iStyle} />
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                  <label style={labelStyle}>Email</label>
+                  <input type="email" value={email} onChange={e => setEmail(e.target.value)}
+                    placeholder="you@example.com" required autoComplete="email" style={iStyle} />
+                </div>
+              </>
+            )}
+
+            {mode === "signin" && (
               <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
                 <label style={labelStyle}>Email</label>
                 <input type="email" value={email} onChange={e => setEmail(e.target.value)}
                   placeholder="you@example.com" required autoComplete="email" style={iStyle} />
               </div>
-            </>
-          )}
+            )}
 
-          {/* Explicit sign-in: email only */}
-          {mode === "signin" && (
             <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-              <label style={labelStyle}>Email</label>
-              <input type="email" value={email} onChange={e => setEmail(e.target.value)}
-                placeholder="you@example.com" required autoComplete="email" style={iStyle} />
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <label style={labelStyle}>Password</label>
+                {(mode === "returning" || mode === "signin") && (
+                  <button type="button" onClick={goForgot}
+                    style={{ color: "var(--ink-text-dim)", background: "none", border: "none", cursor: "pointer", fontSize: 11, fontFamily: "var(--font-sans)", textDecoration: "underline", padding: 0 }}>
+                    Forgot password?
+                  </button>
+                )}
+              </div>
+              <div style={{ position: "relative" }}>
+                <input
+                  ref={pwdRef}
+                  type={showPwd ? "text" : "password"}
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  placeholder={mode === "signup" ? "min. 8 characters" : "Enter your password"}
+                  required
+                  autoComplete={mode === "signup" ? "new-password" : "current-password"}
+                  style={{ ...iStyle, paddingRight: 44 }}
+                />
+                <button type="button" onClick={() => setShowPwd(v => !v)}
+                  style={{ position: "absolute", right: 13, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "var(--ink-text-dim)", fontSize: 15, padding: 0, lineHeight: 1 }}
+                  aria-label={showPwd ? "Hide password" : "Show password"}>
+                  {showPwd ? "🙈" : "👁"}
+                </button>
+              </div>
             </div>
-          )}
 
-          {/* Password (all modes) */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-            <label style={labelStyle}>Password</label>
-            <div style={{ position: "relative" }}>
-              <input
-                ref={pwdRef}
-                type={showPwd ? "text" : "password"}
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                placeholder={mode === "signup" ? "min. 8 characters" : "Enter your password"}
-                required
-                autoComplete={mode === "signup" ? "new-password" : "current-password"}
-                style={{ ...iStyle, paddingRight: 44 }}
-              />
-              <button
-                type="button"
-                onClick={() => setShowPwd(v => !v)}
-                style={{
-                  position: "absolute", right: 13, top: "50%", transform: "translateY(-50%)",
-                  background: "none", border: "none", cursor: "pointer",
-                  color: "var(--ink-text-dim)", fontSize: 15, padding: 0, lineHeight: 1,
-                }}
-                aria-label={showPwd ? "Hide password" : "Show password"}
-              >
-                {showPwd ? "🙈" : "👁"}
-              </button>
-            </div>
-          </div>
+            {msg.text && (
+              <p style={{ padding: "10px 14px", borderRadius: 10, fontSize: 12.5, margin: 0, fontFamily: "var(--font-sans)", lineHeight: 1.55, color: msg.ok ? "var(--green)" : "var(--red)", background: msg.ok ? "var(--green-soft)" : "var(--red-soft)" }}>
+                {msg.text}
+              </p>
+            )}
 
-          {/* Status message */}
-          {msg.text && (
-            <p style={{
-              padding: "10px 14px", borderRadius: 10, fontSize: 12.5, margin: 0,
-              fontFamily: "var(--font-sans)", lineHeight: 1.55,
-              color: msg.ok ? "var(--green)" : "var(--red)",
-              background: msg.ok ? "var(--green-soft)" : "var(--red-soft)",
-            }}>
-              {msg.text}
-            </p>
-          )}
+            <button type="submit" disabled={loading} style={{ marginTop: 2, padding: "14px", borderRadius: 14, fontSize: 15, fontWeight: 700, border: "none", cursor: loading ? "not-allowed" : "pointer", background: "linear-gradient(135deg, var(--gold-deep), var(--gold))", color: "#fff", fontFamily: "var(--font-sans)", opacity: loading ? 0.72 : 1, boxShadow: "0 4px 20px rgba(169,133,79,0.4)", transition: "opacity 0.2s" }}>
+              {loading ? "…" : mode === "signup" ? "Create account →" : "Sign in →"}
+            </button>
+          </form>
+        )}
 
-          <button type="submit" disabled={loading} style={{
-            marginTop: 2, padding: "14px", borderRadius: 14,
-            fontSize: 15, fontWeight: 700, border: "none",
-            cursor: loading ? "not-allowed" : "pointer",
-            background: "linear-gradient(135deg, var(--gold-deep), var(--gold))",
-            color: "#fff", fontFamily: "var(--font-sans)",
-            opacity: loading ? 0.72 : 1,
-            boxShadow: "0 4px 20px rgba(169,133,79,0.4)",
-            transition: "opacity 0.2s",
-          }}>
-            {loading ? "…" : mode === "signup" ? "Create account →" : "Sign in →"}
-          </button>
-        </form>
-
-        {/* Footer: contextual links */}
-        {mode === "returning" ? (
+        {/* Footer links */}
+        {mode === "returning" && (
           <p style={{ textAlign: "center", fontSize: 12.5, color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", margin: 0 }}>
             Not {firstName}?{" "}
             <button onClick={useDifferentAccount}
@@ -548,7 +583,8 @@ function AuthForm({ onBack }) {
               Create a free account
             </button>
           </p>
-        ) : (
+        )}
+        {(mode === "signup" || mode === "signin") && (
           <p style={{ textAlign: "center", fontSize: 12.5, color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", margin: 0 }}>
             {mode === "signup" ? "Already have an account? " : "No account yet? "}
             <button onClick={() => { setMode(m => m === "signup" ? "signin" : "signup"); setMsg({ text: "", ok: false }); }}

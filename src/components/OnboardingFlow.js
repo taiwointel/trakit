@@ -440,7 +440,7 @@ export default function OnboardingFlow({ userName }) {
             icon={<IconBrowser color="#A9854F" />}
             badge="Groq (not Grok) · Step 1 of 3"
             title="Open the Groq console"
-            body="In a new tab, go to console.groq.com and create a free account. Sign up with email or Google. No credit card needed at any point. Note: this is Groq — G·R·O·Q — not Grok, Elon Musk's chatbot."
+            body="In a new tab, go to console.groq.com and create a free account. Sign up with email or Google. No credit card needed at any point. Note: this is Groq (G·R·O·Q), not Grok, Elon Musk's chatbot."
             extra={
               <div className="flex items-center justify-between px-4 py-3 rounded-xl" style={{ background: "var(--ink-3)", border: "1px solid var(--rule)" }}>
                 <span style={{ color: "var(--ink-text)", fontFamily: "var(--font-mono)", fontSize: "0.9rem" }}>console.groq.com</span>
@@ -470,7 +470,7 @@ export default function OnboardingFlow({ userName }) {
             extra={
               <div className="px-4 py-3 rounded-xl" style={{ background: "rgba(47,122,86,0.1)", border: "1px solid rgba(47,122,86,0.3)" }}>
                 <p style={{ color: "#2F7A56", fontFamily: "var(--font-sans)", fontSize: "0.85rem", lineHeight: 1.6 }}>
-                  💡 Click <strong>+ Create API Key</strong>, give it any name, then copy the key immediately. Groq only shows it once — if you close the dialog before copying, you will need to create a new one.
+                  💡 Click <strong>+ Create API Key</strong>, give it any name, set expiration to <strong>No expiration</strong>, then copy the key immediately. Groq only shows it once. If you close the dialog before copying, you will need to create a new one.
                 </p>
               </div>
             }
@@ -492,26 +492,43 @@ export default function OnboardingFlow({ userName }) {
 
   if (phase === "gemini") {
 
-    /* Step 0: Transition / intro to Gemini */
+    /* Step 0: Groq celebration + Gemini intro */
     if (step === 0) {
       return (
         <OverlayShell>
           <ProviderProgress groqDone={true} geminiDone={false} />
-          <StepCard
-            icon={<IconCheck color="var(--green)" />}
-            badge={groqDone ? "Groq connected ✓" : "Almost there"}
-            title="Now let's add Gemini"
-            body="Gemini is Google's free AI, accessed through Google AI Studio. It takes about 60 seconds. Go to aistudio.google.com — this is different from Google Cloud Console, which is not free."
-            extra={
-              <div className="px-4 py-3 rounded-xl" style={{ background: "rgba(184,57,43,0.08)", border: "1px solid rgba(184,57,43,0.25)" }}>
-                <p style={{ color: "var(--red)", fontFamily: "var(--font-sans)", fontSize: "0.82rem", lineHeight: 1.6 }}>
-                  ⚠️ <strong>Use AI Studio only.</strong> Do not use Google Cloud Console — those keys require billing and will not work here.
-                </p>
-              </div>
-            }
-            onNext={() => setStep(1)}
-            nextLabel="Open AI Studio →"
-          />
+          <div
+            className="w-full rounded-2xl flex flex-col items-center gap-5 p-7 text-center slide-in"
+            style={{ background: "var(--ink-2)", border: "1px solid var(--rule)" }}
+          >
+            <div style={{ fontSize: 64, lineHeight: 1 }}>🎉</div>
+            <div>
+              <span
+                className="text-xs font-semibold uppercase tracking-widest px-3 py-1 rounded-full inline-block mb-3"
+                style={{ background: "rgba(47,122,86,0.18)", color: "var(--green)", fontFamily: "var(--font-sans)" }}
+              >
+                Groq connected ✓
+              </span>
+              <h2 style={{ color: "var(--ink-text)", fontFamily: "var(--font-serif)", fontSize: "1.5rem", fontWeight: 700, lineHeight: 1.3 }}>
+                Woohoo! Groq is in. 🙌
+              </h2>
+              <p className="mt-2" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", fontSize: "0.9rem", lineHeight: 1.7, maxWidth: 340, margin: "0.5rem auto 0" }}>
+                One down, one to go. Now let{"'"}s add Gemini, Google{"'"}s free AI. It takes about 60 seconds.
+              </p>
+            </div>
+            <div className="px-4 py-3 rounded-xl w-full text-left" style={{ background: "rgba(184,57,43,0.08)", border: "1px solid rgba(184,57,43,0.25)" }}>
+              <p style={{ color: "var(--red)", fontFamily: "var(--font-sans)", fontSize: "0.82rem", lineHeight: 1.6 }}>
+                ⚠️ <strong>Use AI Studio only.</strong> Do not use Google Cloud Console. Those keys require billing and will not work here.
+              </p>
+            </div>
+            <button
+              onClick={() => setStep(1)}
+              className="w-full py-3 rounded-xl font-bold text-sm"
+              style={{ background: "linear-gradient(135deg, #C8862E, #A9854F)", color: "#fff", fontFamily: "var(--font-sans)" }}
+            >
+              Let{"'"}s go →
+            </button>
+          </div>
         </OverlayShell>
       );
     }

@@ -141,8 +141,10 @@ export default function AppLayout({ children }) {
   }, []);
 
   useEffect(() => {
-    const seen = localStorage.getItem("trakit7:tourSeen");
-    if (!seen) {
+    const seen      = localStorage.getItem("trakit7:tourSeen");
+    const newSignup = localStorage.getItem("trakit7:newSignup");
+    if (!seen && newSignup) {
+      localStorage.removeItem("trakit7:newSignup");
       const t = setTimeout(() => setTourOpen(true), 1200);
       return () => clearTimeout(t);
     }
