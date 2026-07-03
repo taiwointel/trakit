@@ -371,13 +371,9 @@ function AuthForm({ onBack }) {
           email, password,
           options: {
             data: { full_name: fullName },
-            // emailRedirectTo only needed when email confirmation is ON.
-            // When OFF, including it triggers Supabase's redirect-URL allowlist
-            // validation and fails the signup if the URL isn't whitelisted yet.
+            emailRedirectTo: `${window.location.origin}/summary`,
           },
         });
-        // Debug: log the raw response so we can see exactly what Supabase returns
-        console.log("[signup] data:", JSON.stringify(data), "error:", JSON.stringify(error), "err.message:", error?.message, "err.status:", error?.status, "err.code:", error?.code);
         if (error) throw error;
         // If email confirmation is disabled, Supabase returns the session immediately.
         // Redirect straight into the app. If confirmation is required, data.session is null.
