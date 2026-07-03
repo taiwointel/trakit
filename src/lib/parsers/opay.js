@@ -34,7 +34,12 @@ const RECORD_START = /^(\d{2} [A-Za-z]{3} \d{4}) \d{2}:\d{2}:\d{2} \d{2} [A-Za-z
 const LINE_RE = /^(\d{2} [A-Za-z]{3} \d{4}) \d{2}:\d{2}:\d{2} \d{2} [A-Za-z]{3} \d{4}\s+(.*?)\s+(--|[\d,]+\.\d{2})\s+(--|[\d,]+\.\d{2})\s+([\d,]+\.\d{2})\s+(Mobile|POS|WEB)\s+(.*)$/;
 
 export function parseOpayStatement(text) {
-  if (!/opay/i.test(text) || !/wallet account/i.test(text)) return null;
+  // Don't rely on the literal word "OPay" appearing in the extracted text —
+  // it may only exist as a logo image in the PDF, not as selectable text.
+  // This exact column-header line is OPay's specific table fingerprint and
+  // is confirmed present in real exported statements.
+  if (!/trans\.?\s*time\s+value\s*date\s+description\s+debit/i.test(text)) return null;
+  if (!/wallet account/i.test(text)) return null;
 
   // Only the Wallet Account section holds real external transactions —
   // Savings Account (OWealth) is a separate table of internal sub-balance
