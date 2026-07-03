@@ -15,97 +15,256 @@ export default function ForecastBanner({ cycleStart, cycleEnd, salary, entries, 
     const daysElapsed = Math.max(1, Math.round((now   - start) / 86400000) + 1);
     const daysLeft    = Math.max(0, cycleDays - daysElapsed);
 
-    const totalSpent = entries
+    // Build per-day spend map (only days elapsed so far)
+    const dayMap = {};
+    for (let i = 0; i < daysElapsed; i++) {
+      const d   = new Date(start.getTime() + i * 86400000);
+      const key = d.toISOString().slice(0, 10);
+      dayMap[key] = 0;
+    }
+    entries
       .filter((e) => e.flow === "out" && e.date >= cycleStart && e.date <= today)
-      .reduce((s, e) => s + Number(e.amount), 0);
+      .forEach((e) => { dayMap[e.date] = (dayMap[e.date] || 0) + Number(e.amount); });
 
+    const dayValues  = Object.values(dayMap);
+    const totalSpent = dayValues.reduce((s, v) => s + v, 0);
     if (totalSpent === 0) return null;
 
-    const dailyAvg = totalSpent / daysElapsed;
+    const dailyAvg  = totalSpent / daysElapsed;
     const projected = dailyAvg * cycleDays;
+    const maxDay    = Math.max(...dayValues, dailyAvg * 1.5, 1);
 
-    let status, color, borderColor, bgColor, message;
+    // Status
+    let status, statusColor, statusBg, verdict;
     if (!salary || salary <= 0) {
-      status = "neutral";
-      color       = "var(--ink-text-dim)";
-      borderColor = "var(--ink-text-dim)";
-      bgColor     = "var(--ink-2)";
-      message     = `Projected spend this cycle: ${formatNaira(projected)}`;
+      status = "neutral"; statusColor = "var(--gold)"; statusBg = "rgba(169,133,79,0.12)";
+      verdict = `Projecting ${formatNaira(projected)} total spend this cycle`;
     } else if (projected > salary) {
-      status = "red";
-      color       = "var(--red)";
-      borderColor = "var(--red)";
-      bgColor     = "var(--red-soft)";
-      message     = `⚠ Projected to overspend by ${formatNaira(projected - salary)} this salary cycle`;
+      status = "danger"; statusColor = "var(--red)"; statusBg = "var(--red-soft)";
+      verdict = `Overspend risk — projected to exceed salary by ${formatNaira(projected - salary)}`;
     } else if (projected > salary * 0.9) {
-      status = "amber";
-      color       = "var(--amber)";
-      borderColor = "var(--amber)";
-      bgColor     = "var(--amber-soft)";
-      const pct = Math.round((projected / salary) * 100);
-      message     = `On track to use ${pct}% of salary. Running tight.`;
+      status = "warning"; statusColor = "var(--amber)"; statusBg = "var(--amber-soft)";
+      verdict = `Running tight — ${Math.round((projected / salary) * 100)}% of salary will be spent`;
     } else {
-      status = "green";
-      color       = "var(--green)";
-      borderColor = "var(--green)";
-      bgColor     = "var(--green-soft)";
-      message     = `On track. ${formatNaira(salary - projected)} projected to remain by payday.`;
+      status = "good"; statusColor = "var(--green)"; statusBg = "var(--green-soft)";
+      verdict = `On track — ${formatNaira(salary - projected)} projected to remain by payday`;
     }
 
-    const barPct = salary && salary > 0
-      ? Math.min(100, (projected / salary) * 100)
-      : Math.min(100, (totalSpent / (totalSpent * 1.2)) * 100);
+    const barColor  = { danger: "var(--red)", warning: "var(--amber)", good: "var(--green)", neutral: "var(--gold)" }[status];
+    const baseline  = salary && salary > 0 ? Math.max(salary, projected) : projected * 1.1;
+    const spentPct  = Math.min(100, (totalSpent / baseline) * 100);
+    const projPct   = Math.min(100, (projected  / baseline) * 100);
+    const salPct    = salary ? Math.min(100, (salary / baseline) * 100) : null;
+    const timePct   = Math.min(100, (daysElapsed / cycleDays) * 100);
 
-    return { message, color, borderColor, bgColor, status, dailyAvg, daysLeft, projected, barPct, salary };
+    return {
+      status, statusColor, statusBg, verdict, barColor,
+      totalSpent, dailyAvg, daysLeft, daysElapsed, cycleDays,
+      projected, salary, spentPct, projPct, salPct, timePct,
+      baseline, dayMap, dayValues, maxDay,
+    };
   }, [cycleStart, cycleEnd, salary, entries, today]);
 
   if (!result) return null;
 
-  return (
-    <div
-      className="rounded-xl p-4 flex flex-col gap-2"
-      style={{
-        background: result.bgColor,
-        borderLeft: `3px solid ${result.borderColor}`,
-        border: `1px solid ${result.borderColor}`,
-        borderLeftWidth: "3px",
-      }}
-    >
-      <p
-        className="text-sm font-semibold"
-        style={{ color: result.color, fontFamily: "var(--font-sans)" }}
-      >
-        {result.message}
-      </p>
+  const {
+    statusColor, statusBg, verdict, barColor,
+    totalSpent, dailyAvg, daysLeft, daysElapsed, cycleDays,
+    projected, salary, spentPct, projPct, salPct, timePct,
+    baseline, dayMap, maxDay,
+  } = result;
 
-      <div
-        className="w-full rounded-full overflow-hidden"
-        style={{ height: "6px", background: "rgba(255,255,255,0.12)" }}
-      >
-        <div
-          className="h-full rounded-full transition-all"
-          style={{ width: `${result.barPct}%`, background: result.borderColor }}
-        />
+  const dayEntries = Object.entries(dayMap);
+
+  return (
+    <div style={{
+      background: "var(--ink-2)", border: "1px solid var(--rule)",
+      borderRadius: 16, padding: "20px 22px",
+      display: "flex", flexDirection: "column", gap: 20, width: "100%",
+    }}>
+
+      {/* ── Header ── */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <span style={{
+          fontFamily: "var(--font-sans)", fontSize: 11, fontWeight: 700,
+          textTransform: "uppercase", letterSpacing: "0.1em", color: "var(--violet)",
+        }}>
+          Spend Forecast
+        </span>
+        <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--ink-text-dim)" }}>
+          Day {daysElapsed} of {cycleDays} · {daysLeft}d to payday
+        </span>
       </div>
 
-      <div className="flex items-center gap-3 flex-wrap">
-        <span
-          className="text-xs"
-          style={{ color: result.color, fontFamily: "var(--font-mono)" }}
-        >
-          {formatNaira(result.dailyAvg)}/day avg
+      {/* ── Time bar ── */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9.5, color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>
+          <span>Cycle start</span>
+          <span style={{ opacity: 0.5, textTransform: "uppercase", letterSpacing: "0.07em", fontSize: 9 }}>Time elapsed</span>
+          <span>Payday</span>
+        </div>
+        <div style={{ position: "relative", height: 7, borderRadius: 4, background: "rgba(255,255,255,0.07)" }}>
+          <div style={{
+            position: "absolute", inset: 0, width: `${timePct}%`,
+            borderRadius: 4, background: "rgba(255,255,255,0.22)",
+          }} />
+          <div style={{
+            position: "absolute", top: -4, left: `${timePct}%`,
+            transform: "translateX(-50%)",
+            width: 2, height: 15, borderRadius: 1,
+            background: "rgba(255,255,255,0.65)",
+          }} />
+        </div>
+      </div>
+
+      {/* ── Spend vs salary bar ── */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9.5, color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>
+          <span>₦0</span>
+          <span style={{ opacity: 0.5, textTransform: "uppercase", letterSpacing: "0.07em", fontSize: 9 }}>Spending vs {salary ? "salary" : "projection"}</span>
+          <span>{formatNaira(baseline)}</span>
+        </div>
+        <div style={{ position: "relative", height: 20, borderRadius: 10, background: "rgba(255,255,255,0.05)", overflow: "hidden" }}>
+          {/* Projected zone */}
+          <div style={{
+            position: "absolute", top: 0, left: 0, height: "100%",
+            width: `${projPct}%`, borderRadius: 10,
+            background: `${barColor}22`,
+            borderRight: `2px dashed ${barColor}70`,
+          }} />
+          {/* Actual spend */}
+          <div style={{
+            position: "absolute", top: 0, left: 0, height: "100%",
+            width: `${spentPct}%`, borderRadius: 10,
+            background: `linear-gradient(90deg, ${barColor}bb, ${barColor})`,
+          }} />
+          {/* Salary marker */}
+          {salPct && (
+            <div style={{
+              position: "absolute", top: 0, left: `${salPct}%`,
+              height: "100%", width: 2, background: "rgba(255,255,255,0.5)",
+              transform: "translateX(-50%)",
+            }} />
+          )}
+        </div>
+        {/* Legend */}
+        <div style={{ display: "flex", gap: 14, fontSize: 9.5, fontFamily: "var(--font-sans)", color: "var(--ink-text-dim)", flexWrap: "wrap" }}>
+          <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
+            <span style={{ display: "inline-block", width: 10, height: 6, borderRadius: 3, background: barColor }} />
+            Spent ({formatNaira(totalSpent)})
+          </span>
+          <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
+            <span style={{ display: "inline-block", width: 10, height: 6, borderRadius: 3, background: `${barColor}30`, border: `1px dashed ${barColor}80`, boxSizing: "border-box" }} />
+            Projected ({formatNaira(projected)})
+          </span>
+          {salary > 0 && (
+            <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
+              <span style={{ display: "inline-block", width: 2, height: 10, background: "rgba(255,255,255,0.5)" }} />
+              Salary ({formatNaira(salary)})
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* ── Daily pattern chart ── */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        <span style={{
+          fontFamily: "var(--font-sans)", fontSize: 9.5, fontWeight: 700,
+          textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-text-dim)",
+        }}>
+          Daily spending pattern
         </span>
-        <span
-          className="text-xs"
-          style={{ color: result.color, fontFamily: "var(--font-mono)" }}
-        >
-          {result.daysLeft} day{result.daysLeft !== 1 ? "s" : ""} left
+        <div style={{ position: "relative", height: 52 }}>
+          {/* Average line */}
+          <div style={{
+            position: "absolute", left: 0, right: 0, zIndex: 1, pointerEvents: "none",
+            bottom: `${Math.min(96, (dailyAvg / maxDay) * 100)}%`,
+            borderTop: "1px dashed rgba(255,255,255,0.18)",
+          }} />
+          {/* Bars container */}
+          <div style={{ display: "flex", alignItems: "flex-end", gap: 2, height: "100%", overflow: "hidden" }}>
+            {/* Actual days */}
+            {dayEntries.map(([date, amount]) => {
+              const h   = Math.max(2, (amount / maxDay) * 52);
+              const col = amount > dailyAvg * 1.6 ? "var(--red)" : amount > dailyAvg * 1.1 ? "var(--amber)" : barColor;
+              return (
+                <div
+                  key={date}
+                  title={`${date}: ${formatNaira(amount)}`}
+                  style={{
+                    flex: 1, minWidth: 2, height: h,
+                    borderRadius: "2px 2px 0 0", background: col, opacity: 0.88,
+                    alignSelf: "flex-end",
+                  }}
+                />
+              );
+            })}
+            {/* Ghost bars for remaining days (at avg) */}
+            {Array.from({ length: daysLeft }).map((_, i) => (
+              <div
+                key={`p${i}`}
+                style={{
+                  flex: 1, minWidth: 2,
+                  height: Math.max(2, (dailyAvg / maxDay) * 52),
+                  borderRadius: "2px 2px 0 0",
+                  background: `${barColor}22`,
+                  border: `1px solid ${barColor}40`,
+                  borderBottom: "none",
+                  alignSelf: "flex-end",
+                  boxSizing: "border-box",
+                }}
+              />
+            ))}
+          </div>
+        </div>
+        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9, color: "var(--ink-text-dim)", fontFamily: "var(--font-mono)" }}>
+          <span>Day 1</span>
+          <span style={{ opacity: 0.45 }}>dashed = avg {formatNaira(dailyAvg)}/day · ghost bars = forecast</span>
+          <span>Day {cycleDays}</span>
+        </div>
+      </div>
+
+      {/* ── Stats grid ── */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(110px, 1fr))", gap: 10 }}>
+        {[
+          { label: "Spent so far", value: formatNaira(totalSpent), sub: `${daysElapsed} days in` },
+          { label: "Daily burn",   value: formatNaira(dailyAvg),   sub: "avg per day" },
+          { label: "Days left",    value: String(daysLeft),         sub: `of ${cycleDays} cycle` },
+          { label: "Projected",    value: formatNaira(projected),   sub: "by payday", highlight: true },
+        ].map((s) => (
+          <div
+            key={s.label}
+            style={{
+              background:   s.highlight ? statusBg : "rgba(255,255,255,0.03)",
+              border:       `1px solid ${s.highlight ? `${statusColor}55` : "var(--rule)"}`,
+              borderRadius: 10, padding: "10px 12px",
+              display: "flex", flexDirection: "column", gap: 3,
+            }}
+          >
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: 15, fontWeight: 700, color: s.highlight ? statusColor : "var(--ink-text)", lineHeight: 1.2 }}>
+              {s.value}
+            </span>
+            <span style={{ fontFamily: "var(--font-sans)", fontSize: 9.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--ink-text-dim)" }}>
+              {s.label}
+            </span>
+            <span style={{ fontFamily: "var(--font-sans)", fontSize: 9, color: "var(--ink-text-dim)", opacity: 0.6 }}>
+              {s.sub}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      {/* ── Verdict ── */}
+      <div style={{
+        display: "flex", alignItems: "center", gap: 10,
+        padding: "11px 14px", borderRadius: 10,
+        background: statusBg, border: `1px solid ${statusColor}40`,
+      }}>
+        <span style={{ fontSize: 16, flexShrink: 0 }}>
+          {result.status === "danger" ? "⚠️" : result.status === "warning" ? "🟡" : result.status === "good" ? "✅" : "📊"}
         </span>
-        <span
-          className="text-xs ml-auto"
-          style={{ color: result.color, fontFamily: "var(--font-mono)" }}
-        >
-          {formatNaira(result.projected)} projected
+        <span style={{ fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600, color: statusColor, lineHeight: 1.4 }}>
+          {verdict}
         </span>
       </div>
     </div>
