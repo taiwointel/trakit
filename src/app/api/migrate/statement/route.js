@@ -109,25 +109,30 @@ function chunkText(text, chunkSize) {
   return chunks;
 }
 
-// Groq text-only extraction: chunked (short calls, Groq's higher free-tier
-// RPM tolerates parallel chunks fine).
+// Groq text-only extraction. Free tier caps requests at 12,000 tokens/minute,
+// and max_tokens counts against that budget as reserved capacity (not just
+// actual usage) — so both the chunk size and max_tokens must be small enough
+// that input + max_tokens stays comfortably under the cap. Calls also run
+// sequentially rather than in parallel since the limit is per-minute across
+// the whole account, not per-request.
 async function extractViaGroq(text, key) {
-  const chunks = chunkText(text, 20000);
-  const results = await Promise.all(chunks.map(async (chunk) => {
+  const chunks = chunkText(text, 6000);
+  const results = [];
+  for (const chunk of chunks) {
     const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
       body: JSON.stringify({
         model: "llama-3.3-70b-versatile",
         messages: [{ role: "user", content: textExtractPrompt(chunk) }],
-        max_tokens: 32768,
+        max_tokens: 4000,
         temperature: 0.1,
       }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error?.message || "Groq error");
-    return data.choices?.[0]?.message?.content || "";
-  }));
+    results.push(data.choices?.[0]?.message?.content || "");
+  }
   return filterRows(results.flatMap((rawText) => parseAIResponse(rawText)));
 }
 
