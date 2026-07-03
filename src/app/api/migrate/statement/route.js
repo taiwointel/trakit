@@ -147,21 +147,40 @@ export async function POST(request) {
         );
       }
 
-      const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-        body: JSON.stringify({
-          model: "llama-3.3-70b-versatile",
-          messages: [{ role: "user", content: textExtractPrompt(text.slice(0, 40000)) }],
-          max_tokens: 32768,
-          temperature: 0.1,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error?.message || "Groq error");
+      // Long statements previously got silently truncated to 40k chars (data loss)
+      // and, worse, a single giant completion could take longer than Vercel's
+      // function timeout. Split into chunks and run them concurrently instead —
+      // each call stays fast and nothing gets dropped.
+      const CHUNK_SIZE = 20000;
+      const lines  = text.split("\n");
+      const chunks = [];
+      let current  = "";
+      for (const line of lines) {
+        if (current.length + line.length + 1 > CHUNK_SIZE && current) {
+          chunks.push(current);
+          current = "";
+        }
+        current += (current ? "\n" : "") + line;
+      }
+      if (current) chunks.push(current);
 
-      const rawText = data.choices?.[0]?.message?.content || "";
-      const rows = filterRows(parseAIResponse(rawText));
+      const results = await Promise.all(chunks.map(async (chunk) => {
+        const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+          body: JSON.stringify({
+            model: "llama-3.3-70b-versatile",
+            messages: [{ role: "user", content: textExtractPrompt(chunk) }],
+            max_tokens: 32768,
+            temperature: 0.1,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error?.message || "Groq error");
+        return data.choices?.[0]?.message?.content || "";
+      }));
+
+      const rows = filterRows(results.flatMap((rawText) => parseAIResponse(rawText)));
       return NextResponse.json({ rows });
     } catch (err) {
       return NextResponse.json({ error: `Extraction failed: ${err.message}` }, { status: 500 });
