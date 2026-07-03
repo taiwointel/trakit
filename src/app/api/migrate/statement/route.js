@@ -94,6 +94,61 @@ function parseAIResponse(raw) {
   return blocks;
 }
 
+function chunkText(text, chunkSize) {
+  const lines  = text.split("\n");
+  const chunks = [];
+  let current  = "";
+  for (const line of lines) {
+    if (current.length + line.length + 1 > chunkSize && current) {
+      chunks.push(current);
+      current = "";
+    }
+    current += (current ? "\n" : "") + line;
+  }
+  if (current) chunks.push(current);
+  return chunks;
+}
+
+// Groq text-only extraction: chunked (short calls, Groq's higher free-tier
+// RPM tolerates parallel chunks fine).
+async function extractViaGroq(text, key) {
+  const chunks = chunkText(text, 20000);
+  const results = await Promise.all(chunks.map(async (chunk) => {
+    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+      body: JSON.stringify({
+        model: "llama-3.3-70b-versatile",
+        messages: [{ role: "user", content: textExtractPrompt(chunk) }],
+        max_tokens: 32768,
+        temperature: 0.1,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error?.message || "Groq error");
+    return data.choices?.[0]?.message?.content || "";
+  }));
+  return filterRows(results.flatMap((rawText) => parseAIResponse(rawText)));
+}
+
+// Gemini text-only extraction: large chunk size + sequential calls to stay
+// under the free tier's 5 RPM cap.
+async function extractViaGemini(text, key) {
+  const chunks = chunkText(text, 150000);
+  const results = [];
+  for (const chunk of chunks) {
+    results.push(await callGemini(key, {
+      contents: [{ parts: [{ text: textExtractPrompt(chunk) }] }],
+      generationConfig: { temperature: 0.1, maxOutputTokens: 65536 },
+    }));
+  }
+  return filterRows(results.flatMap((rawText) => parseAIResponse(rawText)));
+}
+
+function isQuotaOrRateLimitMessage(message) {
+  return /free-tier limit|quota|rate.?limit|resource.?exhausted/i.test(message || "");
+}
+
 export async function POST(request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -147,40 +202,7 @@ export async function POST(request) {
         );
       }
 
-      // Long statements previously got silently truncated to 40k chars (data loss)
-      // and, worse, a single giant completion could take longer than Vercel's
-      // function timeout. Split into chunks and run them concurrently instead —
-      // each call stays fast and nothing gets dropped.
-      const CHUNK_SIZE = 20000;
-      const lines  = text.split("\n");
-      const chunks = [];
-      let current  = "";
-      for (const line of lines) {
-        if (current.length + line.length + 1 > CHUNK_SIZE && current) {
-          chunks.push(current);
-          current = "";
-        }
-        current += (current ? "\n" : "") + line;
-      }
-      if (current) chunks.push(current);
-
-      const results = await Promise.all(chunks.map(async (chunk) => {
-        const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-          body: JSON.stringify({
-            model: "llama-3.3-70b-versatile",
-            messages: [{ role: "user", content: textExtractPrompt(chunk) }],
-            max_tokens: 32768,
-            temperature: 0.1,
-          }),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error?.message || "Groq error");
-        return data.choices?.[0]?.message?.content || "";
-      }));
-
-      const rows = filterRows(results.flatMap((rawText) => parseAIResponse(rawText)));
+      const rows = await extractViaGroq(text, key);
       return NextResponse.json({ rows });
     } catch (err) {
       return NextResponse.json({ error: `Extraction failed: ${err.message}` }, { status: 500 });
@@ -190,6 +212,8 @@ export async function POST(request) {
   // Gemini + PDF: extract text server-side and chunk it, same as the Groq path.
   // Sending the whole PDF as base64 inline_data was slow and quota-heavy on
   // large statements — text extraction is faster and lets us parallelize.
+  // If Gemini's free-tier quota is hit and the user also has a Groq key
+  // configured, fall back to Groq automatically rather than failing outright.
   if (provider === "gemini" && isPdf) {
     const key = settings?.gemini_key_encrypted;
     if (!key) return NextResponse.json({ error: "No Gemini key configured. Add one in Settings." }, { status: 400 });
@@ -206,35 +230,16 @@ export async function POST(request) {
         );
       }
 
-      // Gemini's context window is huge (1M+ tokens) — unlike Groq it rarely
-      // needs to be split at all, and the free tier only allows 5 requests
-      // per minute, so firing many chunks at once (Promise.all) can trip the
-      // rate limit on a single multi-page statement. Use a much larger chunk
-      // size and, when more than one chunk is unavoidable, run them
-      // sequentially rather than in parallel.
-      const CHUNK_SIZE = 150000;
-      const lines  = text.split("\n");
-      const chunks = [];
-      let current  = "";
-      for (const line of lines) {
-        if (current.length + line.length + 1 > CHUNK_SIZE && current) {
-          chunks.push(current);
-          current = "";
+      try {
+        const rows = await extractViaGemini(text, key);
+        return NextResponse.json({ rows });
+      } catch (err) {
+        if (isQuotaOrRateLimitMessage(err.message) && settings?.groq_key_encrypted) {
+          const rows = await extractViaGroq(text, settings.groq_key_encrypted);
+          return NextResponse.json({ rows, fellBackTo: "groq" });
         }
-        current += (current ? "\n" : "") + line;
+        throw err;
       }
-      if (current) chunks.push(current);
-
-      const results = [];
-      for (const chunk of chunks) {
-        results.push(await callGemini(key, {
-          contents: [{ parts: [{ text: textExtractPrompt(chunk) }] }],
-          generationConfig: { temperature: 0.1, maxOutputTokens: 65536 },
-        }));
-      }
-
-      const rows = filterRows(results.flatMap((rawText) => parseAIResponse(rawText)));
-      return NextResponse.json({ rows });
     } catch (err) {
       return NextResponse.json({ error: err.message || "Extraction failed. Please try again." }, { status: 500 });
     }
