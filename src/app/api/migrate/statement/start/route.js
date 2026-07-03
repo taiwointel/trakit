@@ -33,19 +33,21 @@ export async function POST(request) {
     return NextResponse.json({ error: "Unsupported file type. Use PDF or an image (JPG, PNG)." }, { status: 400 });
   }
 
-  const provider = settings?.provider || "gemini";
+  // Statement extraction prefers Gemini over Groq regardless of the
+  // account's general chat-provider setting: Gemini's 5-requests/minute cap
+  // lets each request carry far more text, so a large statement becomes a
+  // handful of requests instead of Groq's 12k-tokens/minute cap forcing
+  // dozens of small, slow, rate-limited chunks. Groq is only used when no
+  // Gemini key exists, or as the mid-job fallback if Gemini's quota runs out.
+  const hasGemini = !!settings?.gemini_key_encrypted;
+  const hasGroq   = !!settings?.groq_key_encrypted;
+  const provider  = hasGemini ? "gemini" : (hasGroq ? "groq" : null);
 
   // Images: a single vision call is fast enough to run synchronously — no
   // job/chunking needed, and Groq has no vision model to fall back to.
   if (isImage) {
-    if (provider === "groq") {
-      return NextResponse.json(
-        { error: "Groq cannot read images. Switch to Gemini in Settings to import image statements." },
-        { status: 400 },
-      );
-    }
     const key = settings?.gemini_key_encrypted;
-    if (!key) return NextResponse.json({ error: "No Gemini key configured. Add one in Settings." }, { status: 400 });
+    if (!key) return NextResponse.json({ error: "Image statements need a Gemini key (Groq can't read images). Add one in Settings." }, { status: 400 });
 
     try {
       const base64  = buffer.toString("base64");
@@ -67,13 +69,10 @@ export async function POST(request) {
   // A single 60s request can't fit a large statement within free-tier rate
   // limits (Groq: 12k tokens/min, Gemini: 5 requests/min), so processing is
   // spread across many short requests instead.
-  const key = provider === "groq" ? settings?.groq_key_encrypted : settings?.gemini_key_encrypted;
-  if (!key) {
-    return NextResponse.json(
-      { error: `No ${provider === "groq" ? "Groq" : "Gemini"} key configured. Add one in Settings.` },
-      { status: 400 },
-    );
+  if (!provider) {
+    return NextResponse.json({ error: "No AI key configured. Add a Gemini or Groq key in Settings." }, { status: 400 });
   }
+  const key = provider === "groq" ? settings.groq_key_encrypted : settings.gemini_key_encrypted;
 
   let text;
   try {
