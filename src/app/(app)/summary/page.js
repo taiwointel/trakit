@@ -229,6 +229,16 @@ function FXRatesInline() {
     { label: "GBP", value: rates.gbpNgn, prevVal: prev?.gbpNgn, symbol: "£" },
   ];
 
+  const timestamp = (() => {
+    if (!rates?.updatedAt) return null;
+    try {
+      const d = new Date(rates.updatedAt);
+      const date = d.toLocaleDateString("en-NG", { timeZone: "Africa/Lagos", day: "numeric", month: "short", year: "numeric" });
+      const time = d.toLocaleTimeString("en-NG", { timeZone: "Africa/Lagos", hour: "2-digit", minute: "2-digit", hour12: true });
+      return `${date}, ${time} WAT`;
+    } catch { return null; }
+  })();
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -238,7 +248,7 @@ function FXRatesInline() {
           boxShadow: "0 0 4px var(--green)",
         }} />
         <span style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em" }}>
-          Live rates (NGN)
+          CBN Live rates (NGN)
         </span>
       </div>
       <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
@@ -263,6 +273,11 @@ function FXRatesInline() {
           );
         })}
       </div>
+      {timestamp && (
+        <span style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", fontSize: 9.5, opacity: 0.75 }}>
+          As at {timestamp}
+        </span>
+      )}
     </div>
   );
 }
