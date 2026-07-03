@@ -24,7 +24,7 @@ const CAT_COLORS = {
   "Savings & Investment": "#059669",
   "Personal Care":        "#F97316",
   "Betting":              "#DC2626",
-  "Miscellaneous":        "#94A3B8",
+  "Charges":              "#94A3B8",
 };
 function catColor(cat) { return CAT_COLORS[cat] || "#A9854F"; }
 
@@ -335,7 +335,7 @@ function buildEmailHtml({
     const rows = dayEntries.map((e, i) => {
       const isOut = e.flow === "out";
       const rowBg = i % 2 === 0 ? "#F8FAFC" : "#FFFFFF";
-      const color = catColor(e.category || "Miscellaneous");
+      const color = catColor(e.category || "Charges");
       return `
 <tr>
   <td style="background:${rowBg};padding:7px 16px;border-bottom:1px solid #E2E8F0;">
@@ -690,7 +690,7 @@ export async function POST() {
   // Category breakdown
   const catMap = {};
   for (const e of outEntries) {
-    const cat = e.category || "Miscellaneous";
+    const cat = e.category || "Charges";
     catMap[cat] = (catMap[cat] || 0) + Number(e.amount);
   }
   const categoryBreakdown = Object.entries(catMap)

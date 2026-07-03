@@ -48,14 +48,16 @@ export function useEntries() {
     // Optimistic insert
     setEntries((prev) => [pending, ...prev]);
 
-    // AI categorization for money-out
+    // AI categorization for money-out — send only the purpose (text before " — ")
     let categorized = { ...draft, source: "manual" };
     if (draft.flow === "out") {
+      const sep     = draft.desc?.indexOf(" — ");
+      const purpose = sep !== -1 ? draft.desc.slice(0, sep).trim() : draft.desc;
       try {
         const res = await fetch("/api/ai/categorize", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ description: draft.desc, amount: draft.amount }),
+          body: JSON.stringify({ purpose, amount: draft.amount }),
         });
         if (res.ok) {
           const ai = await res.json();
@@ -64,7 +66,7 @@ export function useEntries() {
           throw new Error(`AI error ${res.status}`);
         }
       } catch {
-        const fb = fallbackCategorize(draft.desc);
+        const fb = fallbackCategorize(purpose);
         categorized = { ...categorized, ...fb };
       }
     } else {

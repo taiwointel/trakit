@@ -34,7 +34,7 @@ const BUCKETS = [
     pct: 30,
     color: "var(--gold)",
     colorSoft: "rgba(169,133,79,0.10)",
-    categories: ["Dining & Lifestyle", "Personal Care", "Betting", "Miscellaneous"],
+    categories: ["Dining & Lifestyle", "Personal Care", "Betting", "Charges"],
   },
 ];
 

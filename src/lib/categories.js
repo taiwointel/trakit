@@ -9,7 +9,7 @@ export const CATEGORIES = [
   { name: "Savings & Investment",  essentiality: "Essential",     nature: "Fixed"    },
   { name: "Personal Care",         essentiality: "Discretionary", nature: "Variable" },
   { name: "Betting",               essentiality: "Discretionary", nature: "Variable" },
-  { name: "Miscellaneous",         essentiality: "Discretionary", nature: "Variable" },
+  { name: "Charges",               essentiality: "Discretionary", nature: "Variable" },
 ];
 
 export const CATEGORY_NAMES = CATEGORIES.map((c) => c.name);
@@ -20,7 +20,7 @@ export const CATEGORY_COLORS = [
 ];
 
 const FALLBACK_RULES = [
-  { pattern: /stamp duty|emtl|electronic money transfer levy|ussd charge|service charge|bank charge|vat charge|sms alert|account maintenance|card maintenance|annual fee|quarterly charge|commission on turnover|cot\b/i, category: "Miscellaneous", subcategory: "Bank charges" },
+  { pattern: /stamp duty|emtl|electronic money transfer levy|ussd charge|service charge|bank charge|vat charge|sms alert|account maintenance|card maintenance|annual fee|quarterly charge|commission on turnover|cot\b/i, category: "Charges", subcategory: "Bank charges" },
   { pattern: /rent|mortgage|electric|nepa|phcn|water bill|generator|diesel|estate due|dstv|internet|wifi|\bdata\b|airtime|recharge/i, category: "Housing & Utilities" },
   { pattern: /uber|bolt|fuel|petrol|fare|transport|keke|bus|flight|car service/i,                                   category: "Transportation" },
   { pattern: /market|grocery|foodstuff|supermarket|provisions|noodles|indomie|spaghetti|\beggs?\b|bread(?! ?fruit)|rice|beans|yam|pasta|tomato|pepper|onion|garlic|\bfish\b|\bchicken\b|\bmeat\b|vegetables|groundnut|palm oil|stockfish/i, category: "Food & Groceries" },
@@ -49,11 +49,11 @@ export function fallbackCategorize(description) {
       };
     }
   }
-  const misc = CATEGORIES.find((c) => c.name === "Miscellaneous");
+  const charges = CATEGORIES.find((c) => c.name === "Charges");
   return {
-    category:     misc.name,
-    essentiality: misc.essentiality,
-    nature:       misc.nature,
+    category:     charges.name,
+    essentiality: charges.essentiality,
+    nature:       charges.nature,
     confidence:   0.3,
     subcategory:  "",
     note:         "No keyword match",

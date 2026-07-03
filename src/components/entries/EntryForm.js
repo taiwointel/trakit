@@ -64,12 +64,12 @@ export default function EntryForm({ entries, onAdd }) {
         }}
       >
 
-        {/* ── Row 1: Description ── */}
+        {/* ── Row 1: Purpose ── */}
         <input
           type="text"
           value={desc}
           onChange={e => setDesc(e.target.value)}
-          placeholder="What was this for? (e.g. Fuel at Oando)"
+          placeholder="Purpose — what was this for? (e.g. Fuel, Groceries, Rent)"
           required
           style={{
             width:       "100%",

@@ -8,116 +8,7 @@ function fmtDate(iso) {
   if (!iso) return "";
   const d = new Date(iso + "T00:00:00");
   const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-  return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
-}
-
-const ESSENTIALITIES = ["Essential", "Discretionary", "—"];
-const NATURES        = ["Fixed", "Variable", "—"];
-
-const SOURCE_META = {
-  manual:   { label: "Manual",   color: "#A9854F", bg: "rgba(169,133,79,0.14)",  icon: "✏" },
-  telegram: { label: "Telegram", color: "#5B8FA8", bg: "rgba(91,143,168,0.14)",  icon: "✈" },
-  import:   { label: "Import",   color: "#2F7A56", bg: "rgba(47,122,86,0.14)",   icon: "📄" },
-};
-
-function SourceTag({ source }) {
-  const m = SOURCE_META[source];
-  if (!m) return null;
-  return (
-    <span style={{
-      display: "inline-flex", alignItems: "center", gap: 3,
-      fontSize: 9, fontFamily: "var(--font-sans)", fontWeight: 700,
-      textTransform: "uppercase", letterSpacing: "0.07em",
-      color: m.color, background: m.bg,
-      padding: "1px 5px", borderRadius: 8, flexShrink: 0,
-    }}>
-      {m.icon} {m.label}
-    </span>
-  );
-}
-
-function ConfidenceDot({ status, confidence }) {
-  if (status === "pending") return <span className="text-xs" style={{ color: "var(--ink-text-dim)" }}>…</span>;
-  if (status === "fallback") return (
-    <span title="Auto-categorised by keyword. Check and confirm category." style={{
-      display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: "var(--amber)", flexShrink: 0,
-    }} />
-  );
-  const c = Number(confidence);
-  const color = c >= 0.8 ? "var(--green)" : c >= 0.5 ? "var(--amber)" : "var(--red)";
-  return (
-    <span title={`Category confidence: ${Math.round(c * 100)}%`} style={{
-      display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: color, flexShrink: 0,
-    }} />
-  );
-}
-
-function EditRow({ entry, onSave, onCancel }) {
-  const [date,   setDate]   = useState(entry.date || "");
-  const [desc,   setDesc]   = useState(entry.desc || "");
-  const [bene,   setBene]   = useState(entry.beneficiary || "");
-  const [amount, setAmount] = useState(String(entry.amount || ""));
-  const [flow,   setFlow]   = useState(entry.flow || "out");
-
-  const inputStyle = {
-    background: "var(--paper-2)",
-    border:     "1px solid var(--rule-paper)",
-    color:      "var(--paper-text)",
-    fontFamily: "var(--font-sans)",
-    padding:    "3px 6px",
-    borderRadius: 4,
-    fontSize:   13,
-    width:      "100%",
-    outline:    "none",
-  };
-
-  return (
-    <tr style={{ background: "var(--paper-2)" }}>
-      {/* Date */}
-      <td className="px-3 py-2">
-        <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={{ ...inputStyle, fontFamily: "var(--font-mono)" }} />
-      </td>
-      {/* Description */}
-      <td className="px-3 py-2">
-        <input type="text" value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Description" style={inputStyle} />
-      </td>
-      {/* Beneficiary */}
-      <td className="px-3 py-2">
-        <input type="text" value={bene} onChange={(e) => setBene(e.target.value)} placeholder={flow === "out" ? "To…" : "From…"} style={inputStyle} />
-      </td>
-      {/* Amount + Flow */}
-      <td className="px-3 py-2">
-        <div className="flex gap-1">
-          <input
-            type="text"
-            inputMode="decimal"
-            value={amount}
-            onChange={(e) => setAmount(formatAmountInput(e.target.value))}
-            style={{ ...inputStyle, fontFamily: "var(--font-mono)", width: 100 }}
-          />
-          <select value={flow} onChange={(e) => setFlow(e.target.value)} style={{ ...inputStyle, width: "auto" }}>
-            <option value="out">out</option>
-            <option value="in">in</option>
-          </select>
-        </div>
-      </td>
-      {/* Save / Cancel — spans Category + Tags + Actions */}
-      <td colSpan={3} className="px-3 py-2">
-        <div className="flex gap-2">
-          <button
-            onClick={() => onSave({ date, desc, beneficiary: bene || null, amount: parseAmount(amount), flow })}
-            className="px-3 py-1 rounded text-xs font-semibold"
-            style={{ background: "var(--green)", color: "#fff" }}
-          >✓ Save</button>
-          <button
-            onClick={onCancel}
-            className="px-3 py-1 rounded text-xs"
-            style={{ background: "var(--paper-3)", color: "var(--paper-text-dim)", border: "1px solid var(--rule-paper)" }}
-          >✕</button>
-        </div>
-      </td>
-    </tr>
-  );
+  return `${d.getDate()} ${MONTHS[d.getMonth()]}`;
 }
 
 function fmtDateLong(iso) {
@@ -128,34 +19,130 @@ function fmtDateLong(iso) {
   return `${DAYS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]}`;
 }
 
+// Split "Eggs — Transfer to BUKOLA | OPay | 7033959453" into {purpose, detail}
+function splitDesc(entry) {
+  const desc = entry.desc || "";
+  const sep  = desc.indexOf(" — ");
+  if (sep !== -1) {
+    return { purpose: desc.slice(0, sep).trim(), detail: desc.slice(sep + 3).trim() };
+  }
+  // Manual entry: desc is the purpose; beneficiary is the detail
+  const bene = entry.beneficiary;
+  const dir  = entry.flow === "out" ? "To" : "From";
+  return { purpose: desc, detail: bene ? `${dir} ${bene}` : "" };
+}
+
+const ESSENTIALITIES = ["Essential", "Discretionary", "—"];
+const NATURES        = ["Fixed", "Variable", "—"];
+
+const SOURCE_META = {
+  manual:   { label: "Manual",   color: "#A9854F", bg: "rgba(169,133,79,0.14)"  },
+  telegram: { label: "Telegram", color: "#5B8FA8", bg: "rgba(91,143,168,0.14)"  },
+  import:   { label: "Import",   color: "#2F7A56", bg: "rgba(47,122,86,0.14)"   },
+};
+
+function SourceTag({ source }) {
+  const m = SOURCE_META[source];
+  if (!m) return null;
+  return (
+    <span style={{
+      fontSize: 9, fontFamily: "var(--font-sans)", fontWeight: 700,
+      textTransform: "uppercase", letterSpacing: "0.06em",
+      color: m.color, background: m.bg,
+      padding: "1px 5px", borderRadius: 6, flexShrink: 0,
+    }}>
+      {m.label}
+    </span>
+  );
+}
+
+function ConfidenceDot({ status, confidence }) {
+  if (status === "pending") return <span style={{ color: "var(--ink-text-dim)", fontSize: 11 }}>…</span>;
+  if (status === "fallback") return (
+    <span title="Keyword match — check category" style={{
+      width: 7, height: 7, borderRadius: "50%", background: "var(--amber)",
+      display: "inline-block", flexShrink: 0, marginTop: 2,
+    }} />
+  );
+  const c = Number(confidence);
+  const color = c >= 0.8 ? "var(--green)" : c >= 0.5 ? "var(--amber)" : "var(--red)";
+  return (
+    <span title={`Confidence: ${Math.round(c * 100)}%`} style={{
+      width: 7, height: 7, borderRadius: "50%", background: color,
+      display: "inline-block", flexShrink: 0, marginTop: 2,
+    }} />
+  );
+}
+
+function EditRow({ entry, onSave, onCancel }) {
+  const [date,   setDate]   = useState(entry.date || "");
+  const [desc,   setDesc]   = useState(() => splitDesc(entry).purpose);
+  const [bene,   setBene]   = useState(entry.beneficiary || "");
+  const [amount, setAmount] = useState(String(entry.amount || ""));
+  const [flow,   setFlow]   = useState(entry.flow || "out");
+
+  const s = {
+    background: "var(--paper-2)", border: "1px solid var(--rule-paper)",
+    color: "var(--paper-text)", fontFamily: "var(--font-sans)",
+    padding: "3px 7px", borderRadius: 4, fontSize: 12, outline: "none", width: "100%",
+  };
+
+  return (
+    <tr style={{ background: "var(--paper-2)" }}>
+      <td className="px-2 py-2">
+        <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={{ ...s, fontFamily: "var(--font-mono)", width: 120 }} />
+      </td>
+      <td className="px-2 py-2" colSpan={2}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <input type="text" value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Purpose" style={s} />
+          <input type="text" value={bene} onChange={(e) => setBene(e.target.value)} placeholder={flow === "out" ? "To (optional)" : "From (optional)"} style={{ ...s, fontSize: 11 }} />
+        </div>
+      </td>
+      <td className="px-2 py-2">
+        <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+          <input
+            type="text" inputMode="decimal"
+            value={amount} onChange={(e) => setAmount(formatAmountInput(e.target.value))}
+            style={{ ...s, fontFamily: "var(--font-mono)", width: 90 }}
+          />
+          <select value={flow} onChange={(e) => setFlow(e.target.value)} style={{ ...s, width: "auto", paddingRight: 6 }}>
+            <option value="out">out</option>
+            <option value="in">in</option>
+          </select>
+        </div>
+      </td>
+      <td colSpan={3} className="px-2 py-2">
+        <div style={{ display: "flex", gap: 6 }}>
+          <button onClick={() => onSave({ date, desc, beneficiary: bene || null, amount: parseAmount(amount), flow })}
+            style={{ padding: "4px 12px", borderRadius: 6, background: "var(--green)", color: "#fff", border: "none", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>
+            ✓ Save
+          </button>
+          <button onClick={onCancel}
+            style={{ padding: "4px 10px", borderRadius: 6, background: "var(--paper-3)", color: "var(--paper-text-dim)", border: "1px solid var(--rule-paper)", cursor: "pointer", fontSize: 12 }}>
+            ✕
+          </button>
+        </div>
+      </td>
+    </tr>
+  );
+}
+
 function ClearWizard({ entries, onConfirm, onCancel }) {
   const dateGroups = useMemo(() => {
     const map = {};
-    entries.forEach((e) => {
-      if (!map[e.date]) map[e.date] = [];
-      map[e.date].push(e);
-    });
+    entries.forEach((e) => { if (!map[e.date]) map[e.date] = []; map[e.date].push(e); });
     return Object.entries(map).sort(([a], [b]) => b.localeCompare(a));
   }, [entries]);
 
   const [checked, setChecked] = useState(() => {
-    const s = new Set();
-    entries.forEach((e) => s.add(e.date));
-    return s;
+    const s = new Set(); entries.forEach((e) => s.add(e.date)); return s;
   });
 
   function toggleDate(date) {
-    setChecked((prev) => {
-      const next = new Set(prev);
-      if (next.has(date)) next.delete(date);
-      else next.add(date);
-      return next;
-    });
+    setChecked((prev) => { const n = new Set(prev); n.has(date) ? n.delete(date) : n.add(date); return n; });
   }
-
   function toggleAll() {
-    if (checked.size === dateGroups.length) setChecked(new Set());
-    else setChecked(new Set(dateGroups.map(([d]) => d)));
+    setChecked(checked.size === dateGroups.length ? new Set() : new Set(dateGroups.map(([d]) => d)));
   }
 
   const selectedIds = entries.filter((e) => checked.has(e.date)).map((e) => e.id);
@@ -164,69 +151,35 @@ function ClearWizard({ entries, onConfirm, onCancel }) {
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 9000, background: "rgba(0,0,0,0.72)", display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem" }}>
       <div style={{ background: "var(--ink-2)", border: "1px solid var(--rule)", borderRadius: 18, width: "100%", maxWidth: 420, maxHeight: "82vh", overflow: "hidden", display: "flex", flexDirection: "column" }}>
-        {/* Header */}
         <div style={{ padding: "18px 22px 14px", borderBottom: "1px solid var(--rule)" }}>
-          <h3 style={{ color: "var(--ink-text)", fontFamily: "var(--font-serif)", fontSize: "1.1rem", fontWeight: 700, margin: 0 }}>
-            Delete entries
-          </h3>
-          <p style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", fontSize: 12, marginTop: 4 }}>
-            Select the dates to delete. A backup is saved automatically before any deletion.
-          </p>
+          <h3 style={{ color: "var(--ink-text)", fontFamily: "var(--font-serif)", fontSize: "1.1rem", fontWeight: 700, margin: 0 }}>Delete entries</h3>
+          <p style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", fontSize: 12, marginTop: 4 }}>Select dates to delete.</p>
         </div>
-
-        {/* Date list */}
         <div style={{ flex: 1, overflowY: "auto", padding: "10px 22px" }}>
-          {/* Select all row */}
-          <div
-            onClick={toggleAll}
-            style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", cursor: "pointer", borderBottom: "1px solid var(--rule)", marginBottom: 4 }}
-          >
+          <div onClick={toggleAll} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", cursor: "pointer", borderBottom: "1px solid var(--rule)", marginBottom: 4 }}>
             <div style={{ width: 16, height: 16, borderRadius: 4, border: `2px solid ${allChecked ? "var(--gold)" : "var(--rule)"}`, background: allChecked ? "var(--gold)" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
               {allChecked && <span style={{ color: "#fff", fontSize: 10, fontWeight: 700 }}>✓</span>}
             </div>
-            <span style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", fontSize: 12, fontWeight: 600 }}>
-              {allChecked ? "Deselect all" : "Select all"}
-            </span>
-            <span style={{ marginLeft: "auto", color: "var(--ink-text-dim)", fontFamily: "var(--font-mono)", fontSize: 11 }}>
-              {entries.length} total
-            </span>
+            <span style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", fontSize: 12, fontWeight: 600 }}>{allChecked ? "Deselect all" : "Select all"}</span>
+            <span style={{ marginLeft: "auto", color: "var(--ink-text-dim)", fontFamily: "var(--font-mono)", fontSize: 11 }}>{entries.length} total</span>
           </div>
-
           {dateGroups.map(([date, group]) => {
             const isOn = checked.has(date);
             return (
-              <div
-                key={date}
-                onClick={() => toggleDate(date)}
-                style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 0", cursor: "pointer", borderBottom: "1px solid rgba(255,255,255,0.04)" }}
-              >
+              <div key={date} onClick={() => toggleDate(date)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 0", cursor: "pointer", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
                 <div style={{ width: 16, height: 16, borderRadius: 4, border: `2px solid ${isOn ? "var(--gold)" : "var(--rule)"}`, background: isOn ? "var(--gold)" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                   {isOn && <span style={{ color: "#fff", fontSize: 10, fontWeight: 700 }}>✓</span>}
                 </div>
-                <span style={{ color: "var(--ink-text)", fontFamily: "var(--font-sans)", fontSize: 13 }}>
-                  {fmtDateLong(date)}
-                </span>
-                <span style={{ marginLeft: "auto", color: "var(--ink-text-dim)", fontFamily: "var(--font-mono)", fontSize: 11 }}>
-                  {group.length} {group.length === 1 ? "entry" : "entries"}
-                </span>
+                <span style={{ color: "var(--ink-text)", fontFamily: "var(--font-sans)", fontSize: 13 }}>{fmtDateLong(date)}</span>
+                <span style={{ marginLeft: "auto", color: "var(--ink-text-dim)", fontFamily: "var(--font-mono)", fontSize: 11 }}>{group.length} {group.length === 1 ? "entry" : "entries"}</span>
               </div>
             );
           })}
         </div>
-
-        {/* Footer */}
         <div style={{ padding: "14px 22px", borderTop: "1px solid var(--rule)", display: "flex", gap: 10 }}>
-          <button
-            onClick={onCancel}
-            style={{ flex: 1, padding: "10px", borderRadius: 10, background: "var(--ink-3)", border: "1px solid var(--rule)", color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", fontSize: 13, cursor: "pointer" }}
-          >
-            Cancel
-          </button>
-          <button
-            onClick={() => { if (selectedIds.length) onConfirm(selectedIds); }}
-            disabled={selectedIds.length === 0}
-            style={{ flex: 2, padding: "10px", borderRadius: 10, background: selectedIds.length ? "var(--red)" : "var(--ink-3)", border: "none", color: selectedIds.length ? "#fff" : "var(--ink-text-dim)", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 700, cursor: selectedIds.length ? "pointer" : "not-allowed" }}
-          >
+          <button onClick={onCancel} style={{ flex: 1, padding: "10px", borderRadius: 10, background: "var(--ink-3)", border: "1px solid var(--rule)", color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", fontSize: 13, cursor: "pointer" }}>Cancel</button>
+          <button onClick={() => { if (selectedIds.length) onConfirm(selectedIds); }} disabled={!selectedIds.length}
+            style={{ flex: 2, padding: "10px", borderRadius: 10, background: selectedIds.length ? "var(--red)" : "var(--ink-3)", border: "none", color: selectedIds.length ? "#fff" : "var(--ink-text-dim)", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 700, cursor: selectedIds.length ? "pointer" : "not-allowed" }}>
             Delete {selectedIds.length} {selectedIds.length === 1 ? "entry" : "entries"}
           </button>
         </div>
@@ -235,9 +188,242 @@ function ClearWizard({ entries, onConfirm, onCancel }) {
   );
 }
 
+// ── Mobile inline edit (div-based, not table row) ────────────────────────────
+function MobileEditForm({ entry, onSave, onCancel }) {
+  const [date,   setDate]   = useState(entry.date || "");
+  const [desc,   setDesc]   = useState(() => splitDesc(entry).purpose);
+  const [bene,   setBene]   = useState(entry.beneficiary || "");
+  const [amount, setAmount] = useState(String(entry.amount || ""));
+  const [flow,   setFlow]   = useState(entry.flow || "out");
+
+  const s = {
+    background: "var(--paper-2)", border: "1px solid var(--rule-paper)",
+    color: "var(--paper-text)", fontFamily: "var(--font-sans)",
+    padding: "6px 8px", borderRadius: 6, fontSize: 12, outline: "none", width: "100%", boxSizing: "border-box",
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      <div style={{ display: "flex", gap: 6 }}>
+        <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={{ ...s, fontFamily: "var(--font-mono)", flex: "0 0 auto" }} />
+        <select value={flow} onChange={(e) => setFlow(e.target.value)} style={{ ...s, width: "auto", flex: "0 0 auto", paddingRight: 6 }}>
+          <option value="out">Out</option>
+          <option value="in">In</option>
+        </select>
+      </div>
+      <input type="text" value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Purpose" style={s} />
+      <input type="text" value={bene} onChange={(e) => setBene(e.target.value)} placeholder={flow === "out" ? "To (optional)" : "From (optional)"} style={{ ...s, fontSize: 11 }} />
+      <input type="text" inputMode="decimal" value={amount} onChange={(e) => setAmount(formatAmountInput(e.target.value))} placeholder="Amount" style={{ ...s, fontFamily: "var(--font-mono)" }} />
+      <div style={{ display: "flex", gap: 6 }}>
+        <button onClick={() => onSave({ date, desc, beneficiary: bene || null, amount: parseAmount(amount), flow })}
+          style={{ flex: 1, padding: "7px", borderRadius: 6, background: "var(--green)", color: "#fff", border: "none", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>
+          ✓ Save
+        </button>
+        <button onClick={onCancel}
+          style={{ flex: 1, padding: "7px", borderRadius: 6, background: "var(--paper-3)", color: "var(--paper-text-dim)", border: "1px solid var(--rule-paper)", cursor: "pointer", fontSize: 12 }}>
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── Mobile card view ──────────────────────────────────────────────────────────
+function MobileCard({ entry, onEdit, onDelete, onUpdate }) {
+  const { purpose, detail } = splitDesc(entry);
+  const isIncome = entry.flow === "in";
+
+  return (
+    <div style={{
+      padding: "11px 14px",
+      borderBottom: "1px solid var(--rule-paper)",
+      background: "transparent",
+    }}>
+      <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+        {/* Left: dot + date */}
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, flexShrink: 0, paddingTop: 2 }}>
+          <ConfidenceDot status={entry.status} confidence={entry.confidence} />
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--paper-text-dim)", whiteSpace: "nowrap" }}>
+            {fmtDate(entry.date)}
+          </span>
+        </div>
+
+        {/* Center: purpose + detail */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600, color: "var(--paper-text)", lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {purpose || "—"}
+          </div>
+          {detail && (
+            <div style={{ fontFamily: "var(--font-sans)", fontSize: 11, color: "var(--paper-text-dim)", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {detail}
+            </div>
+          )}
+          <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 4, flexWrap: "wrap" }}>
+            <select
+              value={entry.category || ""}
+              onChange={(e) => { onUpdate(entry.id, { category: e.target.value, ...categoryDefaults(e.target.value) }); }}
+              className="paper-select"
+              style={{
+                background: "var(--paper-3)", border: "1px solid var(--rule-paper)",
+                color: "var(--paper-text)", fontFamily: "var(--font-sans)", fontSize: 10,
+                borderRadius: 5, padding: "1px 18px 1px 5px", outline: "none",
+              }}
+            >
+              <option value="">—</option>
+              {CATEGORY_NAMES.map((c) => <option key={c} value={c}>{c}</option>)}
+              <option value="Income">Income</option>
+            </select>
+            {!isIncome && (
+              <select
+                value={entry.essentiality || ""}
+                onChange={(e) => onUpdate(entry.id, { essentiality: e.target.value })}
+                className="paper-select"
+                style={{
+                  background: "var(--paper-3)", border: "1px solid var(--rule-paper)",
+                  color: entry.essentiality === "Essential" ? "var(--green)" : entry.essentiality === "Discretionary" ? "var(--amber)" : "var(--paper-text-dim)",
+                  fontFamily: "var(--font-sans)", fontSize: 10,
+                  borderRadius: 5, padding: "1px 18px 1px 5px", outline: "none",
+                }}
+              >
+                {ESSENTIALITIES.map((e) => <option key={e} value={e}>{e}</option>)}
+              </select>
+            )}
+            {entry.source && <SourceTag source={entry.source} />}
+          </div>
+        </div>
+
+        {/* Right: amount + actions */}
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6, flexShrink: 0 }}>
+          <span style={{
+            fontFamily: "var(--font-mono)", fontSize: 13, fontWeight: 700,
+            color: isIncome ? "var(--green)" : "var(--red)",
+          }}>
+            {isIncome ? "+" : "−"}{formatNaira(entry.amount)}
+          </span>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={() => onEdit(entry.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--paper-text-dim)", fontSize: 11, fontFamily: "var(--font-sans)", padding: 0 }}>Edit</button>
+            <button onClick={() => { if (confirm("Delete?")) onDelete(entry.id); }} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--red)", fontSize: 11, fontFamily: "var(--font-sans)", padding: 0 }}>Delete</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Desktop table row ─────────────────────────────────────────────────────────
+function DesktopRow({ entry, index, total, onEdit, onDelete, onUpdate }) {
+  const { purpose, detail } = splitDesc(entry);
+  const isIncome = entry.flow === "in";
+  const isLast   = index === total - 1;
+
+  return (
+    <tr style={{ background: index % 2 === 0 ? "var(--paper)" : "var(--paper-2)", borderBottom: isLast ? "none" : "1px solid var(--rule-paper)" }}>
+      {/* Date */}
+      <td className="px-3 py-2 whitespace-nowrap" style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--paper-text-dim)", width: 64 }}>
+        {fmtDate(entry.date)}
+      </td>
+
+      {/* Purpose */}
+      <td className="px-3 py-2" style={{ maxWidth: 180 }}>
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 6 }}>
+          <ConfidenceDot status={entry.status} confidence={entry.confidence} />
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontFamily: "var(--font-sans)", fontSize: 12, fontWeight: 600, color: "var(--paper-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {purpose || "—"}
+            </div>
+            {entry.subcategory && (
+              <div style={{ fontFamily: "var(--font-sans)", fontSize: 10, color: "var(--paper-text-dim)", marginTop: 1 }}>
+                {entry.subcategory}
+                {entry.source && <> · <SourceTag source={entry.source} /></>}
+              </div>
+            )}
+          </div>
+        </div>
+      </td>
+
+      {/* To/From + detail */}
+      <td className="px-2 py-2" style={{ maxWidth: 160 }}>
+        <div style={{ fontFamily: "var(--font-sans)", fontSize: 11, color: "var(--paper-text-dim)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={detail}>
+          {detail || <span style={{ opacity: 0.3 }}>—</span>}
+        </div>
+      </td>
+
+      {/* Amount */}
+      <td className="px-3 py-2 whitespace-nowrap" style={{ fontFamily: "var(--font-mono)", fontSize: 12, fontWeight: 700, color: isIncome ? "var(--green)" : "var(--red)" }}>
+        {isIncome ? "+" : "−"}{formatNaira(entry.amount)}
+      </td>
+
+      {/* Category */}
+      <td className="px-2 py-2">
+        <select
+          value={entry.category || ""}
+          onChange={(e) => { const d = categoryDefaults(e.target.value); onUpdate(entry.id, { category: e.target.value, ...d }); }}
+          className="paper-select"
+          style={{
+            background: "var(--paper-2)", border: "1px solid var(--rule-paper)",
+            color: "var(--paper-text)", fontFamily: "var(--font-sans)", fontSize: 10,
+            borderRadius: 5, maxWidth: 148, padding: "3px 20px 3px 6px", outline: "none",
+          }}
+        >
+          <option value="">—</option>
+          {CATEGORY_NAMES.map((c) => <option key={c} value={c}>{c}</option>)}
+          <option value="Income">Income</option>
+        </select>
+      </td>
+
+      {/* Tags */}
+      <td className="px-2 py-2" style={{ width: 110 }}>
+        {isIncome ? (
+          <span style={{ color: "var(--paper-text-dim)", fontFamily: "var(--font-mono)", fontSize: 11, opacity: 0.3 }}>—</span>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+            <select
+              value={entry.essentiality || ""}
+              onChange={(e) => onUpdate(entry.id, { essentiality: e.target.value })}
+              className="paper-select"
+              style={{
+                background: "var(--paper-2)", border: "1px solid var(--rule-paper)",
+                color: entry.essentiality === "Essential" ? "var(--green)" : entry.essentiality === "Discretionary" ? "var(--amber)" : "var(--paper-text-dim)",
+                fontFamily: "var(--font-sans)", fontSize: 10, borderRadius: 5, padding: "2px 18px 2px 5px", outline: "none",
+              }}
+            >
+              {ESSENTIALITIES.map((e) => <option key={e} value={e}>{e}</option>)}
+            </select>
+            <select
+              value={entry.nature || ""}
+              onChange={(e) => onUpdate(entry.id, { nature: e.target.value })}
+              className="paper-select"
+              style={{
+                background: "var(--paper-2)", border: "1px solid var(--rule-paper)",
+                color: "var(--paper-text-dim)", fontFamily: "var(--font-sans)", fontSize: 10,
+                borderRadius: 5, padding: "2px 18px 2px 5px", outline: "none",
+              }}
+            >
+              {NATURES.map((n) => <option key={n} value={n}>{n}</option>)}
+            </select>
+          </div>
+        )}
+      </td>
+
+      {/* Actions */}
+      <td className="px-2 py-2 whitespace-nowrap" style={{ width: 64 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+          <button onClick={() => onEdit(entry.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--paper-text-dim)", fontFamily: "var(--font-sans)", fontSize: 10, textAlign: "left", padding: "1px 0" }}>
+            Edit
+          </button>
+          <button onClick={() => { if (confirm("Delete?")) onDelete(entry.id); }} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--red)", fontFamily: "var(--font-sans)", fontSize: 10, textAlign: "left", padding: "1px 0" }}>
+            Delete
+          </button>
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+// ── Main export ───────────────────────────────────────────────────────────────
 export default function LedgerTable({ entries, onUpdate, onDelete, onClearAll }) {
-  const [editingId,      setEditingId]      = useState(null);
-  const [recatProgress,  setRecatProgress]  = useState(null);
+  const [editingId,       setEditingId]       = useState(null);
+  const [recatProgress,   setRecatProgress]   = useState(null);
   const [clearWizardOpen, setClearWizardOpen] = useState(false);
 
   async function handleRecategorizeAll() {
@@ -247,29 +433,22 @@ export default function LedgerTable({ entries, onUpdate, onDelete, onClearAll })
     for (let i = 0; i < targets.length; i++) {
       const e = targets[i];
       try {
+        const { purpose } = splitDesc(e);
         const res = await fetch("/api/ai/categorize", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ description: e.desc, amount: e.amount }),
+          body: JSON.stringify({ description: purpose || e.desc, amount: e.amount }),
         });
-        if (res.ok) {
-          const ai = await res.json();
-          onUpdate(e.id, ai);
-        }
-      } catch { /* skip failed entries */ }
+        if (res.ok) onUpdate(e.id, await res.json());
+      } catch { /* skip */ }
       setRecatProgress({ done: i + 1, total: targets.length });
     }
     setRecatProgress(null);
   }
 
-  function handleClearAll() {
-    if (!onClearAll || !entries.length) return;
-    setClearWizardOpen(true);
-  }
-
   if (entries.length === 0) {
     return (
-      <div className="px-4 py-8 text-center text-sm" style={{ color: "var(--paper-text-dim)", fontFamily: "var(--font-sans)" }}>
+      <div style={{ padding: "28px 16px", textAlign: "center", color: "var(--paper-text-dim)", fontFamily: "var(--font-sans)", fontSize: 13 }}>
         No entries yet. Add one above.
       </div>
     );
@@ -277,176 +456,80 @@ export default function LedgerTable({ entries, onUpdate, onDelete, onClearAll })
 
   return (
     <div style={{ background: "var(--paper)" }}>
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm border-collapse">
-        <thead>
-          <tr style={{ background: "var(--paper-2)", borderBottom: "1px solid var(--rule-paper)" }}>
-            {["Date", "Description", "Beneficiary", "Amount", "Category", "Tags", ""].map((h) => (
-              <th
-                key={h}
-                className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider"
-                style={{ color: "var(--paper-text-dim)", fontFamily: "var(--font-sans)", whiteSpace: "nowrap" }}
-              >
-                {h}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {entries.map((entry, i) => {
-            if (editingId === entry.id) {
-              return (
-                <EditRow
-                  key={entry.id}
+
+      {/* ── Mobile: card list (hidden on md+) ── */}
+      <div className="ledger-mobile">
+        {entries.map((entry) => {
+          if (editingId === entry.id) {
+            return (
+              <div key={entry.id} style={{ padding: "12px 14px", borderBottom: "1px solid var(--rule-paper)", background: "var(--paper-2)" }}>
+                <MobileEditForm
                   entry={entry}
                   onSave={(patch) => { onUpdate(entry.id, patch); setEditingId(null); }}
                   onCancel={() => setEditingId(null)}
                 />
-              );
-            }
-
-            const borderStyle = i < entries.length - 1 ? "1px solid var(--rule-paper)" : "none";
-
-            return (
-              <tr
-                key={entry.id}
-                style={{ background: i % 2 === 0 ? "var(--paper)" : "var(--paper-2)", borderBottom: borderStyle }}
-              >
-                {/* Date */}
-                <td className="px-3 py-2 whitespace-nowrap" style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--paper-text-dim)" }}>
-                  {fmtDate(entry.date)}
-                </td>
-
-                {/* Description */}
-                <td className="px-3 py-2" style={{ maxWidth: 240 }}>
-                  <div className="flex items-start gap-1.5">
-                    <ConfidenceDot status={entry.status} confidence={entry.confidence} />
-                    <div>
-                      <div className="font-medium" style={{ color: "var(--paper-text)", fontFamily: "var(--font-sans)" }}>
-                        {entry.desc}
-                      </div>
-                      <div className="text-xs mt-0.5 flex items-center gap-1.5 flex-wrap" style={{ color: "var(--paper-text-dim)", fontFamily: "var(--font-sans)" }}>
-                        {[entry.subcategory, entry.note].filter(Boolean).join(" · ")}
-                        {entry.source && <SourceTag source={entry.source} />}
-                      </div>
-                    </div>
-                  </div>
-                </td>
-
-                {/* Beneficiary */}
-                <td className="px-3 py-2" style={{ maxWidth: 130 }}>
-                  {entry.beneficiary ? (
-                    <span
-                      title={entry.beneficiary}
-                      style={{
-                        color: "var(--paper-text)", fontFamily: "var(--font-sans)", fontSize: 12,
-                        display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                      }}
-                    >
-                      {entry.beneficiary}
-                    </span>
-                  ) : (
-                    <span style={{ color: "var(--paper-text-dim)", fontFamily: "var(--font-mono)", fontSize: 12, opacity: 0.35 }}>—</span>
-                  )}
-                </td>
-
-                {/* Amount */}
-                <td className="px-3 py-2 whitespace-nowrap" style={{ fontFamily: "var(--font-mono)", fontWeight: 600, color: entry.flow === "in" ? "var(--green)" : "var(--red)" }}>
-                  {entry.flow === "in" ? "+" : "−"}{formatNaira(entry.amount)}
-                </td>
-
-                {/* Category */}
-                <td className="px-3 py-2">
-                  <select
-                    value={entry.category || ""}
-                    onChange={(e) => {
-                      const defaults = categoryDefaults(e.target.value);
-                      onUpdate(entry.id, { category: e.target.value, ...defaults });
-                    }}
-                    className="paper-select text-xs rounded py-1"
-                    style={{
-                      background:  "var(--paper-2)",
-                      border:      "1px solid var(--rule-paper)",
-                      color:       "var(--paper-text)",
-                      fontFamily:  "var(--font-sans)",
-                      maxWidth:    160,
-                      paddingLeft:  6,
-                      paddingRight: 24,
-                    }}
-                  >
-                    <option value="">—</option>
-                    {CATEGORY_NAMES.map((c) => <option key={c} value={c}>{c}</option>)}
-                    <option value="Income">Income</option>
-                  </select>
-                </td>
-
-                {/* Tags: Essentiality + Nature — hidden for income */}
-                <td className="px-3 py-2">
-                  {entry.flow === "in" ? (
-                    <span style={{ color: "var(--paper-text-dim)", fontFamily: "var(--font-mono)", fontSize: 12, opacity: 0.3 }}>—</span>
-                  ) : (
-                    <div className="flex flex-col gap-1">
-                      <select
-                        value={entry.essentiality || ""}
-                        onChange={(e) => onUpdate(entry.id, { essentiality: e.target.value })}
-                        className="paper-select text-xs rounded py-0.5"
-                        style={{
-                          background:   "var(--paper-2)",
-                          border:       "1px solid var(--rule-paper)",
-                          color:        entry.essentiality === "Essential" ? "var(--green)" : entry.essentiality === "Discretionary" ? "var(--amber)" : "var(--paper-text-dim)",
-                          fontFamily:   "var(--font-sans)",
-                          paddingLeft:  6,
-                          paddingRight: 22,
-                        }}
-                      >
-                        {ESSENTIALITIES.map((e) => <option key={e} value={e}>{e}</option>)}
-                      </select>
-                      <select
-                        value={entry.nature || ""}
-                        onChange={(e) => onUpdate(entry.id, { nature: e.target.value })}
-                        className="paper-select text-xs rounded py-0.5"
-                        style={{
-                          background:   "var(--paper-2)",
-                          border:       "1px solid var(--rule-paper)",
-                          color:        "var(--paper-text-dim)",
-                          fontFamily:   "var(--font-sans)",
-                          paddingLeft:  6,
-                          paddingRight: 22,
-                        }}
-                      >
-                        {NATURES.map((n) => <option key={n} value={n}>{n}</option>)}
-                      </select>
-                    </div>
-                  )}
-                </td>
-
-                {/* Actions */}
-                <td className="px-3 py-2 whitespace-nowrap">
-                  <div className="flex flex-col gap-1">
-                    <button
-                      onClick={() => setEditingId(entry.id)}
-                      style={{ background: "none", border: "none", cursor: "pointer", color: "var(--paper-text-dim)", fontFamily: "var(--font-sans)", fontSize: 11, textAlign: "left", padding: 0 }}
-                    >Edit entry</button>
-                    <button
-                      onClick={() => { if (confirm("Delete this entry?")) onDelete(entry.id); }}
-                      style={{ background: "none", border: "none", cursor: "pointer", color: "var(--red)", fontFamily: "var(--font-sans)", fontSize: 11, textAlign: "left", padding: 0 }}
-                    >Delete</button>
-                  </div>
-                </td>
-              </tr>
+              </div>
             );
-          })}
-        </tbody>
-      </table>
-    </div>
+          }
+          return (
+            <MobileCard
+              key={entry.id}
+              entry={entry}
+              onEdit={setEditingId}
+              onDelete={onDelete}
+              onUpdate={onUpdate}
+            />
+          );
+        })}
+      </div>
 
-      {/* ── Footer actions ─────────────────────────────────────── */}
+      {/* ── Desktop: table (hidden on mobile) ── */}
+      <div className="ledger-desktop overflow-x-auto">
+        <table className="w-full text-sm border-collapse">
+          <thead>
+            <tr style={{ background: "var(--paper-2)", borderBottom: "2px solid var(--rule-paper)" }}>
+              {["Date", "Purpose", "Detail", "Amount", "Category", "Tags", ""].map((h) => (
+                <th key={h} className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider"
+                  style={{ color: "var(--paper-text-dim)", fontFamily: "var(--font-sans)", whiteSpace: "nowrap" }}>
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {entries.map((entry, i) => {
+              if (editingId === entry.id) {
+                return (
+                  <EditRow
+                    key={entry.id}
+                    entry={entry}
+                    onSave={(patch) => { onUpdate(entry.id, patch); setEditingId(null); }}
+                    onCancel={() => setEditingId(null)}
+                  />
+                );
+              }
+              return (
+                <DesktopRow
+                  key={entry.id}
+                  entry={entry}
+                  index={i}
+                  total={entries.length}
+                  onEdit={setEditingId}
+                  onDelete={onDelete}
+                  onUpdate={onUpdate}
+                />
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* ── Footer ── */}
       <div style={{
         display: "flex", alignItems: "center", justifyContent: "space-between",
         padding: "10px 14px", borderTop: "1px solid var(--rule-paper)",
         background: "var(--paper-2)", flexWrap: "wrap", gap: 8,
       }}>
-        {/* Re-categorize with AI */}
         <button
           onClick={handleRecategorizeAll}
           disabled={!!recatProgress}
@@ -459,30 +542,23 @@ export default function LedgerTable({ entries, onUpdate, onDelete, onClearAll })
         >
           {recatProgress ? (
             <>
-              <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: "var(--amber)", animation: "pulse 1s infinite" }} />
-              Categorizing {recatProgress.done}/{recatProgress.total}...
+              <span style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--amber)", display: "inline-block" }} />
+              Categorizing {recatProgress.done}/{recatProgress.total}…
             </>
           ) : (
-            <>✦ Re-categorize all entries</>
+            <>✦ Re-categorize with AI</>
           )}
         </button>
-
-        {/* Clear all */}
         {onClearAll && (
           <button
-            onClick={handleClearAll}
-            style={{
-              background: "none", border: "none", cursor: "pointer",
-              color: "var(--paper-text-dim)", fontFamily: "var(--font-sans)",
-              fontSize: 12, padding: 0,
-            }}
+            onClick={() => entries.length && setClearWizardOpen(true)}
+            style={{ background: "none", border: "none", cursor: "pointer", color: "var(--paper-text-dim)", fontFamily: "var(--font-sans)", fontSize: 12, padding: 0 }}
           >
             Clear all entries
           </button>
         )}
       </div>
 
-      {/* Clear wizard modal */}
       {clearWizardOpen && (
         <ClearWizard
           entries={entries}

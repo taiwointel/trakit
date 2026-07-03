@@ -408,3 +408,11 @@ select {
     grid-column: span 1;
   }
 }
+
+/* Ledger responsive layout */
+.ledger-mobile  { display: block; }
+.ledger-desktop { display: none;  }
+@media (min-width: 768px) {
+  .ledger-mobile  { display: none;  }
+  .ledger-desktop { display: block; }
+}

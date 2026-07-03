@@ -16,17 +16,17 @@ CATEGORIES — what belongs in each:
 - Savings & Investment: savings deposit, investment purchase, mutual fund, stocks, treasury bills, fixed deposit, target savings contribution
 - Personal Care: salon, barbershop, spa, gym membership, clothes, shoes, bags, skincare, cosmetics, personal shopping
 - Betting: bet9ja, sportybet, nairabet, 1xbet, betway, betking, sportybet, betting deposits, wagers, sports betting
-- Miscellaneous: bank charges (Stamp Duty, EMTL, USSD fees), transactions that genuinely don't fit any category above — use this as a LAST RESORT only. If you can make a reasonable guess, pick the specific category instead.
+- Charges: ONLY for Nigerian bank-generated charges — Stamp Duty, EMTL, USSD Charge, SMS alert fee, account/card maintenance fee, COT, VAT on bank charges. Do NOT use for regular transactions you are unsure about.
 
-DECISION RULES — apply these before defaulting to Miscellaneous:
+DECISION RULES:
 - "Noodles", "eggs", "bread", or food items from a shop/market → Food & Groceries
 - "Soft drink", "beer", "malt" at a bar/restaurant/lounge → Dining & Lifestyle; bought from a shop/supermarket → Food & Groceries
 - "Upkeep", "allowance to girlfriend/wife/partner", "money for [person]" → Family & Dependents
 - "Data bundle", "airtime", "recharge" → Housing & Utilities
-- Nigerian bank charges (Stamp Duty, EMTL, USSD Charge, SMS alert fee, maintenance fee, COT, VAT on charges) → Miscellaneous, subcategory MUST be "Bank charges"
+- Nigerian bank charges (Stamp Duty, EMTL, USSD Charge, SMS alert fee, maintenance fee, COT, VAT on charges) → Charges, subcategory MUST be "Bank charges"
 - Transfers to a named person with no other context → Family & Dependents (most personal transfers in Nigeria are support payments)
 - When torn between Food & Groceries and Dining & Lifestyle: if eaten out or delivered → Dining; if cooked at home → Groceries
-- When torn between any specific category and Miscellaneous: always prefer the specific category
+- When genuinely unsure, pick the closest specific category — Charges is NOT a catch-all
 
 Return ONLY a raw JSON array of exactly N objects in the same order as the input. No markdown, no explanation, no extra text — just the array:
 [{"category":"...","subcategory":"...","essentiality":"Essential|Discretionary","nature":"Fixed|Variable","confidence":0.9,"note":"..."},...]`;

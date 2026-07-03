@@ -4,7 +4,7 @@ import { CATEGORY_NAMES, fallbackCategorize } from "@/lib/categories";
 import { callGemini } from "@/lib/gemini";
 
 const SYSTEM_PROMPT = `You are an expense categorizer for a Nigerian personal finance app called Trakit7.
-Given a transaction description and amount in Naira, classify it into exactly one of these 11 categories.
+Given a transaction purpose/description and amount in Naira, classify it into exactly one of these 11 categories.
 
 CATEGORIES — what belongs in each:
 - Housing & Utilities: rent, electricity (NEPA/PHCN), water bill, generator fuel/diesel, internet/WiFi, DSTV/cable TV, estate dues, mobile data bundles, airtime top-ups, phone recharge
@@ -17,15 +17,17 @@ CATEGORIES — what belongs in each:
 - Savings & Investment: savings deposit, investment purchase, mutual fund, stocks, treasury bills, fixed deposit, target savings contribution
 - Personal Care: salon, barbershop, spa, gym membership, clothes, shoes, bags, skincare, cosmetics, personal shopping
 - Betting: bet9ja, sportybet, nairabet, 1xbet, betway, betking, sportybet, betting deposits, wagers, sports betting
-- Miscellaneous: bank charges (Stamp Duty, EMTL, USSD fees), transactions that genuinely don't fit any category above — use this as a last resort only
+- Charges: ONLY for Nigerian bank-generated charges — Stamp Duty, EMTL, USSD Charge, SMS alert fee, account/card maintenance fee, COT, VAT on bank charges. Do NOT use for regular transactions you are unsure about.
 
 DECISION RULES:
 - "Noodles", "eggs", "bread", or food items from a shop/market → Food & Groceries
 - "Soft drink", "beer", "malt" at a bar/restaurant/lounge → Dining & Lifestyle; bought from a shop/supermarket → Food & Groceries
 - "Upkeep", "allowance to girlfriend/wife/partner", "money for [person]" → Family & Dependents
 - "Data bundle", "airtime", "recharge" → Housing & Utilities
-- Nigerian bank charges (Stamp Duty, EMTL, USSD Charge, SMS alert fee, maintenance fee, COT, VAT on charges) → Miscellaneous, subcategory MUST be "Bank charges"
+- Nigerian bank charges (Stamp Duty, EMTL, USSD Charge, SMS alert fee, maintenance fee, COT, VAT on charges) → Charges, subcategory MUST be "Bank charges"
+- Transfers to a named person with no other context → Family & Dependents (most personal transfers in Nigeria are support payments)
 - When torn between Food & Groceries and Dining & Lifestyle: if eaten out or delivered → Dining; if cooked at home → Groceries
+- When genuinely unsure, pick the closest specific category above — Charges is NOT a catch-all
 
 Return ONLY raw JSON (no markdown fences) in this exact shape:
 {
@@ -38,7 +40,10 @@ Return ONLY raw JSON (no markdown fences) in this exact shape:
 }`;
 
 export async function POST(request) {
-  const { description, amount } = await request.json();
+  const body = await request.json();
+  // Accept either `purpose` (new field) or `description` (legacy)
+  const description = body.purpose || body.description;
+  const { amount } = body;
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();

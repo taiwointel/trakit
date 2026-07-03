@@ -25,9 +25,7 @@ export default function StatsStrip({ entries, year, month, selectedDay }) {
 
   const monthOut  = scope.filter((e) => e.flow === "out").reduce((s, e) => s + Number(e.amount), 0);
   const monthIn   = scope.filter((e) => e.flow === "in").reduce((s, e) => s + Number(e.amount), 0);
-  const essential = scope.filter((e) => e.flow === "out" && e.essentiality === "Essential")
-                         .reduce((s, e) => s + Number(e.amount), 0);
-  const essentialPct = monthOut > 0 ? Math.round((essential / monthOut) * 100) : 0;
+  const netPosition = monthIn - monthOut;
 
   const isDay = !!dayStr;
 
@@ -61,11 +59,11 @@ export default function StatsStrip({ entries, year, month, selectedDay }) {
       grad:     "rgba(37,181,106,0.10)",
     },
     {
-      label:    "Essential %",
-      value:    `${essentialPct}%`,
-      color:    essentialPct > 70 ? "var(--amber)" : "var(--gold)",
-      accent:   "#D4A030",
-      grad:     "rgba(212,160,48,0.10)",
+      label:    isDay ? "Day net" : "Net position",
+      value:    (netPosition >= 0 ? "+" : "−") + formatNaira(Math.abs(netPosition)),
+      color:    netPosition >= 0 ? "var(--green)" : "var(--red)",
+      accent:   netPosition >= 0 ? "#25B56A" : "#E84030",
+      grad:     netPosition >= 0 ? "rgba(37,181,106,0.10)" : "rgba(232,64,48,0.10)",
     },
   ];
 
