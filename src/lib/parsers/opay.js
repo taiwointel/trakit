@@ -33,13 +33,16 @@ function extractBeneficiary(desc) {
 const RECORD_START = /^(\d{2} [A-Za-z]{3} \d{4}) \d{2}:\d{2}:\d{2} \d{2} [A-Za-z]{3} \d{4}\b/;
 const LINE_RE = /^(\d{2} [A-Za-z]{3} \d{4}) \d{2}:\d{2}:\d{2} \d{2} [A-Za-z]{3} \d{4}\s+(.*?)\s+(--|[\d,]+\.\d{2})\s+(--|[\d,]+\.\d{2})\s+([\d,]+\.\d{2})\s+(Mobile|POS|WEB)\s+(.*)$/;
 
-export function parseOpayStatement(text) {
-  // Don't rely on the literal word "OPay" appearing in the extracted text —
-  // it may only exist as a logo image in the PDF, not as selectable text.
-  // This exact column-header line is OPay's specific table fingerprint and
-  // is confirmed present in real exported statements.
-  if (!/trans\.?\s*time\s+value\s*date\s+description\s+debit/i.test(text)) return null;
-  if (!/wallet account/i.test(text)) return null;
+// Debug variant used while we're validating the parser against real
+// statements: instead of a bare null on failure, it reports exactly which
+// stage rejected the text and why, so we don't have to guess blind again.
+export function parseOpayStatementDebug(text) {
+  if (!/trans\.?\s*time\s+value\s*date\s+description\s+debit/i.test(text)) {
+    return { ok: false, reason: "no-header-fingerprint", sample: text.slice(0, 500) };
+  }
+  if (!/wallet account/i.test(text)) {
+    return { ok: false, reason: "no-wallet-account-heading", sample: text.slice(0, 500) };
+  }
 
   // Only the Wallet Account section holds real external transactions —
   // Savings Account (OWealth) is a separate table of internal sub-balance
@@ -65,16 +68,25 @@ export function parseOpayStatement(text) {
   }
   if (current) blocks.push(current);
 
+  if (blocks.length === 0) {
+    return { ok: false, reason: "no-record-start-lines-found", sectionSample: section.slice(0, 1000) };
+  }
+
   // Nearly every real transaction has a matching OWealth internal sweep row
   // right after it, so roughly half of all blocks are expected to be
   // filtered out by INTERNAL below — that's normal, not a parse failure.
   // Track genuine regex-match failures separately for the sanity check.
   let unmatched = 0;
+  const unmatchedSamples = [];
   const rows = [];
   for (const raw of blocks) {
     const block = raw.replace(/\s+/g, " ").trim();
     const m = block.match(LINE_RE);
-    if (!m) { unmatched++; continue; }
+    if (!m) {
+      unmatched++;
+      if (unmatchedSamples.length < 8) unmatchedSamples.push(block.slice(0, 200));
+      continue;
+    }
     const [, dateStr, descRaw, debit, credit] = m;
     const desc = descRaw.trim();
     if (INTERNAL.test(desc)) continue;
@@ -95,12 +107,21 @@ export function parseOpayStatement(text) {
     });
   }
 
-  // If a large share of record-start lines didn't even match the expected
-  // row structure, this isn't the layout we expect — bail out rather than
-  // return a silently incomplete ledger, and let the caller fall back to AI
-  // extraction. (Rows filtered out as internal OWealth sweeps don't count
-  // against this — see above.)
-  if (blocks.length === 0 || unmatched > blocks.length * 0.5) return null;
+  if (unmatched > blocks.length * 0.5) {
+    return {
+      ok: false,
+      reason: "too-many-unmatched-blocks",
+      blocks: blocks.length,
+      unmatched,
+      rows: rows.length,
+      unmatchedSamples,
+    };
+  }
 
-  return rows;
+  return { ok: true, rows };
+}
+
+export function parseOpayStatement(text) {
+  const result = parseOpayStatementDebug(text);
+  return result.ok ? result.rows : null;
 }
