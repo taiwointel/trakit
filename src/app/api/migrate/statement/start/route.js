@@ -5,6 +5,7 @@ import {
   EXTRACT_PROMPT, chunkText, filterRows, parseAIResponse,
   GROQ_CHUNK_SIZE, GEMINI_CHUNK_SIZE,
 } from "@/lib/statementExtract";
+import { parseOpayStatement } from "@/lib/parsers/opay";
 // pdf-parse is imported dynamically below to prevent module-level test-file
 // loading (a known pdf-parse v1 + Next.js incompatibility in serverless envs).
 
@@ -65,15 +66,12 @@ export async function POST(request) {
     }
   }
 
-  // PDFs: extract text, chunk it, and create a job the client steps through.
-  // A single 60s request can't fit a large statement within free-tier rate
+  // PDFs: extract text first. Recognized statement formats (e.g. OPay) get
+  // parsed deterministically via regex below — no AI call needed at all. For
+  // anything else, chunk the text and create a job the client steps through:
+  // a single 60s request can't fit a large statement within free-tier rate
   // limits (Groq: 12k tokens/min, Gemini: 5 requests/min), so processing is
   // spread across many short requests instead.
-  if (!provider) {
-    return NextResponse.json({ error: "No AI key configured. Add a Gemini or Groq key in Settings." }, { status: 400 });
-  }
-  const key = provider === "groq" ? settings.groq_key_encrypted : settings.gemini_key_encrypted;
-
   let text;
   try {
     const mod      = await import("pdf-parse/lib/pdf-parse.js");
@@ -88,6 +86,15 @@ export async function POST(request) {
       { error: "Could not extract text from this PDF. It may be a scanned image — try converting to JPG/PNG and re-uploading." },
       { status: 400 },
     );
+  }
+
+  const regexRows = parseOpayStatement(text);
+  if (regexRows) {
+    return NextResponse.json({ status: "done", rows: filterRows(regexRows) });
+  }
+
+  if (!provider) {
+    return NextResponse.json({ error: "No AI key configured. Add a Gemini or Groq key in Settings." }, { status: 400 });
   }
 
   const chunkSize = provider === "groq" ? GROQ_CHUNK_SIZE : GEMINI_CHUNK_SIZE;
