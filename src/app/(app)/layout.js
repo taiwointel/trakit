@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import SettingsDrawer from "@/components/SettingsDrawer";
@@ -140,15 +140,26 @@ export default function AppLayout({ children }) {
     document.documentElement.setAttribute("data-theme", saved);
   }, []);
 
+  // pendingTour: true if this session is a new signup and the tour hasn't shown yet.
+  // We store it in a ref so the onDone callback (from OnboardingFlow) can read it
+  // without a stale closure. The tour fires only after onboarding dismisses.
+  const pendingTour = useRef(false);
+
   useEffect(() => {
     const seen      = localStorage.getItem("trakit7:tourSeen");
     const newSignup = localStorage.getItem("trakit7:newSignup");
     if (!seen && newSignup) {
       localStorage.removeItem("trakit7:newSignup");
-      const t = setTimeout(() => setTourOpen(true), 1200);
-      return () => clearTimeout(t);
+      pendingTour.current = true;
     }
   }, []);
+
+  function triggerTourIfPending() {
+    if (pendingTour.current && !localStorage.getItem("trakit7:tourSeen")) {
+      pendingTour.current = false;
+      setTimeout(() => setTourOpen(true), 600);
+    }
+  }
 
   function toggleTheme() {
     const next = theme === "dark" ? "light" : "dark";
@@ -311,7 +322,7 @@ export default function AppLayout({ children }) {
       />
 
       {/* Onboarding — shown when user has no Groq key */}
-      <OnboardingFlow userName={name} />
+      <OnboardingFlow userName={name} onDone={triggerTourIfPending} />
 
       <SearchModal open={searchOpen} onClose={() => setSearchOpen(false)} entries={entries} />
       <AppTour

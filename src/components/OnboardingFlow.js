@@ -285,7 +285,7 @@ function PasteStep({ phase, stepLabel, total, onBack, keyValue, onKeyChange, sta
 
 /* ─────────────────────────────────────────────────────────────────── */
 
-export default function OnboardingFlow({ userName }) {
+export default function OnboardingFlow({ userName, onDone }) {
   const [show,        setShow]        = useState(false);
   const [checked,     setChecked]     = useState(false);
   const [phase,       setPhase]       = useState("groq"); // "groq" | "gemini" | "done"
@@ -303,6 +303,7 @@ export default function OnboardingFlow({ userName }) {
         const hasGemini = !!d.hasGeminiKey;
         if (hasGroq && hasGemini) {
           setShow(false);
+          onDone?.();
         } else {
           setShow(true);
           if (hasGroq) {
@@ -399,7 +400,7 @@ export default function OnboardingFlow({ userName }) {
             ))}
           </div>
           <button
-            onClick={() => setShow(false)}
+            onClick={() => { setShow(false); onDone?.(); }}
             className="w-full py-3 rounded-xl font-bold text-base"
             style={{ background: "linear-gradient(135deg, #C8862E, #A9854F)", color: "#fff", fontFamily: "var(--font-sans)" }}
           >
