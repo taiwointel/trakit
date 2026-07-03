@@ -118,12 +118,24 @@ export function parseGroqRetrySeconds(message) {
   return m ? parseFloat(m[1]) : 15;
 }
 
-// Groq free tier: 12,000 tokens/minute. max_tokens counts against that as
-// reserved capacity (not just actual usage), so both chunk size and
-// max_tokens must be small enough that input + max_tokens fits comfortably
-// under the cap in a single request.
-export const GROQ_CHUNK_SIZE = 6000;
-export const GROQ_MAX_TOKENS = 4000;
+// Groq returns rate-limit headers like "x-ratelimit-reset-tokens: 7.66s" or
+// "2m59.56s" — parse into seconds so we can wait exactly as long as needed
+// instead of guessing or burning a request into a 429.
+export function parseGroqDuration(str) {
+  if (!str) return 0;
+  const m = str.match(/([\d.]+)m/);
+  const s = str.match(/([\d.]+)s/);
+  return (m ? parseFloat(m[1]) * 60 : 0) + (s ? parseFloat(s[1]) : 0);
+}
+
+// Groq free tier: 12,000 tokens/minute, and max_tokens counts against that
+// as reserved capacity (not just actual usage). A 6k-char chunk rarely
+// produces anywhere near 4000 output tokens of JSONL, so that combination
+// wasted most of the budget on unused headroom — 90 chunks for one
+// statement, each needing a ~30s wait. Right-sized: bigger chunks (fewer
+// requests) with a realistic output reservation, still safely under the cap.
+export const GROQ_CHUNK_SIZE = 24000;
+export const GROQ_MAX_TOKENS = 2000;
 
 // Gemini's context window is huge (1M+ tokens) — the binding constraint is
 // its 5 requests/minute free-tier cap, not token size, so use a much larger

@@ -3,11 +3,17 @@ import { createClient } from "@/lib/supabase/server";
 import { callGemini } from "@/lib/gemini";
 import {
   textExtractPrompt, chunkText, filterRows, parseAIResponse,
-  isQuotaOrRateLimitMessage, parseGroqRetrySeconds,
+  isQuotaOrRateLimitMessage, parseGroqRetrySeconds, parseGroqDuration,
   GROQ_CHUNK_SIZE, GROQ_MAX_TOKENS,
 } from "@/lib/statementExtract";
 
 export const maxDuration = 30;
+
+// Groq exposes exactly how much of the 12k-tokens/minute budget is left on
+// every response via x-ratelimit-* headers. Use that to pace proactively —
+// only wait when the next chunk's estimated cost would actually blow the
+// budget — instead of firing blind and eating a 429 to find out.
+const NEXT_CHUNK_ESTIMATE = Math.ceil(GROQ_CHUNK_SIZE / 4) + GROQ_MAX_TOKENS;
 
 async function callGroqChunk(chunk, key) {
   const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -21,12 +27,19 @@ async function callGroqChunk(chunk, key) {
     }),
   });
   const data = await res.json();
+
+  const remainingTokens = parseFloat(res.headers.get("x-ratelimit-remaining-tokens") ?? "Infinity");
+  const resetSecs       = parseGroqDuration(res.headers.get("x-ratelimit-reset-tokens"));
+
   if (!res.ok) {
     const err = new Error(data.error?.message || "Groq error");
     err.groqStatus = res.status;
+    err.waitMs     = (resetSecs || parseGroqRetrySeconds(err.message)) * 1000 + 500;
     throw err;
   }
-  return data.choices?.[0]?.message?.content || "";
+
+  const waitMs = remainingTokens < NEXT_CHUNK_ESTIMATE ? resetSecs * 1000 + 500 : 0;
+  return { text: data.choices?.[0]?.message?.content || "", waitMs };
 }
 
 // Processes exactly one chunk of one statement-import job per call. The
@@ -79,11 +92,13 @@ export async function POST(request) {
   const chunk = job.chunks[job.chunk_index];
 
   try {
-    let rawText;
+    let rawText, waitMs = 0;
     if (job.provider === "groq") {
       const key = settings?.groq_key_encrypted;
       if (!key) throw new Error("No Groq key configured.");
-      rawText = await callGroqChunk(chunk, key);
+      const result = await callGroqChunk(chunk, key);
+      rawText = result.text;
+      waitMs  = result.waitMs;
     } else {
       const key = settings?.gemini_key_encrypted;
       if (!key) throw new Error("No Gemini key configured.");
@@ -110,14 +125,14 @@ export async function POST(request) {
       rows:        done ? filterRows(mergedRows) : undefined,
       chunkIndex:  nextIndex,
       totalChunks: job.chunks.length,
-      waitMs:      0,
+      waitMs:      done ? 0 : waitMs,
     });
 
   } catch (err) {
     // Groq TPM/RPM rate limit — retry the same chunk after the server's
     // suggested delay instead of burning through further requests.
     if (job.provider === "groq" && err.groqStatus === 429) {
-      const waitMs = parseGroqRetrySeconds(err.message) * 1000 + 1000;
+      const waitMs = err.waitMs || (parseGroqRetrySeconds(err.message) * 1000 + 1000);
       return NextResponse.json({
         status: "processing", chunkIndex: job.chunk_index, totalChunks: job.chunks.length, waitMs,
       });
