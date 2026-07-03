@@ -337,6 +337,22 @@ function AuthForm({ onBack }) {
     }
   }, [mode]);
 
+  function errorText(err) {
+    if (!err) return "Something went wrong. Please try again.";
+    const raw = typeof err.message === "string" ? err.message
+               : typeof err === "string"        ? err
+               : null;
+    if (!raw || raw === "{}") return "Something went wrong. Please try again.";
+    // Surface the most common Supabase auth errors in plain English
+    if (/user already registered/i.test(raw) || /already been registered/i.test(raw))
+      return "An account with this email already exists. Sign in instead.";
+    if (/email rate limit/i.test(raw))
+      return "Too many signup attempts. Wait a few minutes, then try again.";
+    if (/invalid login/i.test(raw) || /invalid credentials/i.test(raw))
+      return "Wrong email or password.";
+    return raw;
+  }
+
   async function submit(e) {
     e.preventDefault();
     setMsg({ text: "", ok: false });
@@ -344,7 +360,7 @@ function AuthForm({ onBack }) {
     try {
       if (mode === "signup") {
         const fullName = name.trim() || email.split("@")[0];
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email, password,
           options: {
             data: { full_name: fullName },
@@ -352,14 +368,30 @@ function AuthForm({ onBack }) {
           },
         });
         if (error) throw error;
+        // If email confirmation is disabled, Supabase returns the session immediately.
+        // Redirect straight into the app. If confirmation is required, data.session is null.
         localStorage.setItem("trakit7:last_email", email);
         localStorage.setItem("trakit7:last_name", fullName);
-        localStorage.setItem("trakit7:newSignup", "1");
-        setRemembered({ email, name: fullName });
-        setResetEmail(email);
-        setPassword("");
-        setMode("returning");
-        setMsg({ text: "Account created! Check your email to confirm it, then enter your password below to sign in.", ok: true });
+        if (data.session) {
+          // Email confirmation is OFF — signed in immediately
+          localStorage.setItem("trakit7:newSignup", "1");
+          router.push("/summary");
+          router.refresh();
+        } else if (data.user && !data.session) {
+          // Email confirmation is ON — need to verify email first
+          localStorage.setItem("trakit7:newSignup", "1");
+          setRemembered({ email, name: fullName });
+          setResetEmail(email);
+          setPassword("");
+          setMode("returning");
+          setMsg({ text: "Account created! Check your email for a confirmation link, then sign in below.", ok: true });
+        } else {
+          // Supabase silently ignored the signup (email already exists, confirmation off)
+          setMsg({ text: "An account with this email already exists. Sign in instead.", ok: false });
+          setMode("returning");
+          setRemembered({ email, name: fullName });
+          setPassword("");
+        }
       } else {
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
@@ -370,7 +402,7 @@ function AuthForm({ onBack }) {
         router.refresh();
       }
     } catch (err) {
-      setMsg({ text: err.message || "Something went wrong.", ok: false });
+      setMsg({ text: errorText(err), ok: false });
     } finally {
       setLoading(false);
     }
