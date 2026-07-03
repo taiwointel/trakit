@@ -339,11 +339,18 @@ function AuthForm({ onBack }) {
 
   function errorText(err) {
     if (!err) return "Something went wrong. Please try again.";
-    const raw = typeof err.message === "string" ? err.message
-               : typeof err === "string"        ? err
-               : null;
-    if (!raw || raw === "{}") return "Something went wrong. Please try again.";
-    // Surface the most common Supabase auth errors in plain English
+    // Serialize the error fully so we catch all Supabase error shapes
+    const raw = typeof err.message === "string" && err.message
+      ? err.message
+      : typeof err === "string" && err
+      ? err
+      : (() => {
+          try { const s = JSON.stringify(err); return s && s !== "{}" ? s : null; }
+          catch { return null; }
+        })();
+    if (!raw) return "Something went wrong. Please try again.";
+    if (/redirect/i.test(raw) || /not allowed/i.test(raw))
+      return "Signup configuration error — contact support.";
     if (/user already registered/i.test(raw) || /already been registered/i.test(raw))
       return "An account with this email already exists. Sign in instead.";
     if (/email rate limit/i.test(raw))
@@ -364,7 +371,9 @@ function AuthForm({ onBack }) {
           email, password,
           options: {
             data: { full_name: fullName },
-            emailRedirectTo: `${window.location.origin}/summary`,
+            // emailRedirectTo only needed when email confirmation is ON.
+            // When OFF, including it triggers Supabase's redirect-URL allowlist
+            // validation and fails the signup if the URL isn't whitelisted yet.
           },
         });
         if (error) throw error;
