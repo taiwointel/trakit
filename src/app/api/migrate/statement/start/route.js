@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { callGemini } from "@/lib/gemini";
-import { EXTRACT_PROMPT, filterRows, parseAIResponse } from "@/lib/statementExtract";
+import {
+  EXTRACT_PROMPT, chunkText, filterRows, parseAIResponse,
+  GROQ_CHUNK_SIZE, GEMINI_CHUNK_SIZE,
+} from "@/lib/statementExtract";
 import { parseOpayStatementDebug } from "@/lib/parsers/opay";
+import { parsePalmpayStatementDebug } from "@/lib/parsers/palmpay";
 // pdf-parse is imported dynamically below to prevent module-level test-file
 // loading (a known pdf-parse v1 + Next.js incompatibility in serverless envs).
 
@@ -31,6 +35,16 @@ export async function POST(request) {
     return NextResponse.json({ error: "Unsupported file type. Use PDF or an image (JPG, PNG)." }, { status: 400 });
   }
 
+  // Statement extraction prefers Gemini over Groq regardless of the
+  // account's general chat-provider setting: Gemini's 5-requests/minute cap
+  // lets each request carry far more text, so a large statement becomes a
+  // handful of requests instead of Groq's 12k-tokens/minute cap forcing
+  // dozens of small, slow, rate-limited chunks. Groq is only used when no
+  // Gemini key exists, or as the mid-job fallback if Gemini's quota runs out.
+  const hasGemini = !!settings?.gemini_key_encrypted;
+  const hasGroq   = !!settings?.groq_key_encrypted;
+  const provider  = hasGemini ? "gemini" : (hasGroq ? "groq" : null);
+
   // Images: a single vision call is fast enough to run synchronously — no
   // job/chunking needed, and Groq has no vision model to fall back to.
   if (isImage) {
@@ -53,12 +67,12 @@ export async function POST(request) {
     }
   }
 
-  // PDFs: extract text first. Recognized statement formats (e.g. OPay) get
-  // parsed deterministically via regex below — no AI call needed at all. For
-  // anything else, chunk the text and create a job the client steps through:
-  // a single 60s request can't fit a large statement within free-tier rate
-  // limits (Groq: 12k tokens/min, Gemini: 5 requests/min), so processing is
-  // spread across many short requests instead.
+  // PDFs: extract text first. Recognized statement formats (OPay, PalmPay)
+  // get parsed deterministically via regex below — no AI call needed at
+  // all. For anything else, chunk the text and create a job the client
+  // steps through: a single 60s request can't fit a large statement within
+  // free-tier rate limits (Groq: 12k tokens/min, Gemini: 5 requests/min),
+  // so processing is spread across many short requests instead.
   let text;
   try {
     const mod      = await import("pdf-parse/lib/pdf-parse.js");
@@ -75,15 +89,38 @@ export async function POST(request) {
     );
   }
 
-  // TEMPORARY: AI fallback disabled while we validate the OPay regex parser
-  // against real statements. On failure, return the debug reason directly
-  // instead of silently falling through to the AI chunking path — this is
-  // what let earlier bugs (missing "OPay" word, bad sanity-check threshold)
-  // hide behind a generic "still extracting" spinner. Restore the AI
-  // fallback once the parser is confirmed working end-to-end.
-  const debug = parseOpayStatementDebug(text);
-  if (debug.ok) {
-    return NextResponse.json({ status: "done", rows: filterRows(debug.rows) });
+  const opayDebug = parseOpayStatementDebug(text);
+  if (opayDebug.ok) {
+    return NextResponse.json({ status: "done", rows: filterRows(opayDebug.rows) });
   }
-  return NextResponse.json({ error: "OPay parser debug", debug }, { status: 400 });
+  const palmpayDebug = parsePalmpayStatementDebug(text);
+  if (palmpayDebug.ok) {
+    return NextResponse.json({ status: "done", rows: filterRows(palmpayDebug.rows) });
+  }
+
+  if (!provider) {
+    return NextResponse.json({ error: "No AI key configured. Add a Gemini or Groq key in Settings." }, { status: 400 });
+  }
+
+  const chunkSize = provider === "groq" ? GROQ_CHUNK_SIZE : GEMINI_CHUNK_SIZE;
+  const chunks    = chunkText(text, chunkSize);
+
+  const { data: job, error: insertErr } = await supabase
+    .from("statement_jobs")
+    .insert({
+      user_id:  user.id,
+      status:   "processing",
+      provider,
+      chunks,
+      chunk_index: 0,
+      rows: [],
+    })
+    .select("id")
+    .single();
+
+  if (insertErr) {
+    return NextResponse.json({ error: "Could not start extraction job. Please try again." }, { status: 500 });
+  }
+
+  return NextResponse.json({ status: "processing", jobId: job.id, totalChunks: chunks.length });
 }
