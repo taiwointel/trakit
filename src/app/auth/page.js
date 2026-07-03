@@ -376,6 +376,8 @@ function AuthForm({ onBack }) {
             // validation and fails the signup if the URL isn't whitelisted yet.
           },
         });
+        // Debug: log the raw response so we can see exactly what Supabase returns
+        console.log("[signup] data:", JSON.stringify(data), "error:", JSON.stringify(error), "err.message:", error?.message, "err.status:", error?.status, "err.code:", error?.code);
         if (error) throw error;
         // If email confirmation is disabled, Supabase returns the session immediately.
         // Redirect straight into the app. If confirmation is required, data.session is null.
