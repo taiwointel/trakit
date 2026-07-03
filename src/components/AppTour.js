@@ -5,6 +5,14 @@ import { useRouter, usePathname } from "next/navigation";
 
 const STEPS = [
   {
+    route:     null,
+    target:    null,
+    label:     "Welcome",
+    isWelcome: true,
+    title:     null, // dynamically injected with first name
+    body:      null,
+  },
+  {
     route:  null,
     target: "settings-btn",
     label:  "Settings",
@@ -92,7 +100,7 @@ function findEl(tourId) {
   return null;
 }
 
-export default function AppTour({ open, onClose }) {
+export default function AppTour({ open, onClose, name }) {
   const router      = useRouter();
   const pathname    = usePathname();
   const pathnameRef = useRef(null);
@@ -190,11 +198,129 @@ export default function AppTour({ open, onClose }) {
 
   if (!open) return null;
 
-  const current = STEPS[step];
-  const isLast  = step === STEPS.length - 1;
+  const current   = STEPS[step];
+  const isLast    = step === STEPS.length - 1;
+  const firstName = (name || "").split(" ")[0] || "there";
 
   function next() { isLast ? onClose() : setStep((s) => s + 1); }
   function back() { if (step > 0) setStep((s) => s - 1); }
+
+  // Progress pips exclude the welcome step (index 0)
+  const featureSteps = STEPS.filter((s) => !s.isWelcome);
+  const featureIndex = step - 1; // -1 when on welcome
+
+  /* ── Welcome screen ── */
+  if (current.isWelcome) {
+    return (
+      <div style={{
+        position: "fixed", inset: 0, zIndex: 9999,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        padding: "24px 20px",
+        background: "rgba(15,19,25,0.88)",
+        backdropFilter: "blur(10px)",
+        WebkitBackdropFilter: "blur(10px)",
+      }}>
+        <div style={{
+          background:   "rgba(18,22,29,0.98)",
+          border:       "1px solid rgba(169,133,79,0.35)",
+          borderTop:    "3px solid var(--gold)",
+          borderRadius: 24,
+          padding:      "40px 36px 32px",
+          maxWidth:     460,
+          width:        "100%",
+          boxShadow:    "0 32px 80px rgba(0,0,0,0.7)",
+          textAlign:    "center",
+          display:      "flex",
+          flexDirection:"column",
+          alignItems:   "center",
+          gap:          16,
+        }}>
+          {/* Icon */}
+          <div style={{ fontSize: 52, lineHeight: 1 }}>👋</div>
+
+          {/* Greeting */}
+          <div>
+            <h2 style={{
+              color:      "var(--ink-text)",
+              fontFamily: "var(--font-serif)",
+              fontSize:   "1.6rem",
+              fontWeight: 700,
+              lineHeight: 1.25,
+              margin:     0,
+            }}>
+              Welcome, {firstName}!
+            </h2>
+            <p style={{
+              color:      "var(--ink-text-dim)",
+              fontFamily: "var(--font-sans)",
+              fontSize:   "0.9rem",
+              lineHeight: 1.65,
+              marginTop:  10,
+              maxWidth:   360,
+            }}>
+              Trakit7 is your complete personal finance dashboard — expense tracking,
+              AI coaching, investment portfolio, goals, and more, all in one place.
+              Let me show you around in about 2 minutes.
+            </p>
+          </div>
+
+          {/* Feature chips */}
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, justifyContent: "center", marginTop: 4 }}>
+            {["Expense Tracking", "AI Categorization", "Coach RBC", "Investments", "Goals & Savings"].map((f) => (
+              <span key={f} style={{
+                fontSize:      11,
+                fontFamily:    "var(--font-sans)",
+                fontWeight:    600,
+                color:         "var(--gold)",
+                background:    "rgba(169,133,79,0.1)",
+                border:        "1px solid rgba(169,133,79,0.25)",
+                borderRadius:  20,
+                padding:       "3px 10px",
+              }}>{f}</span>
+            ))}
+          </div>
+
+          {/* CTA */}
+          <button
+            onClick={next}
+            style={{
+              marginTop:     8,
+              width:         "100%",
+              padding:       "14px",
+              borderRadius:  14,
+              fontSize:      15,
+              fontWeight:    700,
+              border:        "none",
+              cursor:        "pointer",
+              background:    "linear-gradient(135deg, var(--gold-deep), var(--gold))",
+              color:         "#fff",
+              fontFamily:    "var(--font-sans)",
+              boxShadow:     "0 4px 20px rgba(169,133,79,0.4)",
+              letterSpacing: "0.01em",
+            }}
+          >
+            Show me around →
+          </button>
+
+          {/* Skip */}
+          <button
+            onClick={onClose}
+            style={{
+              color:      "var(--ink-text-dim)",
+              fontFamily: "var(--font-sans)",
+              fontSize:   12,
+              background: "none",
+              border:     "none",
+              cursor:     "pointer",
+              padding:    "4px 0",
+            }}
+          >
+            Skip tour
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -245,18 +371,18 @@ export default function AppTour({ open, onClose }) {
           boxShadow:    "0 24px 72px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.04)",
         }}>
 
-          {/* Step progress pips */}
+          {/* Step progress pips — feature steps only */}
           <div style={{ display: "flex", gap: 4, marginBottom: 12, alignItems: "center" }}>
-            {STEPS.map((s, i) => (
+            {featureSteps.map((s, i) => (
               <div
                 key={i}
-                onClick={() => setStep(i)}
-                title={STEPS[i].label}
+                onClick={() => setStep(i + 1)}
+                title={featureSteps[i].label}
                 style={{
-                  width:        i === step ? 20 : 5,
+                  width:        i === featureIndex ? 20 : 5,
                   height:       5,
                   borderRadius: 3,
-                  background:   i < step ? "var(--green)" : i === step ? "var(--gold)" : "var(--ink-3)",
+                  background:   i < featureIndex ? "var(--green)" : i === featureIndex ? "var(--gold)" : "var(--ink-3)",
                   transition:   "width 0.3s, background 0.3s",
                   cursor:       "pointer",
                   flexShrink:   0,
@@ -267,7 +393,7 @@ export default function AppTour({ open, onClose }) {
               marginLeft: "auto", color: "var(--ink-text-dim)",
               fontFamily: "var(--font-mono)", fontSize: 10, whiteSpace: "nowrap",
             }}>
-              {step + 1} / {STEPS.length}
+              {featureIndex + 1} / {featureSteps.length}
             </span>
           </div>
 
@@ -329,7 +455,7 @@ export default function AppTour({ open, onClose }) {
               End tour
             </button>
             <div style={{ display: "flex", gap: 8 }}>
-              {step > 0 && (
+              {step > 1 && (
                 <button
                   onClick={back}
                   style={{

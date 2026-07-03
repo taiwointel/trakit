@@ -326,6 +326,7 @@ export default function AppLayout({ children }) {
 
       <SearchModal open={searchOpen} onClose={() => setSearchOpen(false)} entries={entries} />
       <AppTour
+        name={name}
         open={tourOpen}
         onClose={() => {
           setTourOpen(false);
