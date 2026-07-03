@@ -4,10 +4,12 @@
 // quota, so chaining them multiplies total headroom before any error surfaces.
 // NOTE: gemini-2.0-flash, gemini-2.0-flash-lite shut down June 1 2026.
 //       gemini-1.5-flash shut down / not found as of July 2026.
+//       gemini-2.5-flash-8b does not exist for generateContent — it 404s and
+//       was being used as a fallback, turning every quota error into a hard
+//       "model not found" failure instead of surfacing the real quota message.
 const FALLBACK_MODELS = [
   "gemini-2.5-flash",        //  5 RPM — primary
   "gemini-2.5-flash-lite",   // 10 RPM — lighter free-tier model
-  "gemini-2.5-flash-8b",     // 10 RPM — alias used in some regions
 ];
 
 function isRetryableError(status, message) {

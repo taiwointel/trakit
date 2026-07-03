@@ -187,7 +187,53 @@ export async function POST(request) {
     }
   }
 
-  // Claude and Gemini: native vision — send the file directly
+  // Gemini + PDF: extract text server-side and chunk it, same as the Groq path.
+  // Sending the whole PDF as base64 inline_data was slow and quota-heavy on
+  // large statements — text extraction is faster and lets us parallelize.
+  if (provider === "gemini" && isPdf) {
+    const key = settings?.gemini_key_encrypted;
+    if (!key) return NextResponse.json({ error: "No Gemini key configured. Add one in Settings." }, { status: 400 });
+
+    try {
+      const mod      = await import("pdf-parse/lib/pdf-parse.js");
+      const pdfParse = mod.default ?? mod;
+      const parsed   = await pdfParse(buffer);
+      const text     = parsed.text?.trim();
+      if (!text || text.length < 50) {
+        return NextResponse.json(
+          { error: "Could not extract text from this PDF. It may be a scanned image — try converting to JPG/PNG and re-uploading." },
+          { status: 400 },
+        );
+      }
+
+      const CHUNK_SIZE = 20000;
+      const lines  = text.split("\n");
+      const chunks = [];
+      let current  = "";
+      for (const line of lines) {
+        if (current.length + line.length + 1 > CHUNK_SIZE && current) {
+          chunks.push(current);
+          current = "";
+        }
+        current += (current ? "\n" : "") + line;
+      }
+      if (current) chunks.push(current);
+
+      const results = await Promise.all(chunks.map((chunk) =>
+        callGemini(key, {
+          contents: [{ parts: [{ text: textExtractPrompt(chunk) }] }],
+          generationConfig: { temperature: 0.1, maxOutputTokens: 65536 },
+        }),
+      ));
+
+      const rows = filterRows(results.flatMap((rawText) => parseAIResponse(rawText)));
+      return NextResponse.json({ rows });
+    } catch (err) {
+      return NextResponse.json({ error: err.message || "Extraction failed. Please try again." }, { status: 500 });
+    }
+  }
+
+  // Claude and Gemini-with-image: native vision — send the file directly
   const base64  = buffer.toString("base64");
   let rawText   = "";
 
@@ -215,7 +261,7 @@ export async function POST(request) {
       rawText = data.content?.[0]?.text || "";
 
     } else {
-      // Gemini (default) — with automatic fallback to gemini-1.5-flash on quota errors
+      // Gemini image path — vision, single call
       const key = settings?.gemini_key_encrypted;
       if (!key) return NextResponse.json({ error: "No AI key configured. Add a Gemini or Claude key in Settings." }, { status: 400 });
 
