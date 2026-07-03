@@ -331,10 +331,11 @@ function DesktopRow({ entry, index, total, onEdit, onDelete, onUpdate }) {
             <div style={{ fontFamily: "var(--font-sans)", fontSize: 12, fontWeight: 600, color: "var(--paper-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {purpose || "—"}
             </div>
-            {entry.subcategory && (
-              <div style={{ fontFamily: "var(--font-sans)", fontSize: 10, color: "var(--paper-text-dim)", marginTop: 1 }}>
-                {entry.subcategory}
-                {entry.source && <> · <SourceTag source={entry.source} /></>}
+            {(entry.subcategory || entry.source) && (
+              <div style={{ fontFamily: "var(--font-sans)", fontSize: 10, color: "var(--paper-text-dim)", marginTop: 1, display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
+                {entry.subcategory && <span>{entry.subcategory}</span>}
+                {entry.subcategory && entry.source && <span style={{ opacity: 0.4 }}>·</span>}
+                {entry.source && <SourceTag source={entry.source} />}
               </div>
             )}
           </div>
