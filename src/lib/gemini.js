@@ -2,21 +2,21 @@
 // On free-tier quota errors (429 / RESOURCE_EXHAUSTED), automatically retries
 // with the next model in the list. Each model has its own independent free-tier
 // quota, so chaining them multiplies total headroom before any error surfaces.
-// NOTE: gemini-2.0-flash and gemini-2.0-flash-lite were shut down June 1 2026.
+// NOTE: gemini-2.0-flash, gemini-2.0-flash-lite shut down June 1 2026.
+//       gemini-1.5-flash shut down / not found as of July 2026.
 const FALLBACK_MODELS = [
-  "gemini-2.5-flash",              //  5 RPM — primary
-  "gemini-2.5-flash-lite",         // 10 RPM
-  "gemini-1.5-flash",              // 15 RPM — reliable free-tier fallback
-  "gemini-3.1-flash-lite",         // 15 RPM
-  "gemini-3.5-flash",              //  5 RPM
-  "gemini-3-flash-preview",        //  5 RPM
+  "gemini-2.5-flash",        //  5 RPM — primary
+  "gemini-2.5-flash-lite",   // 10 RPM — lighter free-tier model
+  "gemini-2.5-flash-8b",     // 10 RPM — alias used in some regions
 ];
 
 function isRetryableError(status, message) {
   return (
     status === 429 ||
+    status === 404 ||   // model not found / deprecated — try next in chain
     /resource.?exhausted|quota|rate.?limit/i.test(message || "") ||
-    /modality.*not.*enabled|input modality.*not.*enabled|not.*support.*image/i.test(message || "")
+    /modality.*not.*enabled|input modality.*not.*enabled|not.*support.*image/i.test(message || "") ||
+    /not found for api version|is not supported for/i.test(message || "")
   );
 }
 
