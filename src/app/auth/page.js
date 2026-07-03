@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 /* ─────────────────────────────────────────────────────────────────────────
@@ -289,186 +288,27 @@ const SLIDES = [
 ];
 
 /* ─────────────────────────────────────────────────────────────────────────
-   Auth form
+   Auth form — Google-only
 ───────────────────────────────────────────────────────────────────────── */
-const iStyle = {
-  padding: "12px 14px", borderRadius: 12, fontSize: 14,
-  outline: "none", width: "100%", boxSizing: "border-box",
-  background: "var(--ink-3)", border: "1px solid var(--rule)",
-  color: "var(--ink-text)", fontFamily: "var(--font-mono)",
-};
-
-const labelStyle = {
-  fontSize: 11, color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)",
-  textTransform: "uppercase", letterSpacing: "0.06em",
-};
 
 function AuthForm({ onBack }) {
-  const router   = useRouter();
   const supabase = createClient();
-  const pwdRef   = useRef(null);
-
-  // mode: "signup" | "signin" | "returning" | "forgot"
-  const [mode,        setMode]        = useState("signup");
-  const [name,        setName]        = useState("");
-  const [email,       setEmail]       = useState("");
-  const [password,    setPassword]    = useState("");
-  const [resetEmail,  setResetEmail]  = useState("");
-  const [showPwd,     setShowPwd]     = useState(false);
-  const [msg,         setMsg]         = useState({ text: "", ok: false });
-  const [loading,     setLoading]     = useState(false);
-  const [remembered,  setRemembered]  = useState({ email: null, name: null });
-
-  useEffect(() => {
-    const rEmail = localStorage.getItem("trakit7:last_email");
-    const rName  = localStorage.getItem("trakit7:last_name");
-    if (rEmail) {
-      setRemembered({ email: rEmail, name: rName || rEmail.split("@")[0] });
-      setEmail(rEmail);
-      setResetEmail(rEmail);
-      setMode("returning");
-    }
-  }, []);
-
-  useEffect(() => {
-    if (mode === "returning") {
-      const t = setTimeout(() => pwdRef.current?.focus(), 80);
-      return () => clearTimeout(t);
-    }
-  }, [mode]);
-
-  function errorText(err) {
-    if (!err) return "Something went wrong. Please try again.";
-    // Serialize the error fully so we catch all Supabase error shapes
-    const raw = typeof err.message === "string" && err.message
-      ? err.message
-      : typeof err === "string" && err
-      ? err
-      : (() => {
-          try { const s = JSON.stringify(err); return s && s !== "{}" ? s : null; }
-          catch { return null; }
-        })();
-    if (!raw) return "Something went wrong. Please try again.";
-    if (/redirect/i.test(raw) || /not allowed/i.test(raw))
-      return "Signup configuration error — contact support.";
-    if (/user already registered/i.test(raw) || /already been registered/i.test(raw))
-      return "An account with this email already exists. Sign in instead.";
-    if (/email rate limit/i.test(raw))
-      return "Too many signup attempts. Wait a few minutes, then try again.";
-    if (/invalid login/i.test(raw) || /invalid credentials/i.test(raw))
-      return "Wrong email or password.";
-    return raw;
-  }
-
-  async function submit(e) {
-    e.preventDefault();
-    setMsg({ text: "", ok: false });
-    setLoading(true);
-    try {
-      if (mode === "signup") {
-        const fullName = name.trim() || email.split("@")[0];
-        const { data, error } = await supabase.auth.signUp({
-          email, password,
-          options: {
-            data: { full_name: fullName },
-            emailRedirectTo: `${window.location.origin}/summary`,
-          },
-        });
-        if (error) throw error;
-        // If email confirmation is disabled, Supabase returns the session immediately.
-        // Redirect straight into the app. If confirmation is required, data.session is null.
-        localStorage.setItem("trakit7:last_email", email);
-        localStorage.setItem("trakit7:last_name", fullName);
-        if (data.session) {
-          // Email confirmation is OFF — signed in immediately
-          localStorage.setItem("trakit7:newSignup", "1");
-          router.push("/summary");
-          router.refresh();
-        } else if (data.user && !data.session) {
-          // Email confirmation is ON — need to verify email first
-          localStorage.setItem("trakit7:newSignup", "1");
-          setRemembered({ email, name: fullName });
-          setResetEmail(email);
-          setPassword("");
-          setMode("returning");
-          setMsg({ text: "Account created! Check your email for a confirmation link, then sign in below.", ok: true });
-        } else {
-          // Supabase silently ignored the signup (email already exists, confirmation off)
-          setMsg({ text: "An account with this email already exists. Sign in instead.", ok: false });
-          setMode("returning");
-          setRemembered({ email, name: fullName });
-          setPassword("");
-        }
-      } else {
-        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-        const fullName = data.user?.user_metadata?.full_name || email.split("@")[0];
-        localStorage.setItem("trakit7:last_email", email);
-        localStorage.setItem("trakit7:last_name", fullName);
-        router.push("/summary");
-        router.refresh();
-      }
-    } catch (err) {
-      setMsg({ text: errorText(err), ok: false });
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function sendReset(e) {
-    e.preventDefault();
-    setMsg({ text: "", ok: false });
-    setLoading(true);
-    try {
-      const target = resetEmail.trim();
-      if (!target) { setMsg({ text: "Enter your email address.", ok: false }); return; }
-      const { error } = await supabase.auth.resetPasswordForEmail(target, {
-        redirectTo: `${window.location.origin}/auth/reset`,
-      });
-      if (error) throw error;
-      setMsg({ text: `Reset link sent to ${target}. Check your inbox (and spam folder).`, ok: true });
-    } catch (err) {
-      setMsg({ text: err.message || "Something went wrong.", ok: false });
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  function useDifferentAccount() {
-    localStorage.removeItem("trakit7:last_email");
-    localStorage.removeItem("trakit7:last_name");
-    setRemembered({ email: null, name: null });
-    setEmail("");
-    setPassword("");
-    setResetEmail("");
-    setMsg({ text: "", ok: false });
-    setMode("signup");
-  }
-
-  function goForgot() {
-    setMsg({ text: "", ok: false });
-    setMode("forgot");
-  }
+  const [errMsg,   setErrMsg]   = useState("");
+  const [loading,  setLoading]  = useState(false);
 
   async function handleGoogle() {
-    setMsg({ text: "", ok: false });
+    setErrMsg("");
     setLoading(true);
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: { redirectTo: `${window.location.origin}/summary` },
     });
-    if (error) setMsg({ text: errorText(error), ok: false });
+    if (error) {
+      const raw = error?.message || JSON.stringify(error);
+      setErrMsg(raw && raw !== "{}" ? raw : "Something went wrong. Please try again.");
+    }
     setLoading(false);
   }
-
-  const firstName = (remembered.name || "").split(" ")[0];
-  const headings = {
-    signup:    ["Create your account",    "Start taking control of your money."],
-    signin:    ["Sign in to Trakit7",     "Your finances are waiting."],
-    returning: [`Welcome back, ${firstName} 👋`, "Your finances are waiting."],
-    forgot:    ["Reset your password",    "We'll send a link to your email."],
-  };
-  const [heading, subheading] = headings[mode] || headings.signup;
 
   return (
     <div style={{
@@ -485,213 +325,88 @@ function AuthForm({ onBack }) {
       }}>← Back</button>
 
       <div style={{
-        width: "100%", maxWidth: 420,
+        width: "100%", maxWidth: 400,
         background: "var(--ink-2)", border: "1px solid var(--rule)",
-        borderRadius: 24, padding: "36px 32px",
-        display: "flex", flexDirection: "column", gap: 24,
+        borderRadius: 24, padding: "44px 36px",
+        display: "flex", flexDirection: "column", gap: 28,
         boxShadow: "0 24px 64px rgba(0,0,0,0.45)",
+        alignItems: "center", textAlign: "center",
       }} className="slide-in">
 
-        {/* Brand */}
-        <div style={{ textAlign: "center" }}>
-          <div style={{ display: "inline-flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
-            <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-              <rect width="28" height="28" rx="8" fill="var(--gold)" />
-              <path d="M7 14h14M14 7v14" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
-            </svg>
-            <span style={{ fontFamily: "var(--font-serif)", fontSize: 22, fontWeight: 700, color: "var(--ink-text)", letterSpacing: -0.5 }}>
+        {/* Brand mark */}
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
+          <svg width="48" height="48" viewBox="0 0 30 30" fill="none">
+            <defs>
+              <linearGradient id="af-grad" x1="0" y1="0" x2="30" y2="30">
+                <stop stopColor="#C8862E"/>
+                <stop offset="1" stopColor="#A9854F"/>
+              </linearGradient>
+            </defs>
+            <rect width="30" height="30" rx="8" fill="url(#af-grad)"/>
+            <path d="M8 22 L12 16 L17 19 L22 10" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+            <circle cx="22" cy="10" r="2.5" fill="white"/>
+            <path d="M7 24 H23" stroke="white" strokeWidth="1.5" strokeLinecap="round" opacity="0.5"/>
+          </svg>
+          <div>
+            <div style={{ fontFamily: "var(--font-serif)", fontSize: 26, fontWeight: 700, color: "var(--ink-text)", letterSpacing: -0.5, lineHeight: 1 }}>
               Trakit7
-            </span>
-          </div>
-          <div style={{ color: "var(--ink-text)", fontSize: mode === "returning" ? 22 : 20, fontFamily: "var(--font-serif)", fontWeight: mode === "returning" ? 700 : 600, lineHeight: 1.2 }}>
-            {heading}
-          </div>
-          <div style={{ color: "var(--ink-text-dim)", fontSize: 13, fontFamily: "var(--font-sans)", marginTop: 6 }}>
-            {subheading}
+            </div>
+            <div style={{ fontFamily: "var(--font-sans)", fontSize: 13, color: "var(--ink-text-dim)", marginTop: 6, lineHeight: 1.5 }}>
+              Sign in to your personal finance tracker
+            </div>
           </div>
         </div>
 
-        {/* ── GOOGLE SIGN-IN ── */}
-        {mode !== "forgot" && (
-          <>
-            <button
-              type="button"
-              onClick={handleGoogle}
-              disabled={loading}
-              style={{
-                display:        "flex",
-                alignItems:     "center",
-                justifyContent: "center",
-                gap:            10,
-                width:          "100%",
-                padding:        "12px 16px",
-                borderRadius:   14,
-                fontSize:       14,
-                fontWeight:     600,
-                fontFamily:     "var(--font-sans)",
-                border:         "1px solid var(--rule)",
-                background:     "var(--ink-3)",
-                color:          "var(--ink-text)",
-                cursor:         loading ? "not-allowed" : "pointer",
-                opacity:        loading ? 0.7 : 1,
-                transition:     "background 0.15s",
-              }}
-              onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.06)"}
-              onMouseLeave={e => e.currentTarget.style.background = "var(--ink-3)"}
-            >
-              {/* Google logo */}
-              <svg width="18" height="18" viewBox="0 0 48 48" fill="none">
-                <path d="M47.5 24.5c0-1.6-.1-3.2-.4-4.7H24v8.9h13.2c-.6 3-2.3 5.5-4.9 7.2v6h7.9c4.6-4.3 7.3-10.6 7.3-17.4z" fill="#4285F4"/>
-                <path d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.9-6c-2.1 1.4-4.9 2.3-8 2.3-6.1 0-11.3-4.1-13.2-9.7H2.6v6.2C6.6 42.8 14.7 48 24 48z" fill="#34A853"/>
-                <path d="M10.8 28.8c-.5-1.4-.7-2.8-.7-4.3s.3-3 .7-4.3v-6.2H2.6C.9 17.4 0 20.6 0 24s.9 6.6 2.6 9.5l8.2-4.7z" fill="#FBBC05"/>
-                <path d="M24 9.5c3.4 0 6.5 1.2 8.9 3.5l6.7-6.7C35.9 2.4 30.4 0 24 0 14.7 0 6.6 5.2 2.6 14.5l8.2 4.7C12.7 13.6 17.9 9.5 24 9.5z" fill="#EA4335"/>
-              </svg>
-              Continue with Google
-            </button>
+        {/* Google button */}
+        <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 14 }}>
+          <button
+            type="button"
+            onClick={handleGoogle}
+            disabled={loading}
+            style={{
+              display:        "flex",
+              alignItems:     "center",
+              justifyContent: "center",
+              gap:            10,
+              width:          "100%",
+              padding:        "14px 18px",
+              borderRadius:   14,
+              fontSize:       15,
+              fontWeight:     600,
+              fontFamily:     "var(--font-sans)",
+              border:         "1px solid var(--rule)",
+              background:     "var(--ink-3)",
+              color:          "var(--ink-text)",
+              cursor:         loading ? "not-allowed" : "pointer",
+              opacity:        loading ? 0.7 : 1,
+              transition:     "background 0.15s, opacity 0.2s",
+            }}
+            onMouseEnter={e => { if (!loading) e.currentTarget.style.background = "rgba(255,255,255,0.07)"; }}
+            onMouseLeave={e => { e.currentTarget.style.background = "var(--ink-3)"; }}
+          >
+            <svg width="20" height="20" viewBox="0 0 48 48" fill="none">
+              <path d="M47.5 24.5c0-1.6-.1-3.2-.4-4.7H24v8.9h13.2c-.6 3-2.3 5.5-4.9 7.2v6h7.9c4.6-4.3 7.3-10.6 7.3-17.4z" fill="#4285F4"/>
+              <path d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.9-6c-2.1 1.4-4.9 2.3-8 2.3-6.1 0-11.3-4.1-13.2-9.7H2.6v6.2C6.6 42.8 14.7 48 24 48z" fill="#34A853"/>
+              <path d="M10.8 28.8c-.5-1.4-.7-2.8-.7-4.3s.3-3 .7-4.3v-6.2H2.6C.9 17.4 0 20.6 0 24s.9 6.6 2.6 9.5l8.2-4.7z" fill="#FBBC05"/>
+              <path d="M24 9.5c3.4 0 6.5 1.2 8.9 3.5l6.7-6.7C35.9 2.4 30.4 0 24 0 14.7 0 6.6 5.2 2.6 14.5l8.2 4.7C12.7 13.6 17.9 9.5 24 9.5z" fill="#EA4335"/>
+            </svg>
+            {loading ? "Redirecting…" : "Continue with Google"}
+          </button>
 
-            {/* Divider */}
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <div style={{ flex: 1, height: 1, background: "var(--rule)" }} />
-              <span style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", fontSize: 11, whiteSpace: "nowrap" }}>
-                or continue with email
-              </span>
-              <div style={{ flex: 1, height: 1, background: "var(--rule)" }} />
-            </div>
-          </>
-        )}
-
-        {/* ── FORGOT PASSWORD FORM ── */}
-        {mode === "forgot" && (
-          <form onSubmit={sendReset} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            {remembered.email ? (
-              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                <label style={labelStyle}>Send reset link to</label>
-                <div style={{ ...iStyle, display: "flex", alignItems: "center", gap: 10, color: "var(--ink-text-dim)", userSelect: "none" }}>
-                  <span style={{ fontSize: 16, lineHeight: 1 }}>📧</span>
-                  <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{remembered.email}</span>
-                </div>
-              </div>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                <label style={labelStyle}>Your email</label>
-                <input type="email" value={resetEmail} onChange={e => setResetEmail(e.target.value)}
-                  placeholder="you@example.com" required autoComplete="email" style={iStyle} />
-              </div>
-            )}
-            {msg.text && (
-              <p style={{ padding: "10px 14px", borderRadius: 10, fontSize: 12.5, margin: 0, fontFamily: "var(--font-sans)", lineHeight: 1.55, color: msg.ok ? "var(--green)" : "var(--red)", background: msg.ok ? "var(--green-soft)" : "var(--red-soft)" }}>
-                {msg.text}
-              </p>
-            )}
-            <button type="submit" disabled={loading} style={{ marginTop: 2, padding: "14px", borderRadius: 14, fontSize: 15, fontWeight: 700, border: "none", cursor: loading ? "not-allowed" : "pointer", background: "linear-gradient(135deg, var(--gold-deep), var(--gold))", color: "#fff", fontFamily: "var(--font-sans)", opacity: loading ? 0.72 : 1, boxShadow: "0 4px 20px rgba(169,133,79,0.4)" }}>
-              {loading ? "Sending…" : "Send reset link →"}
-            </button>
-            <p style={{ textAlign: "center", fontSize: 12.5, color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", margin: 0 }}>
-              <button type="button" onClick={() => { setMode(remembered.email ? "returning" : "signin"); setMsg({ text: "", ok: false }); }}
-                style={{ color: "var(--gold)", background: "none", border: "none", cursor: "pointer", textDecoration: "underline", fontSize: 12.5 }}>
-                Back to sign in
-              </button>
+          {errMsg && (
+            <p style={{
+              padding: "10px 14px", borderRadius: 10, fontSize: 12.5,
+              margin: 0, fontFamily: "var(--font-sans)", lineHeight: 1.55,
+              color: "var(--red)", background: "var(--red-soft)", textAlign: "left",
+            }}>
+              {errMsg}
             </p>
-          </form>
-        )}
+          )}
+        </div>
 
-        {/* ── SIGN IN / SIGNUP FORM ── */}
-        {mode !== "forgot" && (
-          <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-
-            {mode === "returning" && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                <label style={labelStyle}>Signing in as</label>
-                <div style={{ ...iStyle, display: "flex", alignItems: "center", gap: 10, color: "var(--ink-text-dim)", userSelect: "none" }}>
-                  <span style={{ fontSize: 16, lineHeight: 1 }}>📧</span>
-                  <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{remembered.email}</span>
-                </div>
-              </div>
-            )}
-
-            {mode === "signup" && (
-              <>
-                <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                  <label style={labelStyle}>Your name</label>
-                  <input type="text" value={name} onChange={e => setName(e.target.value)}
-                    placeholder="e.g. Taiwo" autoComplete="name" style={iStyle} />
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                  <label style={labelStyle}>Email</label>
-                  <input type="email" value={email} onChange={e => setEmail(e.target.value)}
-                    placeholder="you@example.com" required autoComplete="email" style={iStyle} />
-                </div>
-              </>
-            )}
-
-            {mode === "signin" && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                <label style={labelStyle}>Email</label>
-                <input type="email" value={email} onChange={e => setEmail(e.target.value)}
-                  placeholder="you@example.com" required autoComplete="email" style={iStyle} />
-              </div>
-            )}
-
-            <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <label style={labelStyle}>Password</label>
-                {(mode === "returning" || mode === "signin") && (
-                  <button type="button" onClick={goForgot}
-                    style={{ color: "var(--ink-text-dim)", background: "none", border: "none", cursor: "pointer", fontSize: 11, fontFamily: "var(--font-sans)", textDecoration: "underline", padding: 0 }}>
-                    Forgot password?
-                  </button>
-                )}
-              </div>
-              <div style={{ position: "relative" }}>
-                <input
-                  ref={pwdRef}
-                  type={showPwd ? "text" : "password"}
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  placeholder={mode === "signup" ? "min. 8 characters" : "Enter your password"}
-                  required
-                  autoComplete={mode === "signup" ? "new-password" : "current-password"}
-                  style={{ ...iStyle, paddingRight: 44 }}
-                />
-                <button type="button" onClick={() => setShowPwd(v => !v)}
-                  style={{ position: "absolute", right: 13, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "var(--ink-text-dim)", fontSize: 15, padding: 0, lineHeight: 1 }}
-                  aria-label={showPwd ? "Hide password" : "Show password"}>
-                  {showPwd ? "🙈" : "👁"}
-                </button>
-              </div>
-            </div>
-
-            {msg.text && (
-              <p style={{ padding: "10px 14px", borderRadius: 10, fontSize: 12.5, margin: 0, fontFamily: "var(--font-sans)", lineHeight: 1.55, color: msg.ok ? "var(--green)" : "var(--red)", background: msg.ok ? "var(--green-soft)" : "var(--red-soft)" }}>
-                {msg.text}
-              </p>
-            )}
-
-            <button type="submit" disabled={loading} style={{ marginTop: 2, padding: "14px", borderRadius: 14, fontSize: 15, fontWeight: 700, border: "none", cursor: loading ? "not-allowed" : "pointer", background: "linear-gradient(135deg, var(--gold-deep), var(--gold))", color: "#fff", fontFamily: "var(--font-sans)", opacity: loading ? 0.72 : 1, boxShadow: "0 4px 20px rgba(169,133,79,0.4)", transition: "opacity 0.2s" }}>
-              {loading ? "…" : mode === "signup" ? "Create account →" : "Sign in →"}
-            </button>
-          </form>
-        )}
-
-        {/* Footer links */}
-        {mode === "returning" && (
-          <p style={{ textAlign: "center", fontSize: 12.5, color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", margin: 0 }}>
-            Not {firstName}?{" "}
-            <button onClick={useDifferentAccount}
-              style={{ color: "var(--gold)", background: "none", border: "none", cursor: "pointer", textDecoration: "underline", fontSize: 12.5 }}>
-              Create a free account
-            </button>
-          </p>
-        )}
-        {(mode === "signup" || mode === "signin") && (
-          <p style={{ textAlign: "center", fontSize: 12.5, color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", margin: 0 }}>
-            {mode === "signup" ? "Already have an account? " : "No account yet? "}
-            <button onClick={() => { setMode(m => m === "signup" ? "signin" : "signup"); setMsg({ text: "", ok: false }); }}
-              style={{ color: "var(--gold)", background: "none", border: "none", cursor: "pointer", textDecoration: "underline", fontSize: 12.5 }}>
-              {mode === "signup" ? "Sign in" : "Create one free"}
-            </button>
-          </p>
-        )}
+        <p style={{ fontSize: 12, color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", margin: 0, lineHeight: 1.6 }}>
+          Your data is private and only visible to you.
+        </p>
       </div>
     </div>
   );
