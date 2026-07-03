@@ -19,7 +19,11 @@ function toIsoDate(d) {
 // OWealth sub-balance, or interest on that sub-balance — never real
 // external transactions, and always paired with the real row that
 // triggered them.
-const INTERNAL = /^(auto-save to owealth balance|owealth withdrawal\(transaction payment\)|owealth deposit\(transaction refund\)|owealth interest earned)/i;
+// Whitespace is tolerant here (\s* around parens/words) because stitching a
+// record's description back together across a PDF line/page break can insert
+// an extra space in the middle of these fixed phrases (e.g. "OWealth
+// Withdrawal" and "(Transaction Payment)" landing on separate source lines).
+const INTERNAL = /^(auto-save\s*to\s*owealth\s*balance|owealth\s*withdrawal\s*\(\s*transaction\s*payment\s*\)|owealth\s*deposit\s*\(\s*transaction\s*refund\s*\)|owealth\s*interest\s*earned)/i;
 
 function extractBeneficiary(desc) {
   const m = desc.match(/^Transfer (?:to|from) ([^|]+?)(?:\s*\|.*)?$/i);
@@ -56,17 +60,22 @@ export function parseOpayStatement(text) {
   }
   if (current) blocks.push(current);
 
+  // Nearly every real transaction has a matching OWealth internal sweep row
+  // right after it, so roughly half of all blocks are expected to be
+  // filtered out by INTERNAL below — that's normal, not a parse failure.
+  // Track genuine regex-match failures separately for the sanity check.
+  let unmatched = 0;
   const rows = [];
   for (const raw of blocks) {
     const block = raw.replace(/\s+/g, " ").trim();
     const m = block.match(LINE_RE);
-    if (!m) continue;
+    if (!m) { unmatched++; continue; }
     const [, dateStr, descRaw, debit, credit] = m;
     const desc = descRaw.trim();
     if (INTERNAL.test(desc)) continue;
 
     const date = toIsoDate(dateStr);
-    if (!date) continue;
+    if (!date) { unmatched++; continue; }
 
     const isOut = debit !== "--";
     const amount = Number((isOut ? debit : credit).replace(/,/g, ""));
@@ -81,10 +90,12 @@ export function parseOpayStatement(text) {
     });
   }
 
-  // If we matched far fewer rows than record-start lines found, this isn't
-  // the layout we expect — bail out rather than return a silently
-  // incomplete ledger, and let the caller fall back to AI extraction.
-  if (blocks.length === 0 || rows.length < blocks.length * 0.5) return null;
+  // If a large share of record-start lines didn't even match the expected
+  // row structure, this isn't the layout we expect — bail out rather than
+  // return a silently incomplete ledger, and let the caller fall back to AI
+  // extraction. (Rows filtered out as internal OWealth sweeps don't count
+  // against this — see above.)
+  if (blocks.length === 0 || unmatched > blocks.length * 0.5) return null;
 
   return rows;
 }
