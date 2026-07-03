@@ -416,3 +416,11 @@ select {
   .ledger-mobile  { display: none;  }
   .ledger-desktop { display: block; }
 }
+
+/* Balance table responsive layout */
+.balance-table-desktop { display: none;  }
+.balance-table-mobile  { display: block; }
+@media (min-width: 640px) {
+  .balance-table-desktop { display: table; }
+  .balance-table-mobile  { display: none;  }
+}
