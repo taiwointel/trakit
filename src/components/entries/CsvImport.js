@@ -271,6 +271,24 @@ function isInternalTransferLabeled(desc) {
   return INTERNAL_TRANSFER_LABEL_RE.test(desc || "");
 }
 
+// Narrations that already say exactly what they are — no ambiguity for a
+// human to resolve, so these get auto-labeled and skip the wizard entirely,
+// the same way loan rows do. Order matters: first match wins.
+const AUTO_LABEL_RULES = [
+  { pattern: /mobile\s*data|data\s*(bundle|plan)|\bdata\w*mtn\b|\bdata\w*(airtel|glo|9mobile)\b|\d\s*(mb|gb)\b.*\bplan\b/i, label: "Data subscription" },
+  { pattern: /^airtime\b|\brecharge\b(?!.*data)/i,                                                                       label: "Airtime" },
+  { pattern: /\bdstv\b|\bgotv\b|\bstartimes\b|\bnetflix\b|\bspotify\b|\bshowmax\b|\bprime\s*video\b|\bapple\s*music\b/i,  label: "Subscription" },
+  { pattern: /\bikedc\b|\bekedc\b|\bkedco\b|\bphed\b|\bphcn\b|\bnepa\b|\belectricity\b|\bpower\s*bill\b/i,                label: "Utility bill" },
+  { pattern: /\batm\s*(cash\s*)?withdrawal\b|\bcash\s*withdrawal\b/i,                                                    label: "ATM withdrawal" },
+  { pattern: /\bjumia\b|\bkonga\b|\bshoprite\b|\bspar\b(?!kle)|\bamazon\b/i,                                             label: "Shopping" },
+  { pattern: /\bbet9ja\b|\bsportybet\b|\bnairabet\b|\b1xbet\b|\bbetway\b|\bbetking\b|\bmerrybet\b|\bstake\.com\b/i,       label: "Betting" },
+];
+function autoLabelFor(desc) {
+  const d = (desc || "").trim();
+  const rule = AUTO_LABEL_RULES.find((r) => r.pattern.test(d));
+  return rule ? rule.label : null;
+}
+
 // Words that suggest a clear merchant or category purpose — not a bare person name
 const NOT_A_PERSON = /\b(school|fee|fees|rent|fuel|petrol|food|market|grocery|groceries|loan|repayment|salary|transport|hospital|clinic|medical|drug|pharmacy|savings|invest|pension|insurance|premium|electricity|nepa|phcn|water|gas|internet|wifi|cable|dstv|airtime|data|recharge|clothes|shopping|gym|salon|barber|spa|betting|bet|purchase|subscription|maintenance|repair|service|charge|tax|tithe|offering|donation|church|mosque|toll|fare|ticket|levy|bill|fine|refund|bonus|dividend|konga|jumia|shoprite|spar|amazon|netflix|spotify|paypal|uber|bolt|flutterwave|paystack|opay|palmpay|kuda|mtn|airtel|glo|mobile)\b/i;
 
@@ -300,7 +318,7 @@ function isUnclearPattern(desc) {
 function buildLabelGroups(rows) {
   const map = new Map();
   rows.forEach((r, i) => {
-    if (isBankCharge(r.desc) || isLoanRelated(r.desc) || isInternalTransferLabeled(r.desc)) return;
+    if (isBankCharge(r.desc) || isLoanRelated(r.desc) || isInternalTransferLabeled(r.desc) || autoLabelFor(r.desc)) return;
     // Group by beneficiary + flow when one was extracted, not the raw
     // narration — two transfers to/from the same person almost always carry
     // different masked account digits or reference numbers, so grouping on
@@ -946,6 +964,8 @@ export default function CsvImport({ onImported, onJumpToMonth }) {
         const label = r.flow === "in" ? "Loan disbursal" : "Loan repayment";
         return { ...r, beneficiary, desc: `${label} — ${r.desc}` };
       }
+      const auto = autoLabelFor(r.desc);
+      if (auto) return { ...r, beneficiary, desc: `${auto} — ${r.desc}` };
       return { ...r, beneficiary };
     });
     setRows(rowsWithBene);
