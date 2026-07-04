@@ -220,23 +220,36 @@ const UNCLEAR_RE = [
 // — these are pure bank mechanics with no ambiguous "purpose" to label, so
 // the wizard skips them. Nothing else is excluded: ordinary transfers,
 // person payments, etc. still go through the wizard as before.
+// Not anchored to the start of the narration — real statements prefix these
+// with a bank-specific tag (e.g. "FGN Stamp Duty for 1 txns...", "FBN Stamp
+// Duty ..."), so an anchored ^ missed them entirely.
 const BANK_CHARGE_RE = [
-  /^COMMISSION\b/i,
-  /^VAT\b/i,
-  /^COT\b/i,          // Commission on Turnover
-  /^AMC\b/i,          // Account Maintenance Charge
-  /^LEVY\b/i,
-  /^CHARGE\b/i,
-  /^SMS\s*ALERT\s*FEE/i,
-  /^STAMP\s*DUTY/i,
-  /^(CARD\s*)?MAINTENANCE\s*FEE/i,
-  /^CARD\s*(MAINTENANCE|ISSUANCE)\s*FEE/i,
-  /^(ANNUAL|MONTHLY)\s*(MAINTENANCE|MGT|MANAGEMENT)\s*(FEE|CHARGE)/i,
+  /\bCOMMISSION\b/i,
+  /\bVAT\b/i,
+  /\bCOT\b/i,          // Commission on Turnover
+  /\bAMC\b/i,          // Account Maintenance Charge
+  /\bLEVY\b/i,
+  /\bCHARGE\b/i,
+  /SMS\s*ALERT\s*FEE/i,
+  /STAMP\s*DUTY/i,
+  /(CARD\s*)?MAINTENANCE\s*FEE/i,
+  /CARD\s*(MAINTENANCE|ISSUANCE)\s*FEE/i,
+  /(ANNUAL|MONTHLY)\s*(MAINTENANCE|MGT|MANAGEMENT)\s*(FEE|CHARGE)/i,
+  /\bEMTL\b/i,
+  /ELECTRONIC\s*MONEY\s*TRANSFER\s*LEVY/i,
+  /USSD\s*CHARGE/i,
 ];
 
 function isBankCharge(desc) {
   const d = (desc || "").trim();
   return BANK_CHARGE_RE.some((re) => re.test(d));
+}
+
+// Loan-related narrations get auto-labeled (never asked about in the
+// wizard): repayments on money out, disbursals on money in.
+const LOAN_RE = /\bloan\b/i;
+function isLoanRelated(desc) {
+  return LOAN_RE.test(desc || "");
 }
 
 // Words that suggest a clear merchant or category purpose — not a bare person name
@@ -268,7 +281,7 @@ function isUnclearPattern(desc) {
 function buildLabelGroups(rows) {
   const map = new Map();
   rows.forEach((r, i) => {
-    if (isBankCharge(r.desc)) return;
+    if (isBankCharge(r.desc) || isLoanRelated(r.desc)) return;
     const key = r.desc.trim().toLowerCase();
     if (!map.has(key)) map.set(key, { desc: r.desc.trim(), indices: [] });
     map.get(key).indices.push(i);
@@ -633,10 +646,14 @@ export default function CsvImport({ onImported }) {
   }, []);
 
   const launchWizard = useCallback((extractedRows) => {
-    const rowsWithBene = extractedRows.map((r) => ({
-      ...r,
-      beneficiary: r.beneficiary || extractBeneficiary(r.desc) || "",
-    }));
+    const rowsWithBene = extractedRows.map((r) => {
+      const beneficiary = r.beneficiary || extractBeneficiary(r.desc) || "";
+      if (isLoanRelated(r.desc)) {
+        const label = r.flow === "in" ? "Loan disbursal" : "Loan repayment";
+        return { ...r, beneficiary, desc: `${label} — ${r.desc}` };
+      }
+      return { ...r, beneficiary };
+    });
     setRows(rowsWithBene);
     const groups = buildLabelGroups(rowsWithBene);
     if (groups.length > 0) {
