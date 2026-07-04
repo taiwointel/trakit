@@ -40,9 +40,16 @@ export function textExtractPrompt(text) {
 const OPAY_INTERNAL    = /^(auto.?save to o.?wealth|o.?wealth withdrawal|o.?wealth interest)/i;
 const PALMPAY_INTERNAL = /^(cashbox auto save|cashbox interest)/i;
 
+// Personal Naira transactions never legitimately reach this size — a row
+// this large is virtually always the AI misreading/concatenating digits
+// from a garbled statement page, not a real transaction. Drop it rather
+// than silently importing a corrupted amount.
+const MAX_REASONABLE_AMOUNT = 100_000_000; // ₦100 million
+
 export function filterRows(transactions) {
   return transactions
     .filter((t) => t.date && (t.description || t.desc) && Number(t.amount || t.amt) > 0)
+    .filter((t) => Number(t.amount || t.amt) <= MAX_REASONABLE_AMOUNT)
     .filter((t) => {
       const d = (t.description || t.desc || "").trim();
       return !OPAY_INTERNAL.test(d) && !PALMPAY_INTERNAL.test(d);
