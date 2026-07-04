@@ -31,10 +31,12 @@ export async function lookupMerchantRule(supabase, userId, desc, beneficiary) {
   return data || null;
 }
 
-// entries: [{ desc, beneficiary }] — batched lookup to avoid one round trip per row.
+// entries: [{ desc | description, beneficiary }] — batched lookup to avoid
+// one round trip per row. Callers use either field name (bulk-import rows
+// carry `desc`, the AI batch endpoint carries `description`), so accept both.
 export async function lookupMerchantRules(supabase, userId, entries) {
   if (!userId) return new Map();
-  const keys = [...new Set(entries.map((e) => normalizeMerchantKey(e.desc, e.beneficiary)).filter(Boolean))];
+  const keys = [...new Set(entries.map((e) => normalizeMerchantKey(e.desc ?? e.description, e.beneficiary)).filter(Boolean))];
   if (!keys.length) return new Map();
   const { data } = await supabase
     .from("merchant_rules")

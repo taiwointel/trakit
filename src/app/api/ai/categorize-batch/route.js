@@ -32,6 +32,8 @@ DECISION RULES:
 Return ONLY a raw JSON array of exactly N objects in the same order as the input. No markdown, no explanation, no extra text — just the array:
 [{"category":"...","subcategory":"...","essentiality":"Essential|Discretionary","nature":"Fixed|Variable","confidence":0.9,"note":"..."},...]`;
 
+export const maxDuration = 30;
+
 export async function POST(request) {
   const { entries } = await request.json();
   if (!entries?.length) return NextResponse.json({ results: [] });

@@ -3,6 +3,8 @@ import { fallbackCategorize } from "@/lib/categories";
 import { lookupMerchantRules, normalizeMerchantKey } from "@/lib/merchantRules";
 import { NextResponse } from "next/server";
 
+export const maxDuration = 30;
+
 export async function POST(request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();

@@ -819,6 +819,7 @@ export default function CsvImport({ onImported }) {
       const outEntries   = (data.rows || []).filter((r) => r.flow === "out" && r.status !== "done");
       let categorized = 0;
 
+      let catError = null;
       if (outEntries.length > 0) {
         setImporting(false);
         setCatProgress({ done: 0, total: outEntries.length });
@@ -846,15 +847,20 @@ export default function CsvImport({ onImported }) {
                 } catch { /* skip */ }
               })
             );
+          } else {
+            const errBody = await batchRes.json().catch(() => null);
+            catError = errBody?.error || `AI categorization failed (HTTP ${batchRes.status}).`;
           }
-        } catch { /* skip categorization, entries still imported */ }
+        } catch (err) {
+          catError = err?.message || "AI categorization request failed (network error or timeout).";
+        }
 
         setCatProgress({ done: outEntries.length, total: outEntries.length });
       }
 
       setStatus({
-        type: "success",
-        msg: `${data.inserted} entries imported${learnedCount > 0 ? ` · ${learnedCount} auto-categorized from memory` : ""}${categorized > 0 ? ` · ${categorized} categorized by AI` : ""}. Review them in the ledger below.`,
+        type: catError && categorized === 0 && learnedCount === 0 ? "error" : "success",
+        msg: `${data.inserted} entries imported${learnedCount > 0 ? ` · ${learnedCount} auto-categorized from memory` : ""}${categorized > 0 ? ` · ${categorized} categorized by AI` : ""}${catError ? ` · ⚠ ${catError} (entries still imported, uncategorized ones can be fixed manually or re-categorized from the ledger)` : ""}. Review them in the ledger below.`,
       });
       setRows([]);
       if (onImported) onImported();
