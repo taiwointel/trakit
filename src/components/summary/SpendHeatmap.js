@@ -22,7 +22,7 @@ export default function SpendHeatmap({ entries }) {
 
     const dailyOut = {};
     entries.forEach((e) => {
-      if (e.flow === "out" && e.date && e.date.startsWith(String(year))) {
+      if (e.flow === "out" && e.category !== "Self" && e.date && e.date.startsWith(String(year))) {
         dailyOut[e.date] = (dailyOut[e.date] || 0) + Number(e.amount);
       }
     });

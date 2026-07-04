@@ -5,7 +5,7 @@ import { CATEGORY_COLORS } from "@/lib/categories";
 import { formatNaira, formatDateShort } from "@/lib/format";
 
 export default function CategoryExplorer({ entries }) {
-  const outEntries = entries.filter((e) => e.flow === "out" && e.category);
+  const outEntries = entries.filter((e) => e.flow === "out" && e.category && e.category !== "Self");
 
   const byCategory = useMemo(() => {
     const map = {};

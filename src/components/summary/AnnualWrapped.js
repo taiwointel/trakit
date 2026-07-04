@@ -279,8 +279,8 @@ export default function AnnualWrapped({ entries, salary }) {
 
   const s = useMemo(() => {
     const ye  = (entries || []).filter((e) => e.date?.startsWith(yearStr));
-    const outE = ye.filter((e) => e.flow === "out");
-    const inE  = ye.filter((e) => e.flow === "in");
+    const outE = ye.filter((e) => e.flow === "out" && e.category !== "Self");
+    const inE  = ye.filter((e) => e.flow === "in" && e.category !== "Self");
 
     const totalOut = outE.reduce((a,e) => a + Number(e.amount), 0);
     const totalIn  = inE.reduce((a,e) => a + Number(e.amount), 0);

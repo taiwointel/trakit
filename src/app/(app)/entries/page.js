@@ -103,8 +103,8 @@ export default function EntriesPage() {
   }
 
   const dayEntries = dayStr ? entries.filter((e) => e.date === dayStr) : [];
-  const dayOut     = dayEntries.filter((e) => e.flow === "out").reduce((s, e) => s + Number(e.amount), 0);
-  const dayIn      = dayEntries.filter((e) => e.flow === "in").reduce((s, e) => s + Number(e.amount), 0);
+  const dayOut     = dayEntries.filter((e) => e.flow === "out" && e.category !== "Self").reduce((s, e) => s + Number(e.amount), 0);
+  const dayIn      = dayEntries.filter((e) => e.flow === "in" && e.category !== "Self").reduce((s, e) => s + Number(e.amount), 0);
 
   if (loading) {
     return (

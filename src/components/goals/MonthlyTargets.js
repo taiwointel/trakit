@@ -44,7 +44,7 @@ export default function MonthlyTargets({ entries, salary, customGoals = [], user
   const filterStart = cycleStart || `${thisMonth}-01`;
 
   const monthOut = useMemo(
-    () => entries.filter((e) => e.date >= filterStart && e.date <= today && e.flow === "out"),
+    () => entries.filter((e) => e.date >= filterStart && e.date <= today && e.flow === "out" && e.category !== "Self"),
     [entries, filterStart, today],
   );
 

@@ -23,7 +23,7 @@ export default function ForecastBanner({ cycleStart, cycleEnd, salary, entries, 
       dayMap[key] = 0;
     }
     entries
-      .filter((e) => e.flow === "out" && e.date >= cycleStart && e.date <= today)
+      .filter((e) => e.flow === "out" && e.category !== "Self" && e.date >= cycleStart && e.date <= today)
       .forEach((e) => { dayMap[e.date] = (dayMap[e.date] || 0) + Number(e.amount); });
 
     const dayValues  = Object.values(dayMap);

@@ -36,7 +36,7 @@ async function generateRbcBriefing({ settings, userName, totalOut, prevTotal, ca
   const discPct     = totalOut > 0 ? Math.round((discretionaryTotal / totalOut) * 100) : 0;
   const essPct      = 100 - discPct;
   const busiestDay  = dayBreakdown.reduce((a, b) => b.total > a.total ? b : a, dayBreakdown[0] || { total: 0 });
-  const biggestTxns = [...allEntries].filter(e => e.flow === "out").sort((a, b) => Number(b.amount) - Number(a.amount)).slice(0, 3);
+  const biggestTxns = [...allEntries].filter(e => e.flow === "out" && e.category !== "Self").sort((a, b) => Number(b.amount) - Number(a.amount)).slice(0, 3);
 
   const PERSONA = `You are Coach RBC, a sharp, direct, warmly funny personal finance coach. Your client is ${userName}. You know Nigerian financial life intimately: naira volatility, NEPA bills, PFAs, T-Bills, Bolt receipts that would make a grown adult weep. Your humor is precise and earned. You roast gently. You celebrate genuinely. You are never preachy, never generic. Every sentence earns its place.`;
 
@@ -329,8 +329,8 @@ function buildEmailHtml({
 
   const txLogSections = sortedDates.map(date => {
     const dayEntries = byDate[date].sort((a,b) => (a.created_at||"").localeCompare(b.created_at||""));
-    const dayOutTotal = dayEntries.filter(e=>e.flow==="out").reduce((s,e)=>s+Number(e.amount),0);
-    const dayInTotal  = dayEntries.filter(e=>e.flow==="in").reduce((s,e)=>s+Number(e.amount),0);
+    const dayOutTotal = dayEntries.filter(e=>e.flow==="out" && e.category !== "Self").reduce((s,e)=>s+Number(e.amount),0);
+    const dayInTotal  = dayEntries.filter(e=>e.flow==="in" && e.category !== "Self").reduce((s,e)=>s+Number(e.amount),0);
 
     const rows = dayEntries.map((e, i) => {
       const isOut = e.flow === "out";
@@ -667,22 +667,22 @@ export async function POST() {
   ] = await Promise.all([
     supabase.from("entries").select("*").eq("user_id", user.id)
       .gte("date", fromDate).lte("date", toDate).order("date").order("created_at"),
-    supabase.from("entries").select("amount, flow").eq("user_id", user.id)
+    supabase.from("entries").select("amount, flow, category").eq("user_id", user.id)
       .gte("date", prevStart.toISOString().slice(0,10)).lte("date", prevEnd.toISOString().slice(0,10)),
-    supabase.from("entries").select("amount, flow, essentiality").eq("user_id", user.id)
+    supabase.from("entries").select("amount, flow, essentiality, category").eq("user_id", user.id)
       .gte("date", monthStart).lte("date", toDate),
     supabase.from("budgets").select("overall, category_budgets").eq("user_id", user.id).maybeSingle(),
     supabase.from("user_ai_settings").select("provider, gemini_key_encrypted, groq_key_encrypted, claude_key_encrypted").eq("user_id", user.id).maybeSingle(),
   ]);
 
   const allEntries = (entries || []).sort((a,b) => a.date.localeCompare(b.date) || (a.created_at||"").localeCompare(b.created_at||""));
-  const outEntries = allEntries.filter(e => e.flow === "out");
-  const inEntries  = allEntries.filter(e => e.flow === "in");
+  const outEntries = allEntries.filter(e => e.flow === "out" && e.category !== "Self");
+  const inEntries  = allEntries.filter(e => e.flow === "in" && e.category !== "Self");
 
   const totalOut  = outEntries.reduce((s,e) => s + Number(e.amount), 0);
   const totalIn   = inEntries.reduce((s,e)  => s + Number(e.amount), 0);
-  const prevTotal = (prevEntries||[]).filter(e => e.flow==="out").reduce((s,e) => s+Number(e.amount), 0);
-  const monthTotal = (monthEntries||[]).filter(e => e.flow==="out").reduce((s,e) => s+Number(e.amount), 0);
+  const prevTotal = (prevEntries||[]).filter(e => e.flow==="out" && e.category !== "Self").reduce((s,e) => s+Number(e.amount), 0);
+  const monthTotal = (monthEntries||[]).filter(e => e.flow==="out" && e.category !== "Self").reduce((s,e) => s+Number(e.amount), 0);
 
   const essentialTotal     = outEntries.filter(e => e.essentiality === "Essential").reduce((s,e) => s+Number(e.amount), 0);
   const discretionaryTotal = outEntries.filter(e => e.essentiality === "Discretionary").reduce((s,e) => s+Number(e.amount), 0);

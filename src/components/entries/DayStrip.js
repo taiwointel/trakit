@@ -47,7 +47,7 @@ export default function DayStrip({ entries, budgets, year, month, selectedDay, o
         const dayNum     = parseInt(date.slice(8), 10);
         const dow        = new Date(date + "T00:00:00").getDay();
         const dayOut     = entries
-          .filter((e) => e.date === date && e.flow === "out")
+          .filter((e) => e.date === date && e.flow === "out" && e.category !== "Self")
           .reduce((s, e) => s + Number(e.amount), 0);
         const isToday    = date === today;
         const isSelected = selectedDay === dayNum;

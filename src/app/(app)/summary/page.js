@@ -349,9 +349,9 @@ export default function SummaryPage() {
   const months     = useMemo(() => liquidityCoverage(entries, currentBalance), [entries, currentBalance]);
   const sparkRows  = useMemo(() => last14Days(entries, anchor.anchor_date, anchor.anchor_amount), [entries, anchor]);
 
-  const monthOut   = cycleEntries.filter((e) => e.flow === "out").reduce((s, e) => s + Number(e.amount), 0);
-  const cycleIn    = cycleEntries.filter((e) => e.flow === "in").reduce((s, e) => s + Number(e.amount), 0);
-  const cycleTxCount = cycleEntries.filter((e) => e.flow === "out").length;
+  const monthOut   = cycleEntries.filter((e) => e.flow === "out" && e.category !== "Self").reduce((s, e) => s + Number(e.amount), 0);
+  const cycleIn    = cycleEntries.filter((e) => e.flow === "in" && e.category !== "Self").reduce((s, e) => s + Number(e.amount), 0);
+  const cycleTxCount = cycleEntries.filter((e) => e.flow === "out" && e.category !== "Self").length;
 
   const cycleDaysElapsed = useMemo(() => {
     const a = new Date(cycleStart + "T00:00:00");
@@ -381,7 +381,7 @@ export default function SummaryPage() {
 
   const byCategory = useMemo(() => {
     const m = {};
-    cycleEntries.filter((e) => e.flow === "out" && e.category).forEach((e) => {
+    cycleEntries.filter((e) => e.flow === "out" && e.category && e.category !== "Self").forEach((e) => {
       m[e.category] = (m[e.category] || 0) + Number(e.amount);
     });
     return Object.entries(m).sort(([, a], [, b]) => b - a);
@@ -392,7 +392,7 @@ export default function SummaryPage() {
     if (!cycle) {
       const d = new Date(); d.setMonth(d.getMonth() - 1);
       const pm = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-      return entries.filter((e) => e.date?.startsWith(pm) && e.flow === "out")
+      return entries.filter((e) => e.date?.startsWith(pm) && e.flow === "out" && e.category !== "Self")
                     .reduce((s, e) => s + Number(e.amount), 0);
     }
     const cs = new Date(cycle.start + "T00:00:00");
@@ -400,7 +400,7 @@ export default function SummaryPage() {
     const ps = new Date(cs); ps.setDate(ps.getDate() - (new Date(cycle.end + "T00:00:00") - cs) / 86400000 - 1);
     const prevStart = ps.toISOString().slice(0, 10);
     const prevEnd   = ce.toISOString().slice(0, 10);
-    return entries.filter((e) => e.flow === "out" && e.date >= prevStart && e.date <= prevEnd)
+    return entries.filter((e) => e.flow === "out" && e.category !== "Self" && e.date >= prevStart && e.date <= prevEnd)
                   .reduce((s, e) => s + Number(e.amount), 0);
   }, [entries, cycle]);
 

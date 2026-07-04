@@ -91,14 +91,14 @@ function buildSnapshot({ goals, entries, anchor, investments, transactions, efBa
   }
 
   const spendByCategory = {};
-  for (const e of thisMoE.filter((e) => e.flow === "out")) {
+  for (const e of thisMoE.filter((e) => e.flow === "out" && e.category !== "Self")) {
     spendByCategory[e.category || "Uncategorized"] = (spendByCategory[e.category || "Uncategorized"] || 0) + Number(e.amount);
   }
 
   const thirtyDaysAgo = new Date(today);
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
   const recentBig = [...entries]
-    .filter((e) => e.flow === "out" && e.date >= thirtyDaysAgo.toISOString().slice(0, 10))
+    .filter((e) => e.flow === "out" && e.category !== "Self" && e.date >= thirtyDaysAgo.toISOString().slice(0, 10))
     .sort((a, b) => Number(b.amount) - Number(a.amount))
     .slice(0, 5)
     .map((e) => ({ date: e.date, desc: e.desc, amount: Math.round(Number(e.amount)), category: e.category }));

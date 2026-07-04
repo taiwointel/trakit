@@ -17,7 +17,7 @@ function bucketEntries(entries, from, to) {
   const fromDate = new Date(from + "T00:00:00");
   const toDate   = new Date(to   + "T00:00:00");
   const days     = Math.round((toDate - fromDate) / (1000 * 60 * 60 * 24)) + 1;
-  const outEntries = entries.filter((e) => e.flow === "out" && e.date >= from && e.date <= to);
+  const outEntries = entries.filter((e) => e.flow === "out" && e.category !== "Self" && e.date >= from && e.date <= to);
 
   if (days <= 21) {
     const map = {};

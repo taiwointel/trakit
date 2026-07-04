@@ -47,8 +47,8 @@ function getDateRange(preset, customFrom, customTo, paydayDay) {
 
 function buildContext(entries, from, to, cashBalance, salary) {
   const inRange = entries.filter((e) => e.date >= from && e.date <= to);
-  const outRange = inRange.filter((e) => e.flow === "out");
-  const inIncome = inRange.filter((e) => e.flow === "in");
+  const outRange = inRange.filter((e) => e.flow === "out" && e.category !== "Self");
+  const inIncome = inRange.filter((e) => e.flow === "in" && e.category !== "Self");
 
   const totalOut      = outRange.reduce((s, e) => s + Number(e.amount), 0);
   const totalIn       = inIncome.reduce((s, e) => s + Number(e.amount), 0);

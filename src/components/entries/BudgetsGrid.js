@@ -249,7 +249,7 @@ function BucketSection({ bucket, entries, budgets, onSaveCategory, salary }) {
 }
 
 export default function BudgetsGrid({ entries, budgets, onSave, salary }) {
-  const totalOut   = entries.filter(e => e.flow === "out").reduce((s, e) => s + Number(e.amount), 0);
+  const totalOut   = entries.filter(e => e.flow === "out" && e.category !== "Self").reduce((s, e) => s + Number(e.amount), 0);
   const overallCap = budgets.overall || null;
   const hasCaps    = overallCap || CATEGORY_NAMES.some(c => budgets.categories[c]);
 

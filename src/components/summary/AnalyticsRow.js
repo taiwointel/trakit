@@ -23,7 +23,7 @@ function Card({ title, accent, icon, children }) {
 }
 
 export default function AnalyticsRow({ entries, from, to }) {
-  const outEntries = entries.filter((e) => e.flow === "out");
+  const outEntries = entries.filter((e) => e.flow === "out" && e.category !== "Self");
 
   // ── Biggest Movers (this month vs prev month) ──────────────
   const movers = useMemo(() => {

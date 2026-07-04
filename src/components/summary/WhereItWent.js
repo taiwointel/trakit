@@ -100,7 +100,7 @@ function BarChart({ slices }) {
 export default function WhereItWent({ entries }) {
   const [mode, setMode] = useState("pie");
 
-  const outEntries = entries.filter((e) => e.flow === "out" && e.category && e.category !== "Income");
+  const outEntries = entries.filter((e) => e.flow === "out" && e.category && e.category !== "Income" && e.category !== "Self");
   const total      = outEntries.reduce((s, e) => s + Number(e.amount), 0);
 
   const byCategory = {};

@@ -14,17 +14,17 @@ export default function StatsStrip({ entries, year, month, selectedDay }) {
   const dayEntries   = dayStr ? entries.filter((e) => e.date === dayStr) : null;
   const scope        = dayEntries || monthEntries;
 
-  const todayOut  = entries.filter((e) => e.date === today && e.flow === "out")
+  const todayOut  = entries.filter((e) => e.date === today && e.flow === "out" && e.category !== "Self")
                            .reduce((s, e) => s + Number(e.amount), 0);
   const last7     = (() => {
     const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 6);
     const cutoffStr = cutoff.toISOString().slice(0, 10);
-    return entries.filter((e) => e.date >= cutoffStr && e.flow === "out")
+    return entries.filter((e) => e.date >= cutoffStr && e.flow === "out" && e.category !== "Self")
                   .reduce((s, e) => s + Number(e.amount), 0);
   })();
 
-  const monthOut  = scope.filter((e) => e.flow === "out").reduce((s, e) => s + Number(e.amount), 0);
-  const monthIn   = scope.filter((e) => e.flow === "in").reduce((s, e) => s + Number(e.amount), 0);
+  const monthOut  = scope.filter((e) => e.flow === "out" && e.category !== "Self").reduce((s, e) => s + Number(e.amount), 0);
+  const monthIn   = scope.filter((e) => e.flow === "in" && e.category !== "Self").reduce((s, e) => s + Number(e.amount), 0);
   const netPosition = monthIn - monthOut;
 
   const isDay = !!dayStr;
