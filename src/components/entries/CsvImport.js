@@ -312,8 +312,11 @@ function buildLabelGroups(rows) {
 
 const CHIPS = [
   "Fuel", "Eat out", "Groceries", "Transport", "Airtime", "Data subscription",
-  "Salary", "Business income", "Gift", "Loan repayment", "Loan disbursal",
-  "School fees", "Rent", "Crypto", "Shopping", "Family/friend support",
+  "Subscription", "Salary", "Business income", "Gift", "Refund",
+  "Interest/dividend", "Rental income", "Cashback", "Loan repayment",
+  "Loan disbursal", "School fees", "Rent", "Utility bill", "Crypto",
+  "Savings deposit", "Shopping", "Personal care", "Medical", "Betting",
+  "Insurance", "Donation", "ATM withdrawal", "Family/friend support",
   "Reversal", "Charges",
 ];
 
