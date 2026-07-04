@@ -278,7 +278,7 @@ const AUTO_LABEL_RULES = [
   { pattern: /mobile\s*data|data\s*(bundle|plan)|\bdata\w*mtn\b|\bdata\w*(airtel|glo|9mobile)\b|\d\s*(mb|gb)\b.*\bplan\b/i, label: "Data subscription" },
   { pattern: /^airtime\b|\brecharge\b(?!.*data)/i,                                                                       label: "Airtime" },
   { pattern: /\bdstv\b|\bgotv\b|\bstartimes\b|\bnetflix\b|\bspotify\b|\bshowmax\b|\bprime\s*video\b|\bapple\s*music\b/i,  label: "Subscription" },
-  { pattern: /\bikedc\b|\bekedc\b|\bkedco\b|\bphed\b|\bphcn\b|\bnepa\b|\belectricity\b|\bpower\s*bill\b|\butilit(y|ies)\b/i, label: "Utility bill" },
+  { pattern: /\bikedc\b|\bekedc\b|\bkedco\b|\bphed\b|\bphcn\b|\bnepa\b|\belectricity\b|\bpower\s*bill\b/i,                label: "Utility bill" },
   { pattern: /\batm\s*(cash\s*)?withdrawal\b|\bcash\s*withdrawal\b/i,                                                    label: "ATM withdrawal" },
   { pattern: /\bjumia\b|\bkonga\b|\bshoprite\b|\bspar\b(?!kle)|\bamazon\b/i,                                             label: "Shopping" },
   { pattern: /\bbet9ja\b|\bsportybet\b|\bnairabet\b|\b1xbet\b|\bbetway\b|\bbetking\b|\bmerrybet\b|\bstake\.com\b/i,       label: "Betting" },
