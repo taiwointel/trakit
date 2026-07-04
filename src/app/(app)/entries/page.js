@@ -228,7 +228,10 @@ export default function EntriesPage() {
           tagColor="var(--teal)"
           description="Drop in a PDF or CSV bank statement and Trakit7 extracts every transaction and categorizes them in one action. Months of history entered in under a minute. The most efficient way to catch up on weeks you have not yet tracked manually."
         >
-          <CsvImport onImported={refetch} />
+          <CsvImport
+            onImported={refetch}
+            onJumpToMonth={(y, m) => { setYear(y); setMonth(m); setSelectedDay(null); }}
+          />
         </FeatureCard>
         </div>
 

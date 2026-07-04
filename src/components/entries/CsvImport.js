@@ -674,7 +674,125 @@ const inputBase = {
   width:        "100%",
 };
 
-export default function CsvImport({ onImported }) {
+// ── Import summary modal ─────────────────────────────────────────────────────
+
+function monthLabelLong(ym) {
+  const [y, m] = ym.split("-").map(Number);
+  return new Date(y, m - 1, 1).toLocaleDateString("en-US", { month: "long", year: "numeric" });
+}
+
+function ImportSummaryModal({ summary, firstName, onJumpToMonth, onClose }) {
+  return (
+    <div
+      style={{
+        position: "fixed", inset: 0, zIndex: 9999,
+        background: "rgba(0,0,0,0.75)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        padding: "1rem",
+      }}
+    >
+      <div
+        style={{
+          background:   "var(--ink-2)",
+          border:       "1px solid rgba(169,133,79,0.4)",
+          borderRadius: 20,
+          width:        "100%",
+          maxWidth:     480,
+          maxHeight:    "92vh",
+          overflow:     "auto",
+          padding:      "26px 26px 22px",
+          display:      "flex",
+          flexDirection:"column",
+          gap:          16,
+        }}
+      >
+        <div>
+          <p style={{
+            color: "var(--gold)", fontFamily: "var(--font-serif)",
+            fontSize: 21, fontWeight: 700, margin: "0 0 6px",
+          }}>
+            Nice one{firstName ? `, ${firstName}` : ""} 🎉
+          </p>
+          <p style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", fontSize: 13.5, lineHeight: 1.6, margin: 0 }}>
+            {summary.inserted} transaction{summary.inserted !== 1 ? "s" : ""} logged
+            {summary.learnedCount > 0 ? ` · ${summary.learnedCount} recognized instantly from memory` : ""}
+            {summary.categorized > 0 ? ` · ${summary.categorized} categorized by Trakit AI` : ""}.
+            {summary.catError ? ` A few entries kept their keyword category because ${summary.catError.toLowerCase()} — worth a manual check.` : ""}
+          </p>
+        </div>
+
+        <div style={{
+          background: "var(--ink-3)", border: "1px solid var(--rule)",
+          borderRadius: 12, padding: "14px 16px",
+        }}>
+          <p style={{
+            color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)",
+            fontSize: 10, fontWeight: 700, textTransform: "uppercase",
+            letterSpacing: "0.1em", margin: "0 0 10px",
+          }}>
+            Where it landed
+          </p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {summary.months.map(({ ym, count, total }) => (
+              <div
+                key={ym}
+                style={{
+                  display: "flex", alignItems: "center", justifyContent: "space-between",
+                  gap: 10, padding: "8px 10px", borderRadius: 8, background: "var(--ink-2)",
+                }}
+              >
+                <div>
+                  <p style={{ color: "var(--ink-text)", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600, margin: 0 }}>
+                    {monthLabelLong(ym)}
+                  </p>
+                  <p style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-mono)", fontSize: 11, margin: "2px 0 0" }}>
+                    {count} entr{count !== 1 ? "ies" : "y"} · ₦{total.toLocaleString("en-NG")}
+                  </p>
+                </div>
+                <button
+                  onClick={() => onJumpToMonth(ym)}
+                  style={{
+                    flexShrink: 0, background: "rgba(169,133,79,0.15)", border: "1px solid var(--gold)",
+                    color: "var(--gold)", borderRadius: 8, padding: "6px 12px",
+                    fontFamily: "var(--font-sans)", fontSize: 12, fontWeight: 600, cursor: "pointer",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  View →
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <p style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", fontSize: 12, lineHeight: 1.6, margin: 0 }}>
+          {summary.months.length > 1
+            ? "These transactions span more than one month — the ledger below only shows one month at a time, so use ‹ › above it (or the buttons above) to jump between them."
+            : "Use ‹ › above the ledger to move between months any time."}
+        </p>
+
+        <button
+          onClick={onClose}
+          style={{
+            background:   "linear-gradient(135deg, var(--gold-deep), var(--gold))",
+            border:       "none",
+            color:        "#fff",
+            borderRadius: 10,
+            padding:      "12px",
+            fontFamily:   "var(--font-sans)",
+            fontWeight:   700,
+            fontSize:     14,
+            cursor:       "pointer",
+          }}
+        >
+          Got it
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export default function CsvImport({ onImported, onJumpToMonth }) {
   const [rows,         setRows]         = useState([]);
   const [wizardGroups, setWizardGroups] = useState(null);
   const [dragging,     setDragging]     = useState(false);
@@ -689,6 +807,7 @@ export default function CsvImport({ onImported }) {
   const [passwordError, setPasswordError] = useState(null);
   const [sortKey, setSortKey] = useState(null); // null = default order (date, then in-before-out)
   const [sortDir, setSortDir] = useState("asc");
+  const [importSummary, setImportSummary] = useState(null); // null | { inserted, learnedCount, categorized, catError, months }
   const fileRef = useRef(null);
   const cancelledRef = useRef(false);
   useEffect(() => () => { cancelledRef.current = true; }, []);
@@ -977,10 +1096,22 @@ export default function CsvImport({ onImported }) {
         }
       }
 
-      setStatus({
-        type: "success",
-        msg: `${data.inserted} entries imported${learnedCount > 0 ? ` · ${learnedCount} auto-categorized from memory` : ""}${categorized > 0 ? ` · ${categorized} categorized by AI` : ""}${catError ? ` · ⚠ ${catError} (those entries kept their keyword category — fix manually if wrong)` : ""}. Review them in the ledger below.`,
-      });
+      // Group by month so the confirmation can point the user straight at
+      // where each transaction landed — critical when importing a
+      // backdated statement while the ledger is sitting on the current
+      // (possibly still-empty) month.
+      const monthMap = new Map();
+      for (const r of valid) {
+        const ym = r.date.slice(0, 7);
+        const bucket = monthMap.get(ym) || { ym, count: 0, total: 0 };
+        bucket.count += 1;
+        bucket.total += Number(r.amount);
+        monthMap.set(ym, bucket);
+      }
+      const months = [...monthMap.values()].sort((a, b) => (a.ym < b.ym ? -1 : 1));
+
+      setStatus(null);
+      setImportSummary({ inserted: data.inserted, learnedCount, categorized, catError, months });
       setRows([]);
       if (onImported) onImported();
     } catch {
@@ -1254,6 +1385,22 @@ export default function CsvImport({ onImported }) {
           onFinish={handleWizardFinish}
           onSkipAll={handleWizardSkipAll}
           onCancel={handleWizardCancel}
+        />
+      )}
+
+      {/* Post-import confirmation — renders as full-viewport overlay */}
+      {importSummary && (
+        <ImportSummaryModal
+          summary={importSummary}
+          firstName={accountHolderName ? accountHolderName.trim().split(/\s+/)[0] : null}
+          onJumpToMonth={(ym) => {
+            if (onJumpToMonth) {
+              const [y, m] = ym.split("-").map(Number);
+              onJumpToMonth(y, m);
+            }
+            setImportSummary(null);
+          }}
+          onClose={() => setImportSummary(null)}
         />
       )}
     </div>
