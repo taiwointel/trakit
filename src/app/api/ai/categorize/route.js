@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { CATEGORY_NAMES, fallbackCategorize } from "@/lib/categories";
 import { callGemini } from "@/lib/gemini";
 import { lookupMerchantRule, saveMerchantRule } from "@/lib/merchantRules";
+import { isSelfTransfer, internalTransferFields } from "@/lib/selfTransfer";
 
 const SYSTEM_PROMPT = `You are an expense categorizer for a Nigerian personal finance app called Trakit7.
 Given a transaction purpose/description and amount in Naira, classify it into exactly one of these 11 categories.
@@ -48,6 +49,10 @@ export async function POST(request) {
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
+
+  if (user && isSelfTransfer(beneficiary, user.user_metadata?.full_name)) {
+    return NextResponse.json({ ...internalTransferFields(), status: "done" });
+  }
 
   // Learned rule: if this beneficiary/narration has been categorized before
   // (by AI or by a manual correction), reuse it instantly — no AI call.

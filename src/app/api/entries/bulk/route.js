@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { fallbackCategorize } from "@/lib/categories";
 import { lookupMerchantRules, normalizeMerchantKey } from "@/lib/merchantRules";
+import { isSelfTransfer, internalTransferFields } from "@/lib/selfTransfer";
 import { NextResponse } from "next/server";
 
 export const maxDuration = 30;
@@ -23,8 +24,20 @@ export async function POST(request) {
   // this is what lets repeat imports (recurring transfers, the same
   // landlord/vendor/family member) skip categorization entirely.
   const learnedMap = await lookupMerchantRules(supabase, user.id, rows);
+  const fullName   = user.user_metadata?.full_name || null;
 
   const toInsert = rows.map((row) => {
+    // A transfer to/from the account holder's own name (any word order) is
+    // cash moving between the user's own accounts, not real income or
+    // spend — tag it distinctly regardless of flow direction.
+    if (fullName && isSelfTransfer(row.beneficiary, fullName)) {
+      return {
+        user_id: user.id, date: row.date, desc: row.desc || "", amount: Number(row.amount) || 0,
+        flow: row.flow || "out", beneficiary: row.beneficiary || null, source: "import",
+        ...internalTransferFields(),
+        status: "done",
+      };
+    }
     if (row.flow !== "out") {
       return {
         user_id: user.id, date: row.date, desc: row.desc || "", amount: Number(row.amount) || 0,

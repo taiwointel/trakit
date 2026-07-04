@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { createClient } from "@/lib/supabase/client";
+import { isSelfTransfer } from "@/lib/selfTransfer";
 
 // ── CSV parsing ───────────────────────────────────────────────────────────────
 
@@ -260,6 +262,14 @@ function isLoanRelated(desc) {
   return LOAN_RE.test(desc || "");
 }
 
+// Rows already auto-labeled internal transfers (see launchWizard) are
+// recognized by their label prefix so they're excluded from the wizard the
+// same way loan/bank-charge rows are.
+const INTERNAL_TRANSFER_LABEL_RE = /^Internal transfer —/i;
+function isInternalTransferLabeled(desc) {
+  return INTERNAL_TRANSFER_LABEL_RE.test(desc || "");
+}
+
 // Words that suggest a clear merchant or category purpose — not a bare person name
 const NOT_A_PERSON = /\b(school|fee|fees|rent|fuel|petrol|food|market|grocery|groceries|loan|repayment|salary|transport|hospital|clinic|medical|drug|pharmacy|savings|invest|pension|insurance|premium|electricity|nepa|phcn|water|gas|internet|wifi|cable|dstv|airtime|data|recharge|clothes|shopping|gym|salon|barber|spa|betting|bet|purchase|subscription|maintenance|repair|service|charge|tax|tithe|offering|donation|church|mosque|toll|fare|ticket|levy|bill|fine|refund|bonus|dividend|konga|jumia|shoprite|spar|amazon|netflix|spotify|paypal|uber|bolt|flutterwave|paystack|opay|palmpay|kuda|mtn|airtel|glo|mobile)\b/i;
 
@@ -289,7 +299,7 @@ function isUnclearPattern(desc) {
 function buildLabelGroups(rows) {
   const map = new Map();
   rows.forEach((r, i) => {
-    if (isBankCharge(r.desc) || isLoanRelated(r.desc)) return;
+    if (isBankCharge(r.desc) || isLoanRelated(r.desc) || isInternalTransferLabeled(r.desc)) return;
     const key = r.desc.trim().toLowerCase();
     if (!map.has(key)) map.set(key, { desc: r.desc.trim(), indices: [] });
     map.get(key).indices.push(i);
@@ -652,9 +662,19 @@ export default function CsvImport({ onImported }) {
     return null;
   }, []);
 
-  const launchWizard = useCallback((extractedRows) => {
+  const launchWizard = useCallback(async (extractedRows) => {
+    let fullName = null;
+    try {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      fullName = user?.user_metadata?.full_name || null;
+    } catch { /* proceed without self-transfer detection */ }
+
     const rowsWithBene = extractedRows.map((r) => {
       const beneficiary = r.beneficiary || extractBeneficiary(r.desc) || "";
+      if (fullName && isSelfTransfer(beneficiary, fullName)) {
+        return { ...r, beneficiary, desc: `Internal transfer — ${r.desc}` };
+      }
       if (isLoanRelated(r.desc)) {
         const label = r.flow === "in" ? "Loan disbursal" : "Loan repayment";
         return { ...r, beneficiary, desc: `${label} — ${r.desc}` };
