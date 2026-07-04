@@ -23,6 +23,8 @@ import AnomalyAlerts     from "@/components/summary/AnomalyAlerts";
 import RecurringPanel    from "@/components/summary/RecurringPanel";
 import SpendHeatmap      from "@/components/summary/SpendHeatmap";
 import AnnualWrapped     from "@/components/summary/AnnualWrapped";
+import MonthComparisonPanel from "@/components/summary/MonthComparisonPanel";
+import WorthASecondLook  from "@/components/summary/WorthASecondLook";
 
 const GREETINGS = {
   latenight: (n) => [
@@ -751,6 +753,25 @@ export default function SummaryPage() {
         />
       </div>
 
+      {/* ── HOW THIS COMPARES ─────────────────────────────────────────────
+          The question people actually ask themselves: "am I spending more
+          or less than usual?" Month-over-month + biggest movers up front,
+          before the deep-dive charts.
+      ── */}
+      <div className="section-divider">
+        <div className="section-divider-bar" style={{ background: "var(--violet)" }} />
+        <span className="section-divider-label" style={{ color: "var(--violet)" }}>How This Compares</span>
+        <div className="section-divider-rule" />
+      </div>
+      <p className="section-desc">
+        Are you spending more or less than usual? Here's this month against last month, the last six months side by side, and which categories moved the most.
+      </p>
+
+      <div className="section-body">
+        <MonthComparisonPanel entries={entries} />
+        <AnalyticsRow entries={entries} />
+      </div>
+
       {/* ── SPEND BREAKDOWN ───────────────────────────────────────────────
           Charts come before the coach analysis — visuals give instant
           gratification with no click/wait. Users see where money went,
@@ -771,7 +792,6 @@ export default function SummaryPage() {
           <SpendTrendChart entries={entries} from={cycleStart} to={today} />
         </div>
         <CategoryExplorer entries={cycleEntries} />
-        <AnalyticsRow entries={entries} />
       </div>
 
       {/* ── COACH RBC ─────────────────────────────────────────────────────
@@ -835,6 +855,23 @@ export default function SummaryPage() {
       <div className="section-body">
         <RecurringPanel entries={entries} />
         <SpendHeatmap entries={entries} />
+      </div>
+
+      {/* ── WORTH A SECOND LOOK ────────────────────────────────────────────
+          Callouts a user wouldn't think to go find themselves: the named
+          best/worst month, and any category that's been quietly creeping up.
+      ── */}
+      <div className="section-divider">
+        <div className="section-divider-bar" style={{ background: "var(--amber)" }} />
+        <span className="section-divider-label" style={{ color: "var(--amber)" }}>Worth a Second Look</span>
+        <div className="section-divider-rule" />
+      </div>
+      <p className="section-desc">
+        Your priciest and leanest months by name, and any category that's been rising three months running without you noticing.
+      </p>
+
+      <div className="section-body">
+        <WorthASecondLook entries={entries} />
       </div>
 
       {/* ── YEAR IN REVIEW ────────────────────────────────────────────────
