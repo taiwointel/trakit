@@ -311,8 +311,8 @@ function buildLabelGroups(rows) {
 
 const CHIPS = [
   "Fuel", "Eat out", "Groceries", "Transport", "Airtime", "Salary",
-  "Loan repayment", "School fees", "Rent", "Crypto", "Shopping",
-  "Family support", "Data subscription", "Reversal", "Charges",
+  "Loan repayment", "Loan disbursal", "School fees", "Rent", "Crypto",
+  "Shopping", "Family/friend support", "Data subscription", "Reversal", "Charges",
 ];
 
 // A distinct chip, not a text label: picking it tags the batch as cash
@@ -330,6 +330,10 @@ function LabelingWizard({ rows, groups, totalRows, onApply, onFinish, onSkipAll,
   // onto the previous choice (onApply always rebuilds from group.desc, the
   // untouched original narration, never the already-labeled one).
   const [appliedLabels, setAppliedLabels] = useState({});
+  // Highest step the user has actually acted on (labeled or skipped) — lets
+  // ‹ Back / Next › move freely across already-visited batches without
+  // touching what's already been applied to them.
+  const [maxStep, setMaxStep] = useState(0);
   const inputRef = useRef(null);
 
   const group    = groups[step];
@@ -349,6 +353,7 @@ function LabelingWizard({ rows, groups, totalRows, onApply, onFinish, onSkipAll,
     const clean = labelStr && labelStr.trim() ? labelStr.trim() : null;
     setAppliedLabels((prev) => ({ ...prev, [step]: clean }));
     onApply(group.indices, clean, group.desc);
+    setMaxStep((m) => Math.max(m, step + 1));
     if (isLast) {
       onFinish();
     } else {
@@ -357,6 +362,9 @@ function LabelingWizard({ rows, groups, totalRows, onApply, onFinish, onSkipAll,
   };
 
   const goBack = () => { if (!isFirst) setStep((s) => s - 1); };
+  // Moves to a batch that's already been labeled/skipped without re-applying
+  // anything — pure navigation, entered data is untouched.
+  const goNext = () => { if (step < maxStep) setStep((s) => s + 1); };
 
   const totalAmt = groupRows.reduce((s, r) => s + Number(r.amount), 0);
 
@@ -566,6 +574,12 @@ function LabelingWizard({ rows, groups, totalRows, onApply, onFinish, onSkipAll,
                 ↔ Self transfer
               </button>
             </div>
+            <p style={{
+              color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)",
+              fontSize: 11, lineHeight: 1.5, margin: "8px 0 0", opacity: 0.8,
+            }}>
+              These quick picks help Trakit7 categorize your transactions properly. If none of them fit, describe it in the box below instead.
+            </p>
           </div>
 
           {/* Text input */}
@@ -594,7 +608,7 @@ function LabelingWizard({ rows, groups, totalRows, onApply, onFinish, onSkipAll,
             {!isFirst && (
               <button
                 onClick={goBack}
-                title="Go back to the previous batch"
+                title="Go back to the previous batch — doesn't change anything you've already entered"
                 style={{
                   background:   "var(--ink-3)",
                   border:       "1px solid var(--rule)",
@@ -608,6 +622,25 @@ function LabelingWizard({ rows, groups, totalRows, onApply, onFinish, onSkipAll,
                 }}
               >
                 ‹ Back
+              </button>
+            )}
+            {step < maxStep && (
+              <button
+                onClick={goNext}
+                title="Go forward to a batch you've already handled — doesn't change anything you've already entered"
+                style={{
+                  background:   "var(--ink-3)",
+                  border:       "1px solid var(--rule)",
+                  color:        "var(--ink-text-dim)",
+                  borderRadius: 10,
+                  padding:      "13px 16px",
+                  fontFamily:   "var(--font-sans)",
+                  fontSize:     13,
+                  cursor:       "pointer",
+                  whiteSpace:   "nowrap",
+                }}
+              >
+                Next ›
               </button>
             )}
             <button
