@@ -1,11 +1,11 @@
 // Detects transfers between the user's own accounts, so they can be tagged
-// as "Internal Transfer" instead of a real expense/income category. Bank
+// as "Self" instead of a real expense/income category. Bank
 // narrations name the account holder in inconsistent word orders across
 // banks (e.g. "OGUNFILE TAIWO OLAGOKE" vs "TAIWO OLAGOKE OGUNFILE"), so
 // matching is done as an order-independent set of name words rather than an
 // exact string comparison.
 
-export const INTERNAL_TRANSFER_CATEGORY = "Internal Transfer";
+export const INTERNAL_TRANSFER_CATEGORY = "Self";
 
 export function internalTransferFields() {
   return {

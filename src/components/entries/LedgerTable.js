@@ -272,7 +272,7 @@ function MobileCard({ entry, onEdit, onDelete, onUpdate }) {
               <option value="">—</option>
               {CATEGORY_NAMES.map((c) => <option key={c} value={c}>{c}</option>)}
               <option value="Income">Income</option>
-              <option value="Internal Transfer">Internal Transfer</option>
+              <option value="Self">Self</option>
             </select>
             {!isIncome && (
               <select
@@ -370,6 +370,7 @@ function DesktopRow({ entry, index, total, onEdit, onDelete, onUpdate }) {
           <option value="">—</option>
           {CATEGORY_NAMES.map((c) => <option key={c} value={c}>{c}</option>)}
           <option value="Income">Income</option>
+          <option value="Self">Self</option>
         </select>
       </td>
 
