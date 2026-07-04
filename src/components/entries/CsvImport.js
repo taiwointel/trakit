@@ -334,7 +334,7 @@ const SELF_TRANSFER_CHIP = "Self transfer";
 
 // ── Labeling Wizard ───────────────────────────────────────────────────────────
 
-function LabelingWizard({ rows, groups, totalRows, onApply, onFinish, onSkipAll, onCancel }) {
+function LabelingWizard({ rows, groups, totalRows, onApply, onSplitBatch, onFinish, onSkipAll, onCancel }) {
   const [step,  setStep]  = useState(0);
   const [label, setLabel] = useState("");
   // Remembers what was picked for each batch so ‹ Back can re-show it, and
@@ -346,27 +346,48 @@ function LabelingWizard({ rows, groups, totalRows, onApply, onFinish, onSkipAll,
   // ‹ Back / Next › move freely across already-visited batches without
   // touching what's already been applied to them.
   const [maxStep, setMaxStep] = useState(0);
+  // Rows the user has unchecked because they don't belong with this label
+  // (e.g. same beneficiary, different reason) — tracked by row index within
+  // group.indices, reset every time the step changes.
+  const [excluded, setExcluded] = useState(() => new Set());
   const inputRef = useRef(null);
 
   const group    = groups[step];
   const isLast   = step === groups.length - 1;
   const isFirst  = step === 0;
   const groupRows = group.indices.map((i) => rows[i]);
+  const includedCount = groupRows.length - excluded.size;
   const progress  = (step / Math.max(groups.length, 1)) * 100;
 
   useEffect(() => {
     setLabel(appliedLabels[step] || "");
+    setExcluded(new Set());
     const t = setTimeout(() => inputRef.current?.focus(), 80);
     return () => clearTimeout(t);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step]);
 
+  const toggleExcluded = (i) => {
+    setExcluded((prev) => {
+      const next = new Set(prev);
+      if (next.has(i)) next.delete(i); else next.add(i);
+      return next;
+    });
+  };
+
   const advance = (labelStr) => {
+    if (includedCount === 0) return;
     const clean = labelStr && labelStr.trim() ? labelStr.trim() : null;
+    const includedIndices = group.indices.filter((_, i) => !excluded.has(i));
+    const excludedIndices = group.indices.filter((_, i) => excluded.has(i));
     setAppliedLabels((prev) => ({ ...prev, [step]: clean }));
-    onApply(group.indices, clean, group.desc);
+    onApply(includedIndices, clean, group.desc);
+    // Deselected rows aren't discarded — they get re-queued as their own
+    // batch right after this one, so they still go through the wizard
+    // instead of silently inheriting a label that doesn't apply to them.
+    if (excludedIndices.length > 0) onSplitBatch(step, excludedIndices, group.desc);
     setMaxStep((m) => Math.max(m, step + 1));
-    if (isLast) {
+    if (isLast && excludedIndices.length === 0) {
       onFinish();
     } else {
       setStep((s) => s + 1);
@@ -507,28 +528,47 @@ function LabelingWizard({ rows, groups, totalRows, onApply, onFinish, onSkipAll,
               display: "flex", flexDirection: "column", gap: 3,
               maxHeight: 150, overflowY: "auto",
             }}>
-              {groupRows.map((r, i) => (
-                <div
-                  key={i}
-                  style={{
-                    display: "flex", alignItems: "center",
-                    justifyContent: "space-between",
-                    background: "var(--ink-3)",
-                    borderRadius: 7,
-                    padding: "7px 12px",
-                  }}
-                >
-                  <span style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-mono)", fontSize: 11 }}>
-                    {formatDateLong(r.date)}
-                  </span>
-                  <span style={{
-                    color: r.flow === "out" ? "var(--red)" : "var(--green)",
-                    fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 13,
-                  }}>
-                    {r.flow === "out" ? "−" : "+"}₦{Number(r.amount).toLocaleString("en-NG")}
-                  </span>
-                </div>
-              ))}
+              {groupRows.map((r, i) => {
+                const isExcluded = excluded.has(i);
+                return (
+                  <div
+                    key={i}
+                    onClick={() => groupRows.length > 1 && toggleExcluded(i)}
+                    title={groupRows.length > 1 ? (isExcluded ? "Excluded — will be handled as its own batch" : "Uncheck if this one isn't for the same reason") : undefined}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 8,
+                      justifyContent: "space-between",
+                      background: "var(--ink-3)",
+                      borderRadius: 7,
+                      padding: "7px 12px",
+                      opacity: isExcluded ? 0.45 : 1,
+                      cursor: groupRows.length > 1 ? "pointer" : "default",
+                    }}
+                  >
+                    <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      {groupRows.length > 1 && (
+                        <input
+                          type="checkbox"
+                          checked={!isExcluded}
+                          onChange={() => toggleExcluded(i)}
+                          onClick={(e) => e.stopPropagation()}
+                          style={{ accentColor: "var(--gold)", cursor: "pointer" }}
+                        />
+                      )}
+                      <span style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-mono)", fontSize: 11 }}>
+                        {formatDateLong(r.date)}
+                      </span>
+                    </span>
+                    <span style={{
+                      color: r.flow === "out" ? "var(--red)" : "var(--green)",
+                      fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 13,
+                      textDecoration: isExcluded ? "line-through" : "none",
+                    }}>
+                      {r.flow === "out" ? "−" : "+"}₦{Number(r.amount).toLocaleString("en-NG")}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
             {groupRows.length > 1 && (
               <p style={{
@@ -536,6 +576,7 @@ function LabelingWizard({ rows, groups, totalRows, onApply, onFinish, onSkipAll,
                 fontSize: 11, margin: "6px 0 0", textAlign: "right",
               }}>
                 Total: ₦{totalAmt.toLocaleString("en-NG")}
+                {excluded.size > 0 && ` (${includedCount} selected)`}
               </p>
             )}
           </div>
@@ -657,21 +698,21 @@ function LabelingWizard({ rows, groups, totalRows, onApply, onFinish, onSkipAll,
             </button>
             <button
               onClick={() => advance(label)}
-              disabled={!label.trim()}
+              disabled={!label.trim() || includedCount === 0}
               style={{
                 flex:         1,
-                background:   label.trim() ? "linear-gradient(135deg, var(--gold-deep), var(--gold))" : "var(--ink-3)",
+                background:   (label.trim() && includedCount > 0) ? "linear-gradient(135deg, var(--gold-deep), var(--gold))" : "var(--ink-3)",
                 border:       "none",
-                color:        label.trim() ? "#fff" : "var(--ink-text-dim)",
+                color:        (label.trim() && includedCount > 0) ? "#fff" : "var(--ink-text-dim)",
                 borderRadius: 10,
                 padding:      "13px",
                 fontFamily:   "var(--font-sans)",
                 fontWeight:   700,
                 fontSize:     14,
-                cursor:       label.trim() ? "pointer" : "not-allowed",
+                cursor:       (label.trim() && includedCount > 0) ? "pointer" : "not-allowed",
               }}
             >
-              Label {groupRows.length} transaction{groupRows.length !== 1 ? "s" : ""}{isLast ? " & finish" : " →"}
+              Label {includedCount} transaction{includedCount !== 1 ? "s" : ""}{(isLast && excluded.size === 0) ? " & finish" : " →"}
             </button>
             <button
               onClick={() => advance(null)}
@@ -1060,6 +1101,17 @@ export default function CsvImport({ onImported, onJumpToMonth }) {
     );
   };
 
+  // Re-queues rows the user unchecked in a batch as their own new batch,
+  // inserted right after the one being labeled, so they still get reviewed
+  // individually instead of inheriting a label that doesn't apply to them.
+  const handleWizardSplitBatch = (afterStep, indices, origDesc) => {
+    setWizardGroups((prev) => {
+      const next = [...prev];
+      next.splice(afterStep + 1, 0, { desc: origDesc, indices });
+      return next;
+    });
+  };
+
   const handleWizardFinish  = () => setWizardGroups(null);
   const handleWizardSkipAll = () => setWizardGroups(null);
   const handleWizardCancel  = () => { setWizardGroups(null); setRows([]); };
@@ -1427,6 +1479,7 @@ export default function CsvImport({ onImported, onJumpToMonth }) {
           groups={wizardGroups}
           totalRows={rows.length}
           onApply={handleWizardApply}
+          onSplitBatch={handleWizardSplitBatch}
           onFinish={handleWizardFinish}
           onSkipAll={handleWizardSkipAll}
           onCancel={handleWizardCancel}
