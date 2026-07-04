@@ -137,12 +137,16 @@ function ClearWizard({ entries, onConfirm, onCancel }) {
   const [checked, setChecked] = useState(() => {
     const s = new Set(); entries.forEach((e) => s.add(e.date)); return s;
   });
+  const [expanded, setExpanded] = useState(() => new Set());
 
   function toggleDate(date) {
     setChecked((prev) => { const n = new Set(prev); n.has(date) ? n.delete(date) : n.add(date); return n; });
   }
   function toggleAll() {
     setChecked(checked.size === dateGroups.length ? new Set() : new Set(dateGroups.map(([d]) => d)));
+  }
+  function toggleExpanded(date) {
+    setExpanded((prev) => { const n = new Set(prev); n.has(date) ? n.delete(date) : n.add(date); return n; });
   }
 
   const selectedIds = entries.filter((e) => checked.has(e.date)).map((e) => e.id);
@@ -164,14 +168,57 @@ function ClearWizard({ entries, onConfirm, onCancel }) {
             <span style={{ marginLeft: "auto", color: "var(--ink-text-dim)", fontFamily: "var(--font-mono)", fontSize: 11 }}>{entries.length} total</span>
           </div>
           {dateGroups.map(([date, group]) => {
-            const isOn = checked.has(date);
+            const isOn  = checked.has(date);
+            const isOpen = expanded.has(date);
             return (
-              <div key={date} onClick={() => toggleDate(date)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 0", cursor: "pointer", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
-                <div style={{ width: 16, height: 16, borderRadius: 4, border: `2px solid ${isOn ? "var(--gold)" : "var(--rule)"}`, background: isOn ? "var(--gold)" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                  {isOn && <span style={{ color: "#fff", fontSize: 10, fontWeight: 700 }}>✓</span>}
+              <div key={date} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 0" }}>
+                  <div onClick={() => toggleDate(date)} style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", flex: 1, minWidth: 0 }}>
+                    <div style={{ width: 16, height: 16, borderRadius: 4, border: `2px solid ${isOn ? "var(--gold)" : "var(--rule)"}`, background: isOn ? "var(--gold)" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                      {isOn && <span style={{ color: "#fff", fontSize: 10, fontWeight: 700 }}>✓</span>}
+                    </div>
+                    <span style={{ color: "var(--ink-text)", fontFamily: "var(--font-sans)", fontSize: 13 }}>{fmtDateLong(date)}</span>
+                    <span style={{ marginLeft: "auto", color: "var(--ink-text-dim)", fontFamily: "var(--font-mono)", fontSize: 11 }}>{group.length} {group.length === 1 ? "entry" : "entries"}</span>
+                  </div>
+                  <button
+                    onClick={() => toggleExpanded(date)}
+                    title={isOpen ? "Hide details" : "Show details"}
+                    style={{
+                      background: "none", border: "none", cursor: "pointer", color: "var(--ink-text-dim)",
+                      fontSize: 11, fontFamily: "var(--font-sans)", padding: "4px 2px 4px 8px", flexShrink: 0,
+                      transform: isOpen ? "rotate(90deg)" : "none", transition: "transform 150ms ease",
+                    }}
+                  >
+                    ▸
+                  </button>
                 </div>
-                <span style={{ color: "var(--ink-text)", fontFamily: "var(--font-sans)", fontSize: 13 }}>{fmtDateLong(date)}</span>
-                <span style={{ marginLeft: "auto", color: "var(--ink-text-dim)", fontFamily: "var(--font-mono)", fontSize: 11 }}>{group.length} {group.length === 1 ? "entry" : "entries"}</span>
+                {isOpen && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4, padding: "0 0 10px 26px" }}>
+                    {group.map((e) => {
+                      const { purpose } = splitDesc(e);
+                      const isIncome = e.flow === "in";
+                      return (
+                        <div key={e.id} style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "space-between" }}>
+                          <span style={{
+                            color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", fontSize: 12,
+                            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0,
+                          }}>
+                            {purpose || "—"}
+                            {e.category && (
+                              <span style={{ color: "var(--ink-text-dim)", opacity: 0.7 }}> · {e.category}</span>
+                            )}
+                          </span>
+                          <span style={{
+                            flexShrink: 0, fontFamily: "var(--font-mono)", fontSize: 12, fontWeight: 600,
+                            color: isIncome ? "var(--green)" : "var(--red)",
+                          }}>
+                            {isIncome ? "+" : "−"}{formatNaira(e.amount)}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             );
           })}
