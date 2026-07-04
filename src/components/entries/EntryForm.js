@@ -6,7 +6,7 @@ import { formatAmountInput, parseAmount, todayISO, formatNaira } from "@/lib/for
 const SYMBOLS   = { NGN: "₦", USD: "$", EUR: "€", GBP: "£" };
 const RATE_KEYS = { USD: "usdNgn", EUR: "eurNgn", GBP: "gbpNgn" };
 
-export default function EntryForm({ entries, onAdd }) {
+export default function EntryForm({ entries, onAdd, viewingMonthStr }) {
   const [date,        setDate]        = useState(todayISO());
   const [desc,        setDesc]        = useState("");
   const [amount,      setAmount]      = useState("");
@@ -16,7 +16,11 @@ export default function EntryForm({ entries, onAdd }) {
   const [showSuggest, setShowSuggest] = useState(false);
   const [currency,    setCurrency]    = useState("NGN");
   const [fxRates,     setFxRates]     = useState(null);
+  const [toast,       setToast]       = useState(null); // { msg, hint } | null
   const toRef = useRef(null);
+  const toastTimer = useRef(null);
+
+  useEffect(() => () => clearTimeout(toastTimer.current), []);
 
   useEffect(() => {
     fetch("/api/fx").then(r => r.json()).then(d => { if (!d.error) setFxRates(d); }).catch(() => {});
@@ -46,6 +50,25 @@ export default function EntryForm({ entries, onAdd }) {
     await onAdd({ date, desc: finalDesc, amount: ngnAmount, flow, beneficiary: to.trim() || null });
     setDesc(""); setAmount(""); setTo(""); setCurrency("NGN");
     setBusy(false);
+
+    // The ledger below only shows the currently viewed month — if this entry
+    // was backdated (or postdated) into a different month, it won't appear
+    // there, which reads as "did this even save?" without a nudge.
+    const entryMonthStr = date.slice(0, 7);
+    const differentMonth = viewingMonthStr && entryMonthStr !== viewingMonthStr;
+    clearTimeout(toastTimer.current);
+    setToast({
+      msg: "Logged ✓",
+      hint: differentMonth
+        ? `This entry is in ${monthLabel(entryMonthStr)}. Use ‹ › above the ledger to jump to that month if you don't see it here.`
+        : null,
+    });
+    toastTimer.current = setTimeout(() => setToast(null), differentMonth ? 6000 : 2500);
+  }
+
+  function monthLabel(ym) {
+    const [y, m] = ym.split("-").map(Number);
+    return new Date(y, m - 1, 1).toLocaleDateString("en-US", { month: "long", year: "numeric" });
   }
 
   const isOut      = flow === "out";
@@ -321,6 +344,25 @@ export default function EntryForm({ entries, onAdd }) {
         </div>
 
       </div>
+
+      {toast && (
+        <div
+          style={{
+            margin:       "0 16px 14px",
+            padding:      "9px 14px",
+            borderRadius: 10,
+            background:   toast.hint ? "rgba(200,134,46,0.15)" : "var(--green-soft)",
+            border:       `1px solid ${toast.hint ? "var(--amber)" : "var(--green)"}`,
+            color:        toast.hint ? "var(--amber)" : "var(--green)",
+            fontFamily:   "var(--font-sans)",
+            fontSize:     12,
+            lineHeight:   1.5,
+          }}
+        >
+          <strong>{toast.msg}</strong>
+          {toast.hint && <span style={{ marginLeft: 6, opacity: 0.9 }}>{toast.hint}</span>}
+        </div>
+      )}
     </form>
   );
 }

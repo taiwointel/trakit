@@ -460,6 +460,41 @@ export default function LedgerTable({ entries, onUpdate, onDelete, onClearAll })
   return (
     <div style={{ background: "var(--paper)" }}>
 
+      {/* ── Toolbar ── */}
+      <div style={{
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        padding: "10px 14px", borderBottom: "1px solid var(--rule-paper)",
+        background: "var(--paper-2)", flexWrap: "wrap", gap: 8,
+      }}>
+        <button
+          onClick={handleRecategorizeAll}
+          disabled={!!recatProgress}
+          style={{
+            background: "none", border: "none", cursor: recatProgress ? "default" : "pointer",
+            color: recatProgress ? "var(--paper-text-dim)" : "var(--blue-accent)",
+            fontFamily: "var(--font-sans)", fontSize: 12, fontWeight: 600, padding: 0,
+            display: "flex", alignItems: "center", gap: 5,
+          }}
+        >
+          {recatProgress ? (
+            <>
+              <span style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--amber)", display: "inline-block" }} />
+              Categorizing {recatProgress.done}/{recatProgress.total}…
+            </>
+          ) : (
+            <>✦ Re-categorize with AI</>
+          )}
+        </button>
+        {onClearAll && (
+          <button
+            onClick={() => entries.length && setClearWizardOpen(true)}
+            style={{ background: "none", border: "none", cursor: "pointer", color: "var(--paper-text-dim)", fontFamily: "var(--font-sans)", fontSize: 12, padding: 0 }}
+          >
+            Clear all entries
+          </button>
+        )}
+      </div>
+
       {/* ── Mobile: card list (hidden on md+) ── */}
       <div className="ledger-mobile">
         {entries.map((entry) => {
@@ -525,41 +560,6 @@ export default function LedgerTable({ entries, onUpdate, onDelete, onClearAll })
             })}
           </tbody>
         </table>
-      </div>
-
-      {/* ── Footer ── */}
-      <div style={{
-        display: "flex", alignItems: "center", justifyContent: "space-between",
-        padding: "10px 14px", borderTop: "1px solid var(--rule-paper)",
-        background: "var(--paper-2)", flexWrap: "wrap", gap: 8,
-      }}>
-        <button
-          onClick={handleRecategorizeAll}
-          disabled={!!recatProgress}
-          style={{
-            background: "none", border: "none", cursor: recatProgress ? "default" : "pointer",
-            color: recatProgress ? "var(--paper-text-dim)" : "var(--blue-accent)",
-            fontFamily: "var(--font-sans)", fontSize: 12, fontWeight: 600, padding: 0,
-            display: "flex", alignItems: "center", gap: 5,
-          }}
-        >
-          {recatProgress ? (
-            <>
-              <span style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--amber)", display: "inline-block" }} />
-              Categorizing {recatProgress.done}/{recatProgress.total}…
-            </>
-          ) : (
-            <>✦ Re-categorize with AI</>
-          )}
-        </button>
-        {onClearAll && (
-          <button
-            onClick={() => entries.length && setClearWizardOpen(true)}
-            style={{ background: "none", border: "none", cursor: "pointer", color: "var(--paper-text-dim)", fontFamily: "var(--font-sans)", fontSize: 12, padding: 0 }}
-          >
-            Clear all entries
-          </button>
-        )}
       </div>
 
       {clearWizardOpen && (

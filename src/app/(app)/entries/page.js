@@ -213,7 +213,7 @@ export default function EntriesPage() {
           tagColor="var(--gold)"
           description="The fastest way to capture a spend the moment it happens, before it fades from memory. Type a description and the naira amount, hit Add, and Trakit7 assigns the category, essentiality tag, and confidence score automatically. Takes under 10 seconds."
         >
-          <EntryForm entries={entries} onAdd={addEntry} />
+          <EntryForm entries={entries} onAdd={addEntry} viewingMonthStr={monthStr} />
         </FeatureCard>
         </div>
 
