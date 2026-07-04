@@ -216,27 +216,28 @@ const UNCLEAR_RE = [
   /^RTGS\b/i,
 ];
 
-// Bank-generated fees/charges and self-transfers between the user's own
-// accounts — these narrations are already unambiguous (they're bank
-// mechanics, not a purchase whose purpose needs explaining), so the wizard
-// should never stop to ask what they were for, regardless of what else
-// they match in UNCLEAR_RE (e.g. "MOBILE TRF" would otherwise look like an
-// unclear person-transfer).
-const CLEAR_BANK_RE = [
+// Bank charges/fees ONLY (COT, AMC, levy, commission, VAT, card fees, etc.)
+// — these are pure bank mechanics with no ambiguous "purpose" to label, so
+// the wizard skips them. Nothing else is excluded: ordinary transfers,
+// person payments, etc. still go through the wizard as before.
+const BANK_CHARGE_RE = [
   /^COMMISSION\b/i,
   /^VAT\b/i,
-  /^COT\b/i,
-  /^AMC\b/i,
+  /^COT\b/i,          // Commission on Turnover
+  /^AMC\b/i,          // Account Maintenance Charge
   /^LEVY\b/i,
   /^CHARGE\b/i,
   /^SMS\s*ALERT\s*FEE/i,
   /^STAMP\s*DUTY/i,
   /^(CARD\s*)?MAINTENANCE\s*FEE/i,
-  /^CARD\s*(MAINTENANCE|ISSUANCE)/i,
+  /^CARD\s*(MAINTENANCE|ISSUANCE)\s*FEE/i,
   /^(ANNUAL|MONTHLY)\s*(MAINTENANCE|MGT|MANAGEMENT)\s*(FEE|CHARGE)/i,
-  /^MOBILE\s*TRF\b/i,
-  /^TRF\s*\/\/\s*FRM\b.*\bTO\b/i, // self-transfer between the user's own accounts
 ];
+
+function isBankCharge(desc) {
+  const d = (desc || "").trim();
+  return BANK_CHARGE_RE.some((re) => re.test(d));
+}
 
 // Words that suggest a clear merchant or category purpose — not a bare person name
 const NOT_A_PERSON = /\b(school|fee|fees|rent|fuel|petrol|food|market|grocery|groceries|loan|repayment|salary|transport|hospital|clinic|medical|drug|pharmacy|savings|invest|pension|insurance|premium|electricity|nepa|phcn|water|gas|internet|wifi|cable|dstv|airtime|data|recharge|clothes|shopping|gym|salon|barber|spa|betting|bet|purchase|subscription|maintenance|repair|service|charge|tax|tithe|offering|donation|church|mosque|toll|fare|ticket|levy|bill|fine|refund|bonus|dividend|konga|jumia|shoprite|spar|amazon|netflix|spotify|paypal|uber|bolt|flutterwave|paystack|opay|palmpay|kuda|mtn|airtel|glo|mobile)\b/i;
@@ -257,23 +258,22 @@ function looksLikePersonName(desc) {
 function isUnclearPattern(desc) {
   const d = (desc || "").trim();
   if (d.length < 6) return true;
-  if (CLEAR_BANK_RE.some((re) => re.test(d))) return false;
   return UNCLEAR_RE.some((re) => re.test(d)) || looksLikePersonName(d);
 }
 
-// Group rows by identical narration, then keep only the groups whose
-// narration is actually ambiguous — recognized bank fees/charges and
-// person-transfer patterns already parsed deterministically (OPay, PalmPay,
-// Access Bank) don't need a user label, so they're skipped and go straight
-// into the ledger with their original narration.
+// Group rows by identical narration — show every group so each transaction
+// gets reviewed in the wizard, except pure bank charges/fees (COT, AMC,
+// levy, commission, VAT, card fees, etc.), which have no ambiguous purpose
+// to label and go straight into the ledger untouched.
 function buildLabelGroups(rows) {
   const map = new Map();
   rows.forEach((r, i) => {
+    if (isBankCharge(r.desc)) return;
     const key = r.desc.trim().toLowerCase();
     if (!map.has(key)) map.set(key, { desc: r.desc.trim(), indices: [] });
     map.get(key).indices.push(i);
   });
-  return Array.from(map.values()).filter((g) => isUnclearPattern(g.desc));
+  return Array.from(map.values());
 }
 
 // ── Quick-pick chips ──────────────────────────────────────────────────────────
@@ -285,7 +285,7 @@ const CHIPS = [
 
 // ── Labeling Wizard ───────────────────────────────────────────────────────────
 
-function LabelingWizard({ rows, groups, totalRows, onApply, onFinish, onSkipAll }) {
+function LabelingWizard({ rows, groups, totalRows, onApply, onFinish, onSkipAll, onCancel }) {
   const [step,  setStep]  = useState(0);
   const [label, setLabel] = useState("");
   const inputRef = useRef(null);
@@ -338,6 +338,20 @@ function LabelingWizard({ rows, groups, totalRows, onApply, onFinish, onSkipAll 
         <div style={{ padding: "18px 22px 14px", borderBottom: "1px solid var(--rule)" }}>
           {/* Progress line */}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+            <button
+              onClick={onCancel}
+              title="Cancel import — discard everything"
+              className="hover:scale-125 active:scale-150 transition-transform duration-150"
+              style={{
+                color: "var(--red)", background: "rgba(184,57,43,0.12)",
+                border: "1px solid var(--red)", borderRadius: "50%",
+                width: 26, height: 26, fontSize: 13, fontWeight: 700,
+                cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                flexShrink: 0,
+              }}
+            >
+              ✕
+            </button>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <span style={{
                 color: "var(--gold)", fontFamily: "var(--font-mono)",
@@ -353,14 +367,13 @@ function LabelingWizard({ rows, groups, totalRows, onApply, onFinish, onSkipAll 
               onClick={onSkipAll}
               title="Close this wizard and import all transactions with their original narrations, no further labeling"
               style={{
-                color: "var(--ink-text)", fontFamily: "var(--font-sans)",
+                color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)",
                 fontSize: 11, fontWeight: 600, cursor: "pointer",
-                background: "var(--ink-3)", border: "1px solid var(--rule)",
+                background: "none", border: "1px solid var(--rule)",
                 borderRadius: 8, padding: "5px 10px",
-                display: "flex", alignItems: "center", gap: 5,
               }}
             >
-              ✕ Exit & import as-is
+              Import as-is
             </button>
           </div>
           {/* Progress bar */}
@@ -760,6 +773,7 @@ export default function CsvImport({ onImported }) {
 
   const handleWizardFinish  = () => setWizardGroups(null);
   const handleWizardSkipAll = () => setWizardGroups(null);
+  const handleWizardCancel  = () => { setWizardGroups(null); setRows([]); };
 
   const doImport = async () => {
     const valid = rows.filter((r) => r.date && r.desc && Number(r.amount) > 0);
@@ -1027,7 +1041,11 @@ export default function CsvImport({ onImported }) {
                           <select
                             value={row.flow}
                             onChange={(e) => updateRow(i, "flow", e.target.value)}
-                            style={{ ...inputBase, width: "auto", paddingRight: 20 }}
+                            style={{
+                              ...inputBase, width: "auto", paddingRight: 20,
+                              color: row.flow === "in" ? "var(--green)" : "var(--red)",
+                              fontWeight: 600,
+                            }}
                           >
                             <option value="out">Out</option>
                             <option value="in">In</option>
@@ -1088,6 +1106,7 @@ export default function CsvImport({ onImported }) {
           onApply={handleWizardApply}
           onFinish={handleWizardFinish}
           onSkipAll={handleWizardSkipAll}
+          onCancel={handleWizardCancel}
         />
       )}
     </div>
