@@ -278,10 +278,18 @@ const AUTO_LABEL_RULES = [
   { pattern: /mobile\s*data|data\s*(bundle|plan)|\bdata\w*mtn\b|\bdata\w*(airtel|glo|9mobile)\b|\d\s*(mb|gb)\b.*\bplan\b/i, label: "Data subscription" },
   { pattern: /^airtime\b|\brecharge\b(?!.*data)/i,                                                                       label: "Airtime" },
   { pattern: /\bdstv\b|\bgotv\b|\bstartimes\b|\bnetflix\b|\bspotify\b|\bshowmax\b|\bprime\s*video\b|\bapple\s*music\b/i,  label: "Subscription" },
-  { pattern: /\bikedc\b|\bekedc\b|\bkedco\b|\bphed\b|\bphcn\b|\bnepa\b|\belectricity\b|\bpower\s*bill\b/i,                label: "Utility bill" },
+  { pattern: /\bikedc\b|\bekedc\b|\bkedco\b|\bphed\b|\bphcn\b|\bnepa\b|\belectricity\b|\bpower\s*bill\b|\butilit(y|ies)\b/i, label: "Utility bill" },
   { pattern: /\batm\s*(cash\s*)?withdrawal\b|\bcash\s*withdrawal\b/i,                                                    label: "ATM withdrawal" },
   { pattern: /\bjumia\b|\bkonga\b|\bshoprite\b|\bspar\b(?!kle)|\bamazon\b/i,                                             label: "Shopping" },
   { pattern: /\bbet9ja\b|\bsportybet\b|\bnairabet\b|\b1xbet\b|\bbetway\b|\bbetking\b|\bmerrybet\b|\bstake\.com\b/i,       label: "Betting" },
+  { pattern: /^reversal\b|\btransaction\s*reversal\b|\bfailed\s*transaction\b.*revers/i,                                 label: "Reversal" },
+  { pattern: /\btotal\s*filling\b|\bmobil\s*(filling|station)\b|\bnnpc\b|\boando\b|\bconoil\b|\bforte\s*oil\b|\bfilling\s*station\b|\bfuel\s*station\b/i, label: "Fuel" },
+  { pattern: /\bkfc\b|\bdomino'?s\b|\bchicken\s*republic\b|\bcold\s*stone\b|\bmr\.?\s*bigg'?s\b|\btantalizers\b/i,        label: "Eat out" },
+  { pattern: /\bmedplus\b|\bhealthplus\b|\bpharmacy\b|\bhospital\b|\bclinic\b|\bdiagnostics?\b/i,                        label: "Medical" },
+  { pattern: /\baiico\b|\bleadway\b|\baxa\s*mansard\b|\bcornerstone\s*insurance\b|\bcustodian\s*insurance\b|\bninsure\b/i, label: "Insurance" },
+  { pattern: /\blcc\s*toll\b|\btoll\s*gate\b|\blekki\s*concession\b/i,                                                   label: "Transport" },
+  { pattern: /\bgym\b|\bfitness\s*(centre|center|club)\b|\bsalon\b|\bbarber(shop)?\b|\bspa\b/i,                          label: "Personal care" },
+  { pattern: /\binterest\s*(earned|paid|credit)\b|\bcredit\s*interest\b/i,                                              label: "Interest/dividend" },
 ];
 function autoLabelFor(desc) {
   const d = (desc || "").trim();
