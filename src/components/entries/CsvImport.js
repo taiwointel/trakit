@@ -541,7 +541,7 @@ function LabelingWizard({ rows, groups, totalRows, onApply, onFinish, onSkipAll,
               {CHIPS.map((chip) => (
                 <button
                   key={chip}
-                  onClick={() => setLabel(chip)}
+                  onClick={() => advance(chip)}
                   style={{
                     background: label === chip ? "rgba(169,133,79,0.2)" : "var(--ink-3)",
                     border: `1px solid ${label === chip ? "var(--gold)" : "var(--rule)"}`,
