@@ -11,6 +11,7 @@ Rules:
 - date: YYYY-MM-DD. Convert DD/MM/YYYY, DD-Mon-YYYY, or MM/DD/YYYY. Infer year from the statement period header if missing.
 - description: the narration/reference text. CRITICAL: strip all double-quote characters from it; replace with single quotes or remove.
 - amount: positive number, no commas or currency symbols
+- CRITICAL — amount vs reference number: bank statement tables have a Reference/Transaction ID column (often a long string of digits, e.g. "8026390703") appearing right after the Amount and Balance columns, sometimes with no clear space or line break separating them in extracted text. NEVER concatenate a reference number onto the amount. The real amount is always formatted with a decimal point and exactly 2 decimal places (e.g. "20,000.00"). Any digits that follow immediately after that decimal amount with no decimal point of their own are a separate reference/transaction ID field — ignore them for the amount value.
 - flow: "out" for debits/withdrawals/charges/fees; "in" for credits/deposits/payments received
 - beneficiary: (optional field) include ONLY when a real person or business name is clearly named in the narration — e.g. "Send to OPEYEMI JOY AKANDE" → beneficiary: "OPEYEMI JOY AKANDE". Omit for POS, ATM, data bundles, bank charges, and unnamed transactions.
 - Skip opening balance, closing balance, totals, subtotals, header/footer rows
