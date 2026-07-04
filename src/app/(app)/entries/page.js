@@ -264,6 +264,9 @@ export default function EntriesPage() {
 
       <div className="section-body">
         <div style={{ background: "var(--ink-2)", border: "1px solid var(--rule)", borderRadius: 16, overflow: "hidden" }}>
+          <div style={{ borderBottom: "1px solid var(--rule)" }}>
+            <MonthNav year={year} month={month} onChange={(y, m) => { setYear(y); setMonth(m); setSelectedDay(null); }} />
+          </div>
           <button
             onClick={() => setLedgerOpen((v) => !v)}
             className="section-toggle"
