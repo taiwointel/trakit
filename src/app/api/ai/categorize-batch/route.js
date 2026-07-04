@@ -17,7 +17,7 @@ CATEGORIES — what belongs in each:
 - Savings & Investment: savings deposit, investment purchase, mutual fund, stocks, treasury bills, fixed deposit, target savings contribution
 - Personal Care: salon, barbershop, spa, gym membership, clothes, shoes, bags, skincare, cosmetics, personal shopping
 - Betting: bet9ja, sportybet, nairabet, 1xbet, betway, betking, sportybet, betting deposits, wagers, sports betting
-- Charges: ONLY for Nigerian bank-generated charges — Stamp Duty, EMTL, USSD Charge, SMS alert fee, account/card maintenance fee, COT, VAT on bank charges. Do NOT use for regular transactions you are unsure about.
+- Charges: ONLY for Nigerian bank-generated charges — Stamp Duty, EMTL, USSD Charge, SMS alert fee, account/card maintenance fee, COT, Commission (including "Commission Mobile Trf", transfer commission), VAT on bank charges. Do NOT use for regular transactions you are unsure about.
 
 DECISION RULES:
 - "Noodles", "eggs", "bread", or food items from a shop/market → Food & Groceries
