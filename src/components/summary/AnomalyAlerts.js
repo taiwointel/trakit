@@ -13,7 +13,7 @@ export default function AnomalyAlerts({ entries, cycleStart, cycle, today }) {
 
     const currentSpend = {};
     for (const e of entries) {
-      if (e.flow !== "out" || !e.category) continue;
+      if (e.flow !== "out" || !e.category || e.category === "Self") continue;
       if (e.date < cycleStart || e.date > today) continue;
       currentSpend[e.category] = (currentSpend[e.category] || 0) + Number(e.amount);
     }
@@ -26,7 +26,7 @@ export default function AnomalyAlerts({ entries, cycleStart, cycle, today }) {
       const prevStartStr = prevStart.toISOString().slice(0, 10);
       const prevEndStr   = prevEnd.toISOString().slice(0, 10);
       for (const e of entries) {
-        if (e.flow !== "out" || !e.category) continue;
+        if (e.flow !== "out" || !e.category || e.category === "Self") continue;
         if (e.date < prevStartStr || e.date > prevEndStr) continue;
         if (!historicalByCategory[e.category]) historicalByCategory[e.category] = [];
         historicalByCategory[e.category].push(Number(e.amount));
