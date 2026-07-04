@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 // ── CSV parsing ───────────────────────────────────────────────────────────────
@@ -216,6 +216,28 @@ const UNCLEAR_RE = [
   /^RTGS\b/i,
 ];
 
+// Bank-generated fees/charges and self-transfers between the user's own
+// accounts — these narrations are already unambiguous (they're bank
+// mechanics, not a purchase whose purpose needs explaining), so the wizard
+// should never stop to ask what they were for, regardless of what else
+// they match in UNCLEAR_RE (e.g. "MOBILE TRF" would otherwise look like an
+// unclear person-transfer).
+const CLEAR_BANK_RE = [
+  /^COMMISSION\b/i,
+  /^VAT\b/i,
+  /^COT\b/i,
+  /^AMC\b/i,
+  /^LEVY\b/i,
+  /^CHARGE\b/i,
+  /^SMS\s*ALERT\s*FEE/i,
+  /^STAMP\s*DUTY/i,
+  /^(CARD\s*)?MAINTENANCE\s*FEE/i,
+  /^CARD\s*(MAINTENANCE|ISSUANCE)/i,
+  /^(ANNUAL|MONTHLY)\s*(MAINTENANCE|MGT|MANAGEMENT)\s*(FEE|CHARGE)/i,
+  /^MOBILE\s*TRF\b/i,
+  /^TRF\s*\/\/\s*FRM\b.*\bTO\b/i, // self-transfer between the user's own accounts
+];
+
 // Words that suggest a clear merchant or category purpose — not a bare person name
 const NOT_A_PERSON = /\b(school|fee|fees|rent|fuel|petrol|food|market|grocery|groceries|loan|repayment|salary|transport|hospital|clinic|medical|drug|pharmacy|savings|invest|pension|insurance|premium|electricity|nepa|phcn|water|gas|internet|wifi|cable|dstv|airtime|data|recharge|clothes|shopping|gym|salon|barber|spa|betting|bet|purchase|subscription|maintenance|repair|service|charge|tax|tithe|offering|donation|church|mosque|toll|fare|ticket|levy|bill|fine|refund|bonus|dividend|konga|jumia|shoprite|spar|amazon|netflix|spotify|paypal|uber|bolt|flutterwave|paystack|opay|palmpay|kuda|mtn|airtel|glo|mobile)\b/i;
 
@@ -235,11 +257,15 @@ function looksLikePersonName(desc) {
 function isUnclearPattern(desc) {
   const d = (desc || "").trim();
   if (d.length < 6) return true;
+  if (CLEAR_BANK_RE.some((re) => re.test(d))) return false;
   return UNCLEAR_RE.some((re) => re.test(d)) || looksLikePersonName(d);
 }
 
-// Group rows by identical narration — show all groups so every transaction
-// gets reviewed in the wizard, not just ambiguous ones.
+// Group rows by identical narration, then keep only the groups whose
+// narration is actually ambiguous — recognized bank fees/charges and
+// person-transfer patterns already parsed deterministically (OPay, PalmPay,
+// Access Bank) don't need a user label, so they're skipped and go straight
+// into the ledger with their original narration.
 function buildLabelGroups(rows) {
   const map = new Map();
   rows.forEach((r, i) => {
@@ -247,7 +273,7 @@ function buildLabelGroups(rows) {
     if (!map.has(key)) map.set(key, { desc: r.desc.trim(), indices: [] });
     map.get(key).indices.push(i);
   });
-  return Array.from(map.values());
+  return Array.from(map.values()).filter((g) => isUnclearPattern(g.desc));
 }
 
 // ── Quick-pick chips ──────────────────────────────────────────────────────────
@@ -325,12 +351,16 @@ function LabelingWizard({ rows, groups, totalRows, onApply, onFinish, onSkipAll 
             </div>
             <button
               onClick={onSkipAll}
+              title="Close this wizard and import all transactions with their original narrations, no further labeling"
               style={{
-                color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)",
-                fontSize: 11, cursor: "pointer", background: "none", border: "none",
+                color: "var(--ink-text)", fontFamily: "var(--font-sans)",
+                fontSize: 11, fontWeight: 600, cursor: "pointer",
+                background: "var(--ink-3)", border: "1px solid var(--rule)",
+                borderRadius: 8, padding: "5px 10px",
+                display: "flex", alignItems: "center", gap: 5,
               }}
             >
-              Skip all & import as-is
+              ✕ Exit & import as-is
             </button>
           </div>
           {/* Progress bar */}
@@ -559,6 +589,8 @@ export default function CsvImport({ onImported }) {
   const [passwordFile, setPasswordFile] = useState(null); // file awaiting a password retry
   const [passwordInput, setPasswordInput] = useState("");
   const [passwordError, setPasswordError] = useState(null);
+  const [sortKey, setSortKey] = useState(null); // null = default order (date, then in-before-out)
+  const [sortDir, setSortDir] = useState("asc");
   const fileRef = useRef(null);
   const cancelledRef = useRef(false);
   useEffect(() => () => { cancelledRef.current = true; }, []);
@@ -676,6 +708,39 @@ export default function CsvImport({ onImported }) {
     setPasswordFile(null);
     setPasswordInput("");
     setPasswordError(null);
+  };
+
+  // Default order is chronological, with "in" rows sitting below "out" rows
+  // on the same date. Clicking a column header overrides this with an
+  // ascending/toggling sort on that column instead; each row keeps its
+  // original index (_idx) so edits/deletes still target the right entry
+  // after reordering.
+  const sortedRows = useMemo(() => {
+    const withIdx = rows.map((r, i) => ({ ...r, _idx: i }));
+    if (!sortKey) {
+      withIdx.sort((a, b) => {
+        if (a.date !== b.date) return a.date < b.date ? -1 : 1;
+        if (a.flow !== b.flow) return a.flow === "in" ? -1 : 1;
+        return 0;
+      });
+      return withIdx;
+    }
+    const dir = sortDir === "asc" ? 1 : -1;
+    withIdx.sort((a, b) => {
+      if (sortKey === "amount") return (Number(a.amount) - Number(b.amount)) * dir;
+      const av = String(a[sortKey] || "").toLowerCase();
+      const bv = String(b[sortKey] || "").toLowerCase();
+      if (av < bv) return -1 * dir;
+      if (av > bv) return 1 * dir;
+      return 0;
+    });
+    return withIdx;
+  }, [rows, sortKey, sortDir]);
+
+  const handleSort = (key) => {
+    if (!key) return;
+    if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else { setSortKey(key); setSortDir("asc"); }
   };
 
   const updateRow = (i, field, val) =>
@@ -894,20 +959,33 @@ export default function CsvImport({ onImported }) {
                 <table className="w-full text-xs" style={{ borderCollapse: "collapse", minWidth: 680 }}>
                   <thead>
                     <tr style={{ background: "var(--paper-2)", position: "sticky", top: 0, zIndex: 1 }}>
-                      {["Date","Description","Beneficiary","Amount (₦)","Flow",""].map((h) => (
+                      {[
+                        { label: "Date", key: "date" },
+                        { label: "Description", key: "desc" },
+                        { label: "Beneficiary", key: "beneficiary" },
+                        { label: "Amount (₦)", key: "amount" },
+                        { label: "Flow", key: "flow" },
+                        { label: "", key: null },
+                      ].map(({ label, key }) => (
                         <th
-                          key={h}
+                          key={label || "actions"}
+                          onClick={() => handleSort(key)}
                           className="text-left px-2 py-2"
-                          style={{ color: "var(--paper-text-dim)", fontFamily: "var(--font-sans)", borderBottom: "1px solid var(--rule-paper)", fontWeight: 600 }}
+                          style={{
+                            color: "var(--paper-text-dim)", fontFamily: "var(--font-sans)",
+                            borderBottom: "1px solid var(--rule-paper)", fontWeight: 600,
+                            cursor: key ? "pointer" : "default", userSelect: "none", whiteSpace: "nowrap",
+                          }}
+                          title={key ? "Click to sort" : undefined}
                         >
-                          {h}
+                          {label}{key && sortKey === key ? (sortDir === "asc" ? " ▲" : " ▼") : ""}
                         </th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {rows.map((row, i) => (
-                      <tr key={i} style={{ borderBottom: "1px solid var(--rule-paper)", background: i % 2 === 0 ? "var(--paper)" : "var(--paper-2)" }}>
+                    {sortedRows.map((row, pos) => { const i = row._idx; return (
+                      <tr key={i} style={{ borderBottom: "1px solid var(--rule-paper)", background: pos % 2 === 0 ? "var(--paper)" : "var(--paper-2)" }}>
                         <td className="px-2 py-1" style={{ minWidth: 110 }}>
                           <input
                             type="date"
@@ -966,7 +1044,7 @@ export default function CsvImport({ onImported }) {
                           </button>
                         </td>
                       </tr>
-                    ))}
+                    );})}
                   </tbody>
                 </table>
               </div>
