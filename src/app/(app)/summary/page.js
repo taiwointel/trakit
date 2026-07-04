@@ -805,12 +805,7 @@ export default function SummaryPage() {
             )}
           </div>
 
-          <LiquidityPanel
-            balance={currentBalance}
-            avgMonthlyEssential={avgEssential}
-            months={months}
-            sparkRows={sparkRows}
-          />
+          <YearToDatePanel entries={entries} />
         </div>
 
         <div className="grid-2">
@@ -819,7 +814,12 @@ export default function SummaryPage() {
             investments={investments}
             transactions={transactions}
           />
-          <YearToDatePanel entries={entries} />
+          <LiquidityPanel
+            balance={currentBalance}
+            avgMonthlyEssential={avgEssential}
+            months={months}
+            sparkRows={sparkRows}
+          />
         </div>
       </div>
 

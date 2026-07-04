@@ -20,7 +20,35 @@ export default function YearToDatePanel({ entries }) {
   const outflow = yearEntries.filter((e) => e.flow === "out").reduce((s, e) => s + Number(e.amount), 0);
   const net     = inflow - outflow;
 
+  const daysElapsed = useMemo(() => {
+    const a = new Date(`${year}-01-01T00:00:00`);
+    const b = new Date(`${yearEnd}T00:00:00`);
+    return Math.max(1, Math.round((b - a) / 86400000) + 1);
+  }, [year, yearEnd]);
+
+  const avgMonthlySpend  = outflow > 0 ? (outflow / daysElapsed) * 30.44 : 0;
+  const isFullYear       = year !== currentYear;
+  const daysInYear       = ((y) => ((y % 4 === 0 && y % 100 !== 0) || y % 400 === 0) ? 366 : 365)(year);
+  const projectedOutflow = isFullYear ? outflow : outflow * (daysInYear / daysElapsed);
+
+  // Same elapsed-window comparison against the prior year.
+  const prevYearEntries = useMemo(
+    () => entries.filter((e) => e.date?.startsWith(`${year - 1}-`) && e.category !== "Self" && e.date <= `${year - 1}-${yearEnd.slice(5)}`),
+    [entries, year, yearEnd],
+  );
+  const prevOutflow  = prevYearEntries.filter((e) => e.flow === "out").reduce((s, e) => s + Number(e.amount), 0);
+  const yoyDelta      = prevOutflow > 0 ? ((outflow - prevOutflow) / prevOutflow) * 100 : null;
+
   const hasEarlierData = entries.some((e) => e.date && e.date < `${year}-01-01`);
+  const biggestCategory = useMemo(() => {
+    const map = {};
+    for (const e of yearEntries) {
+      if (e.flow !== "out" || !e.category) continue;
+      map[e.category] = (map[e.category] || 0) + Number(e.amount);
+    }
+    const sorted = Object.entries(map).sort(([, a], [, b]) => b - a);
+    return sorted[0] || null;
+  }, [yearEntries]);
 
   return (
     <div className="rounded-xl p-5 flex flex-col gap-4" style={{ background: "var(--ink-2)", border: "1px solid var(--rule)" }}>
@@ -35,7 +63,7 @@ export default function YearToDatePanel({ entries }) {
             className="text-xs px-2 py-1 rounded-md"
             style={{
               background: "var(--ink-3)", border: "1px solid var(--rule)",
-              color: hasEarlierData ? "var(--ink-text-dim)" : "var(--ink-text-dim)",
+              color: "var(--ink-text-dim)",
               opacity: hasEarlierData ? 1 : 0.35,
               cursor: hasEarlierData ? "pointer" : "default",
             }}
@@ -77,6 +105,52 @@ export default function YearToDatePanel({ entries }) {
           </p>
         </div>
       </div>
+
+      {yearEntries.length > 0 && (
+        <div className="flex flex-col gap-2 pt-1" style={{ borderTop: "1px solid var(--rule)" }}>
+          <div className="flex items-center justify-between">
+            <span className="text-xs" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>
+              Avg monthly spend
+            </span>
+            <span className="text-xs font-semibold" style={{ color: "var(--ink-text)", fontFamily: "var(--font-mono)" }}>
+              {formatNaira(avgMonthlySpend, { compact: true })}
+            </span>
+          </div>
+
+          {!isFullYear && (
+            <div className="flex items-center justify-between">
+              <span className="text-xs" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>
+                On pace for
+              </span>
+              <span className="text-xs font-semibold" style={{ color: "var(--amber)", fontFamily: "var(--font-mono)" }}>
+                ≈{formatNaira(projectedOutflow, { compact: true })} by Dec 31
+              </span>
+            </div>
+          )}
+
+          {yoyDelta !== null && (
+            <div className="flex items-center justify-between">
+              <span className="text-xs" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>
+                Vs same period last year
+              </span>
+              <span className="text-xs font-semibold" style={{ color: yoyDelta > 0 ? "var(--red)" : "var(--green)", fontFamily: "var(--font-mono)" }}>
+                {yoyDelta > 0 ? "▲" : "▼"} {Math.abs(yoyDelta).toFixed(0)}%
+              </span>
+            </div>
+          )}
+
+          {biggestCategory && (
+            <div className="flex items-center justify-between">
+              <span className="text-xs" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>
+                Biggest category
+              </span>
+              <span className="text-xs font-semibold" style={{ color: "var(--ink-text)", fontFamily: "var(--font-mono)" }}>
+                {biggestCategory[0]} · {formatNaira(biggestCategory[1], { compact: true })}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
 
       {yearEntries.length === 0 && (
         <p className="text-xs" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>

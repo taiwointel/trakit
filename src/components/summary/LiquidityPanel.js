@@ -42,16 +42,24 @@ function GaugeBar({ months }) {
   return (
     <div className="flex flex-col gap-1">
       <div
-        className="w-full rounded-full overflow-hidden"
-        style={{ height: 8, background: "var(--ink-3)" }}
+        className="w-full rounded-full overflow-hidden relative"
+        style={{ height: 10, background: "var(--ink-3)" }}
       >
+        {/* Zone shading so the marks read as a scale, not just numbers */}
+        <div className="absolute inset-0 flex">
+          <div style={{ width: `${(1 / MAX) * 100}%`, background: "rgba(184,57,43,0.12)" }} />
+          <div style={{ width: `${(2 / MAX) * 100}%`, background: "rgba(200,134,46,0.12)" }} />
+          <div style={{ width: `${(3 / MAX) * 100}%`, background: "rgba(47,122,86,0.12)" }} />
+          <div style={{ flex: 1, background: "rgba(91,143,168,0.12)" }} />
+        </div>
         <div
           style={{
             width:        `${pct}%`,
             height:       "100%",
             background:   color,
-            borderRadius: 4,
+            borderRadius: 5,
             transition:   "width 0.4s",
+            position: "relative",
           }}
         />
       </div>
@@ -73,12 +81,6 @@ function GaugeBar({ months }) {
 export default function LiquidityPanel({ balance, avgMonthlyEssential, months, sparkRows }) {
   const { label, color } = liquidityVerdict(months);
 
-  const stats = [
-    { label: "Cash now",              value: balance !== null ? formatNaira(balance) : "—" },
-    { label: "Avg monthly essentials", value: avgMonthlyEssential ? formatNaira(avgMonthlyEssential) : "—" },
-    { label: "Liquidity coverage",    value: months !== null ? `${months.toFixed(1)} mo` : "—", color },
-  ];
-
   return (
     <div
       className="rounded-lg p-4 flex flex-col gap-4"
@@ -88,41 +90,55 @@ export default function LiquidityPanel({ balance, avgMonthlyEssential, months, s
         className="text-xs font-semibold uppercase tracking-widest flex items-center gap-1.5"
         style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}
       >
-        Cash & Liquidity
-        <InfoTooltip text="How many months you could cover essential bills (rent, food, transport, etc.) using your current cash balance. Under 1 month is a red flag. 3 to 6 months is the healthy target most financial advisors recommend." />
+        Runway
+        <InfoTooltip text="How many months your current cash balance would cover your essential bills (rent, food, transport, etc.) if your income stopped today. 3 to 6 months is the healthy target most financial advisors recommend." />
       </p>
 
-      {/* Three-stat row */}
-      <div className="grid grid-cols-3 gap-3">
-        {stats.map((s) => (
-          <div key={s.label} className="flex flex-col gap-0.5">
+      {/* Headline: the one number that matters, in plain English */}
+      <div className="flex items-end justify-between gap-3 flex-wrap">
+        <div>
+          <div className="flex items-baseline gap-2">
             <span
-              className="text-[11px] uppercase tracking-wide"
-              style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}
+              className="font-bold"
+              style={{ color, fontFamily: "var(--font-serif)", fontSize: "clamp(1.6rem, 3vw, 2.1rem)", lineHeight: 1 }}
             >
-              {s.label}
+              {months !== null ? months.toFixed(1) : "—"}
             </span>
-            <span
-              className="text-base font-semibold"
-              style={{ color: s.color || "var(--ink-text)", fontFamily: "var(--font-mono)" }}
-            >
-              {s.value}
+            <span className="text-sm" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>
+              months of bills covered
             </span>
           </div>
-        ))}
+          <span
+            className="inline-block text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full mt-1.5"
+            style={{ color, background: `${color}22`, border: `1px solid ${color}55` }}
+          >
+            {label}
+          </span>
+        </div>
       </div>
 
-      {/* Gauge */}
+      {/* Gauge with the standard 0/3/6/9 benchmark scale */}
       <GaugeBar months={months} />
 
-      {/* Verdict */}
-      <p
-        className="text-sm"
-        style={{ color, fontFamily: "var(--font-sans)" }}
-      >
-        {label}
-        {months !== null && `: ${months.toFixed(1)} months of essential spend covered.`}
-      </p>
+      {/* Supporting numbers, plainly labeled */}
+      <div className="grid grid-cols-2 gap-3 pt-1" style={{ borderTop: "1px solid var(--rule)" }}>
+        <div className="flex flex-col gap-0.5">
+          <span className="text-[11px] uppercase tracking-wide" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>
+            Cash you have now
+          </span>
+          <span className="text-base font-semibold" style={{ color: "var(--ink-text)", fontFamily: "var(--font-mono)" }}>
+            {balance !== null ? formatNaira(balance) : "—"}
+          </span>
+        </div>
+        <div className="flex flex-col gap-0.5">
+          <span className="text-[11px] uppercase tracking-wide" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>
+            What essentials cost you monthly
+          </span>
+          <span className="text-base font-semibold" style={{ color: "var(--ink-text)", fontFamily: "var(--font-mono)" }}>
+            {avgMonthlyEssential ? formatNaira(avgMonthlyEssential) : "—"}
+          </span>
+        </div>
+      </div>
 
       {/* 30-day sparkline */}
       {sparkRows && sparkRows.length > 1 && (
