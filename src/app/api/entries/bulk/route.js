@@ -50,7 +50,13 @@ export async function POST(request) {
       confidence:   cats.confidence,
       subcategory:  cats.subcategory,
       note:         cats.note,
-      status:       learned ? "learned" : "fallback",
+      // entries.status has a DB check constraint allowing only
+      // 'pending' | 'done' | 'fallback' — a learned-rule match is
+      // represented as 'done' (fully resolved, no AI needed), which is
+      // unambiguous here since bulk import never calls AI itself: an
+      // "out" row from this route is either learned ('done') or
+      // keyword-matched ('fallback').
+      status:       learned ? "done" : "fallback",
     };
   });
 

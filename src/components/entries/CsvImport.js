@@ -812,8 +812,11 @@ export default function CsvImport({ onImported }) {
 
       // Step 2: AI-categorize out-entries not already resolved by a learned
       // rule (recurring beneficiary/narration) in one batch call, then update in parallel
-      const learnedCount = (data.rows || []).filter((r) => r.flow === "out" && r.status === "learned").length;
-      const outEntries   = (data.rows || []).filter((r) => r.flow === "out" && r.status !== "learned");
+      // Bulk import never calls AI itself, so an "out" row it returns is
+      // either resolved by a learned rule (status 'done') or still needs
+      // categorization (status 'fallback', keyword-matched only).
+      const learnedCount = (data.rows || []).filter((r) => r.flow === "out" && r.status === "done").length;
+      const outEntries   = (data.rows || []).filter((r) => r.flow === "out" && r.status !== "done");
       let categorized = 0;
 
       if (outEntries.length > 0) {

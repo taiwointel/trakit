@@ -60,7 +60,7 @@ export async function POST(request) {
     const key = learnedMap.size ? normalizeMerchantKey(e.description, e.beneficiary) : null;
     const learned = key ? learnedMap.get(key) : null;
     if (learned) {
-      results[i] = { ...learned, confidence: 0.95, status: "learned" };
+      results[i] = { ...learned, confidence: 0.95, status: "done" };
     } else {
       pending.push({ entry: e, originalIndex: i });
     }

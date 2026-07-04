@@ -53,7 +53,7 @@ export async function POST(request) {
   // (by AI or by a manual correction), reuse it instantly — no AI call.
   if (user) {
     const learned = await lookupMerchantRule(supabase, user.id, description, beneficiary);
-    if (learned) return NextResponse.json({ ...learned, confidence: 0.95, status: "learned" });
+    if (learned) return NextResponse.json({ ...learned, confidence: 0.95, status: "done" });
   }
 
   let settings = null;
