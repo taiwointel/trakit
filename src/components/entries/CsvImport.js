@@ -480,7 +480,7 @@ function LabelingWizard({ rows, groups, totalRows, onApply, onSplitBatch, onFini
             </div>
             <button
               onClick={onSkipAll}
-              title="Close this wizard and import all transactions with their original narrations, no further labeling"
+              title="Skip the remaining batches and import everything right now with original narrations — still auto-categorized by keyword rules + AI, just without the extra context labeling would have added. Nothing to click after this."
               style={{
                 color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)",
                 fontSize: 11, fontWeight: 600, cursor: "pointer",
@@ -1141,7 +1141,13 @@ export default function CsvImport({ onImported, onJumpToMonth }) {
   };
 
   const handleWizardFinish  = () => setWizardGroups(null);
-  const handleWizardSkipAll = () => setWizardGroups(null);
+  // "Import as-is" is a true one-click bypass, not just a way to close the
+  // modal: it closes the wizard AND fires the import immediately, so nobody
+  // has to sit through unresolved batches to get their data in. Every row
+  // still gets keyword-fallback + AI categorization exactly as it would if
+  // fully labeled (see doImport) — only the extra narration context from
+  // the wizard is skipped, not categorization itself.
+  const handleWizardSkipAll = () => { setWizardGroups(null); doImport(); };
   const handleWizardCancel  = () => { setWizardGroups(null); setRows([]); };
 
   const doImport = async () => {
