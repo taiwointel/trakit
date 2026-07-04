@@ -427,12 +427,23 @@ function DesktopRow({ entry, index, total, onEdit, onDelete, onUpdate }) {
 export default function LedgerTable({ entries, onUpdate, onDelete, onClearAll }) {
   const [editingId,       setEditingId]       = useState(null);
   const [recatProgress,   setRecatProgress]   = useState(null);
+  const [recatNotice,     setRecatNotice]     = useState(null);
   const [clearWizardOpen, setClearWizardOpen] = useState(false);
 
   async function handleRecategorizeAll() {
-    const targets = entries.filter(e => e.flow === "out" && e.status !== "done");
-    if (!targets.length) return;
+    // Re-categorize every "money out" entry in view, not just the ones still
+    // stuck on "fallback"/"pending" — the whole point of this button is to
+    // let the user force a fresh AI pass over entries that were already
+    // (mis)categorized, so scoping it to status !== "done" made it silently
+    // do nothing on a month where everything already had *some* category.
+    setRecatNotice(null);
+    const targets = entries.filter(e => e.flow === "out");
+    if (!targets.length) {
+      setRecatNotice("No money-out entries in this view to re-categorize.");
+      return;
+    }
     setRecatProgress({ done: 0, total: targets.length });
+    let failed = 0;
     for (let i = 0; i < targets.length; i++) {
       const e = targets[i];
       try {
@@ -440,13 +451,19 @@ export default function LedgerTable({ entries, onUpdate, onDelete, onClearAll })
         const res = await fetch("/api/ai/categorize", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ description: purpose || e.desc, amount: e.amount }),
+          body: JSON.stringify({ description: purpose || e.desc, amount: e.amount, beneficiary: e.beneficiary }),
         });
         if (res.ok) onUpdate(e.id, await res.json());
-      } catch { /* skip */ }
+        else failed++;
+      } catch { failed++; }
       setRecatProgress({ done: i + 1, total: targets.length });
     }
     setRecatProgress(null);
+    setRecatNotice(
+      failed
+        ? `Re-categorized ${targets.length - failed} of ${targets.length} entries (${failed} failed).`
+        : `Re-categorized ${targets.length} entr${targets.length === 1 ? "y" : "ies"}.`,
+    );
   }
 
   if (entries.length === 0) {
@@ -482,9 +499,16 @@ export default function LedgerTable({ entries, onUpdate, onDelete, onClearAll })
               Categorizing {recatProgress.done}/{recatProgress.total}…
             </>
           ) : (
-            <>✦ Re-categorize with AI</>
+            <>✦ Re-categorize with Trakit AI</>
           )}
         </button>
+        {recatNotice && !recatProgress && (
+          <span style={{
+            fontFamily: "var(--font-sans)", fontSize: 11.5, color: "var(--paper-text-dim)",
+          }}>
+            {recatNotice}
+          </span>
+        )}
         {onClearAll && (
           <button
             onClick={() => entries.length && setClearWizardOpen(true)}
