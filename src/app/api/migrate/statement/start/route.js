@@ -8,6 +8,7 @@ import {
 import { parseOpayStatementDebug } from "@/lib/parsers/opay";
 import { parsePalmpayStatementDebug } from "@/lib/parsers/palmpay";
 import { parseAccessStatementDebug } from "@/lib/parsers/access";
+import { extractAccountHolderName } from "@/lib/selfTransfer";
 // pdf-parse is imported dynamically below to prevent module-level test-file
 // loading (a known pdf-parse v1 + Next.js incompatibility in serverless envs).
 
@@ -62,6 +63,9 @@ export async function POST(request) {
         ]}],
         generationConfig: { temperature: 0.1, maxOutputTokens: 65536 },
       });
+      // Images have no separate raw statement text to scan (only the AI's
+      // structured JSON reply), so account-holder detection isn't possible
+      // here — the client falls back to the Settings profile name.
       const rows = filterRows(parseAIResponse(rawText));
       return NextResponse.json({ status: "done", rows });
     } catch (err) {
@@ -102,17 +106,19 @@ export async function POST(request) {
     );
   }
 
+  const accountHolderName = extractAccountHolderName(text);
+
   const opayDebug = parseOpayStatementDebug(text);
   if (opayDebug.ok) {
-    return NextResponse.json({ status: "done", rows: filterRows(opayDebug.rows) });
+    return NextResponse.json({ status: "done", rows: filterRows(opayDebug.rows), accountHolderName });
   }
   const palmpayDebug = parsePalmpayStatementDebug(text);
   if (palmpayDebug.ok) {
-    return NextResponse.json({ status: "done", rows: filterRows(palmpayDebug.rows) });
+    return NextResponse.json({ status: "done", rows: filterRows(palmpayDebug.rows), accountHolderName });
   }
   const accessDebug = parseAccessStatementDebug(text);
   if (accessDebug.ok) {
-    return NextResponse.json({ status: "done", rows: filterRows(accessDebug.rows) });
+    return NextResponse.json({ status: "done", rows: filterRows(accessDebug.rows), accountHolderName });
   }
 
   if (!provider) {
@@ -139,5 +145,5 @@ export async function POST(request) {
     return NextResponse.json({ error: "Could not start extraction job. Please try again." }, { status: 500 });
   }
 
-  return NextResponse.json({ status: "processing", jobId: job.id, totalChunks: chunks.length });
+  return NextResponse.json({ status: "processing", jobId: job.id, totalChunks: chunks.length, accountHolderName });
 }

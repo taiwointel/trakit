@@ -24,7 +24,10 @@ export async function POST(request) {
   // this is what lets repeat imports (recurring transfers, the same
   // landlord/vendor/family member) skip categorization entirely.
   const learnedMap = await lookupMerchantRules(supabase, user.id, rows);
-  const fullName   = user.user_metadata?.full_name || null;
+  // Prefer the name printed on the statement itself (it's what will actually
+  // match beneficiaries in *this* statement); fall back to the Settings
+  // profile name if the statement didn't carry a recognizable holder line.
+  const fullName   = body?.accountHolderName || user.user_metadata?.full_name || null;
 
   const toInsert = rows.map((row) => {
     // A transfer to/from the account holder's own name (any word order) is

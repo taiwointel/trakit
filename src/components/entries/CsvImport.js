@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { isSelfTransfer } from "@/lib/selfTransfer";
+import { isSelfTransfer, extractAccountHolderName } from "@/lib/selfTransfer";
 
 // ── CSV parsing ───────────────────────────────────────────────────────────────
 
@@ -257,7 +257,7 @@ function isBankCharge(desc) {
 
 // Loan-related narrations get auto-labeled (never asked about in the
 // wizard): repayments on money out, disbursals on money in.
-const LOAN_RE = /\bloan\b/i;
+const LOAN_RE = /\bloan\b|principal\s*(liquidation|disbursement|repayment)|facility\s*disbursement|loan\s*disbursement/i;
 function isLoanRelated(desc) {
   return LOAN_RE.test(desc || "");
 }
@@ -629,6 +629,8 @@ export default function CsvImport({ onImported }) {
   const [extracting,   setExtracting]   = useState(false);
   const [importing,    setImporting]    = useState(false);
   const [extractProgress, setExtractProgress] = useState(null); // null | { done, total }
+  const [accountHolderName, setAccountHolderName] = useState(null);
+  const [catProgress,  setCatProgress]  = useState(null); // null | { done, total }
   const [passwordFile, setPasswordFile] = useState(null); // file awaiting a password retry
   const [passwordInput, setPasswordInput] = useState("");
   const [passwordError, setPasswordError] = useState(null);
@@ -662,13 +664,20 @@ export default function CsvImport({ onImported }) {
     return null;
   }, []);
 
-  const launchWizard = useCallback(async (extractedRows) => {
-    let fullName = null;
-    try {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      fullName = user?.user_metadata?.full_name || null;
-    } catch { /* proceed without self-transfer detection */ }
+  const launchWizard = useCallback(async (extractedRows, statementHolderName) => {
+    // Prefer the name printed on the statement itself (it's what will
+    // actually match beneficiaries in *this* statement); fall back to the
+    // Settings profile name if the statement didn't have a recognizable
+    // "Account Name:" line (e.g. some CSV exports, or images).
+    let fullName = statementHolderName || null;
+    if (!fullName) {
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        fullName = user?.user_metadata?.full_name || null;
+      } catch { /* proceed without self-transfer detection */ }
+    }
+    setAccountHolderName(fullName);
 
     const rowsWithBene = extractedRows.map((r) => {
       const beneficiary = r.beneficiary || extractBeneficiary(r.desc) || "";
@@ -707,7 +716,7 @@ export default function CsvImport({ onImported }) {
         setStatus({ type: "error", msg: "Could not detect columns. Make sure the file has Date, Narration, and Debit/Credit columns." });
         return;
       }
-      launchWizard(parsed);
+      launchWizard(parsed, extractAccountHolderName(text));
     } else if (ext === "pdf" || ["jpg","jpeg","png","webp"].includes(ext)) {
       setExtracting(true);
       try {
@@ -741,7 +750,7 @@ export default function CsvImport({ onImported }) {
         } else if (!rows.length) {
           setStatus({ type: "error", msg: "No transactions found. Try a clearer image or a different page." });
         } else {
-          launchWizard(rows);
+          launchWizard(rows, startData.accountHolderName);
         }
       } catch {
         setStatus({ type: "error", msg: "Network error during extraction. Please try again." });
@@ -825,11 +834,14 @@ export default function CsvImport({ onImported }) {
     setImporting(true);
     setStatus(null);
     try {
-      // Step 1: Insert all entries (keyword fallback categories applied server-side)
+      // Step 1: Insert all entries. Self-transfers are resolved server-side
+      // right here (beneficiary vs. the statement's own account-holder
+      // name); everything else gets a learned-rule match if one exists, or
+      // the keyword fallback otherwise.
       const res  = await fetch("/api/entries/bulk", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ rows: valid }),
+        body:    JSON.stringify({ rows: valid, accountHolderName }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -837,16 +849,62 @@ export default function CsvImport({ onImported }) {
         return;
       }
 
-      // AI categorization is disabled for import: bulk import resolves every
-      // row itself, either from a learned rule (a beneficiary/narration
-      // categorized before, by AI or a manual correction) or the keyword
-      // fallback table — no AI call, no risk of a stuck/timed-out batch.
-      const learnedCount  = (data.rows || []).filter((r) => r.flow === "out" && r.status === "done").length;
-      const fallbackCount = (data.rows || []).filter((r) => r.flow === "out" && r.status === "fallback").length;
+      // Step 2: AI-categorize whatever the keyword fallback couldn't
+      // confidently place (status 'fallback') — learned-rule/self-transfer
+      // matches are already 'done' and skipped. Sent in small chunks so a
+      // single request never has to carry a large-enough prompt to risk the
+      // serverless function's execution window; every successful AI result
+      // is saved as a merchant rule, so the *same* recurring beneficiary/
+      // narration needs AI only once, ever, going forward.
+      const learnedCount = (data.rows || []).filter((r) => r.flow === "out" && r.status === "done").length;
+      const outEntries   = (data.rows || []).filter((r) => r.flow === "out" && r.status !== "done");
+      let categorized = 0;
+      let catError = null;
+      const CHUNK_SIZE = 6;
+
+      if (outEntries.length > 0) {
+        setImporting(false);
+        setCatProgress({ done: 0, total: outEntries.length });
+        const supabase = createClient();
+
+        for (let start = 0; start < outEntries.length; start += CHUNK_SIZE) {
+          const chunk = outEntries.slice(start, start + CHUNK_SIZE);
+          try {
+            const batchRes = await fetch("/api/ai/categorize-batch", {
+              method:  "POST",
+              headers: { "Content-Type": "application/json" },
+              body:    JSON.stringify({
+                entries: chunk.map((e) => ({ description: e.desc, amount: e.amount, beneficiary: e.beneficiary })),
+              }),
+            });
+
+            if (batchRes.ok) {
+              const { results } = await batchRes.json();
+              await Promise.all(
+                chunk.map(async (e, i) => {
+                  const ai = results?.[i];
+                  if (!ai) return;
+                  try {
+                    await supabase.from("entries").update(ai).eq("id", e.id);
+                    categorized++;
+                  } catch { /* skip */ }
+                })
+              );
+            } else {
+              const errBody = await batchRes.json().catch(() => null);
+              catError = errBody?.error || `AI categorization failed (HTTP ${batchRes.status}).`;
+            }
+          } catch (err) {
+            catError = err?.message || "AI categorization request failed (network error or timeout).";
+          }
+
+          setCatProgress({ done: Math.min(start + CHUNK_SIZE, outEntries.length), total: outEntries.length });
+        }
+      }
 
       setStatus({
         type: "success",
-        msg: `${data.inserted} entries imported${learnedCount > 0 ? ` · ${learnedCount} auto-categorized from memory` : ""}${fallbackCount > 0 ? ` · ${fallbackCount} keyword-categorized` : ""}. Review them in the ledger below.`,
+        msg: `${data.inserted} entries imported${learnedCount > 0 ? ` · ${learnedCount} auto-categorized from memory` : ""}${categorized > 0 ? ` · ${categorized} categorized by AI` : ""}${catError ? ` · ⚠ ${catError} (those entries kept their keyword category — fix manually if wrong)` : ""}. Review them in the ledger below.`,
       });
       setRows([]);
       if (onImported) onImported();
@@ -854,6 +912,7 @@ export default function CsvImport({ onImported }) {
       setStatus({ type: "error", msg: "Network error. Please try again." });
     } finally {
       setImporting(false);
+      setCatProgress(null);
     }
   };
 
@@ -1082,22 +1141,29 @@ export default function CsvImport({ onImported }) {
 
               <button
                 onClick={doImport}
-                disabled={importing}
+                disabled={importing || !!catProgress}
                 className="rounded-lg px-4 py-2 text-sm font-semibold"
                 style={{
                   background: "var(--gold)",
                   color:      "#fff",
                   fontFamily: "var(--font-sans)",
-                  opacity:    importing ? 0.7 : 1,
-                  cursor:     importing ? "not-allowed" : "pointer",
+                  opacity:    (importing || catProgress) ? 0.7 : 1,
+                  cursor:     (importing || catProgress) ? "not-allowed" : "pointer",
                   display:    "flex",
                   alignItems: "center",
                   gap:        8,
                 }}
               >
-                {importing
-                  ? "Importing…"
-                  : `Import ${rows.filter((r) => r.date && r.desc && Number(r.amount) > 0).length} rows`}
+                {catProgress ? (
+                  <>
+                    <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: "#fff", opacity: 0.8, animation: "pulse 1s infinite" }} />
+                    Categorizing {catProgress.done}/{catProgress.total}...
+                  </>
+                ) : importing ? (
+                  "Importing…"
+                ) : (
+                  `Import ${rows.filter((r) => r.date && r.desc && Number(r.amount) > 0).length} rows`
+                )}
               </button>
             </div>
           )}
