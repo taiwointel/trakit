@@ -484,7 +484,11 @@ export default function LedgerTable({ entries, onUpdate, onDelete, onClearAll })
     // (mis)categorized, so scoping it to status !== "done" made it silently
     // do nothing on a month where everything already had *some* category.
     setRecatNotice(null);
-    const targets = entries.filter(e => e.flow === "out");
+    // Self transfers are deliberately exempt from real categorization (see
+    // selfTransfer.js) — re-running them through the AI strips that and lets
+    // it guess from the raw bank narration, which often reads as a payment
+    // to a named person and gets misfiled as Family & Dependents.
+    const targets = entries.filter(e => e.flow === "out" && e.category !== "Self");
     if (!targets.length) {
       setRecatNotice("No money-out entries in this view to re-categorize.");
       return;
