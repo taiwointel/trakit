@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { isSelfTransfer, extractAccountHolderName } from "@/lib/selfTransfer";
+import { formatDateLong } from "@/lib/format";
 
 // ── CSV parsing ───────────────────────────────────────────────────────────────
 
@@ -507,7 +508,7 @@ function LabelingWizard({ rows, groups, totalRows, onApply, onFinish, onSkipAll,
                   }}
                 >
                   <span style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-mono)", fontSize: 11 }}>
-                    {r.date}
+                    {formatDateLong(r.date)}
                   </span>
                   <span style={{
                     color: r.flow === "out" ? "var(--red)" : "var(--green)",
