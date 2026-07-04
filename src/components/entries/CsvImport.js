@@ -301,7 +301,14 @@ function buildLabelGroups(rows) {
   const map = new Map();
   rows.forEach((r, i) => {
     if (isBankCharge(r.desc) || isLoanRelated(r.desc) || isInternalTransferLabeled(r.desc)) return;
-    const key = r.desc.trim().toLowerCase();
+    // Group by beneficiary + flow when one was extracted, not the raw
+    // narration — two transfers to/from the same person almost always carry
+    // different masked account digits or reference numbers, so grouping on
+    // the untouched desc text scatters what's really one relationship across
+    // dozens of one-off batches. Falls back to the raw narration when no
+    // beneficiary could be extracted (e.g. USSD/POS/ATM rows).
+    const bene = (r.beneficiary || "").trim().toLowerCase();
+    const key  = bene ? `${r.flow}|${bene}` : r.desc.trim().toLowerCase();
     if (!map.has(key)) map.set(key, { desc: r.desc.trim(), indices: [] });
     map.get(key).indices.push(i);
   });
