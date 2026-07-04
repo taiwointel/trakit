@@ -22,25 +22,21 @@ function Card({ title, accent, icon, children }) {
   );
 }
 
-export default function AnalyticsRow({ entries, from, to }) {
-  const outEntries = entries.filter((e) => e.flow === "out" && e.category !== "Self");
+export default function AnalyticsRow({ entries, prevEntries, periodLabel, prevPeriodLabel }) {
+  const outEntries     = entries.filter((e) => e.flow === "out" && e.category !== "Self");
+  const prevOutEntries = (prevEntries || []).filter((e) => e.flow === "out" && e.category !== "Self");
 
-  // ── Biggest Movers (this month vs prev month) ──────────────
+  // ── Biggest Movers (browsed period vs the one right before it) ─────
   const movers = useMemo(() => {
-    const now    = new Date();
-    const thisMo = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-    const prev   = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const prevMo = `${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, "0")}`;
-
-    const cats = [...new Set(outEntries.map((e) => e.category).filter(Boolean))];
+    const cats = [...new Set([...outEntries, ...prevOutEntries].map((e) => e.category).filter(Boolean))];
     return cats.map((cat) => {
-      const curr = outEntries.filter((e) => e.category === cat && e.date?.startsWith(thisMo)).reduce((s, e) => s + Number(e.amount), 0);
-      const prv  = outEntries.filter((e) => e.category === cat && e.date?.startsWith(prevMo)).reduce((s, e) => s + Number(e.amount), 0);
+      const curr = outEntries.filter((e) => e.category === cat).reduce((s, e) => s + Number(e.amount), 0);
+      const prv  = prevOutEntries.filter((e) => e.category === cat).reduce((s, e) => s + Number(e.amount), 0);
       return { cat, curr, prv, delta: curr - prv };
     }).filter((m) => m.curr > 0 || m.prv > 0)
       .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta))
       .slice(0, 8);
-  }, [outEntries]);
+  }, [outEntries, prevOutEntries]);
 
   // ── Big-Ticket Items ───────────────────────────────────────
   const bigTickets = useMemo(() =>
@@ -63,8 +59,13 @@ export default function AnalyticsRow({ entries, from, to }) {
     <div className="analytics-row">
       {/* Biggest Movers */}
       <Card title="Biggest Movers" accent="var(--violet)" icon="📊">
+        {(periodLabel || prevPeriodLabel) && (
+          <p className="text-[10px]" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", opacity: 0.7, marginTop: -4, marginBottom: 2 }}>
+            {periodLabel}{prevPeriodLabel ? ` vs ${prevPeriodLabel}` : ""}
+          </p>
+        )}
         {movers.length === 0 ? (
-          <p className="text-xs" style={{ color: "var(--ink-text-dim)" }}>Need 2 months of data.</p>
+          <p className="text-xs" style={{ color: "var(--ink-text-dim)" }}>Need data from this period and the one before it.</p>
         ) : movers.map((m) => (
           <div key={m.cat} className="flex items-center gap-2">
             <span className="flex-1 text-xs truncate" style={{ color: "var(--ink-text)", fontFamily: "var(--font-sans)" }}>

@@ -26,6 +26,7 @@ import AnnualWrapped     from "@/components/summary/AnnualWrapped";
 import MonthComparisonPanel from "@/components/summary/MonthComparisonPanel";
 import WorthASecondLook  from "@/components/summary/WorthASecondLook";
 import YearToDatePanel   from "@/components/summary/YearToDatePanel";
+import ReportCard        from "@/components/summary/ReportCard";
 
 const GREETINGS = {
   latenight: (n) => [
@@ -346,18 +347,23 @@ export default function SummaryPage() {
   const canGoOlder = entries.some((e) => e.date && e.date < cycleStart);
   const canGoNewer = cycleOffset < 0;
 
-  // Spend Breakdown can look at either the browsed salary cycle or the
-  // whole calendar year to date — "where it all went" shouldn't only ever
-  // mean "this month".
+  // Spend Breakdown can look at either the browsed salary cycle or a whole
+  // calendar year — "where it all went" shouldn't only ever mean "this
+  // month". The year itself is independently navigable.
   const [breakdownScope, setBreakdownScope] = useState("cycle"); // 'cycle' | 'year'
-  const yearStart   = `${thisMonth.slice(0, 4)}-01-01`;
+  const [breakdownYearOffset, setBreakdownYearOffset] = useState(0);
+  const breakdownYear      = parseInt(thisMonth.slice(0, 4), 10) + breakdownYearOffset;
+  const breakdownYearStart = `${breakdownYear}-01-01`;
+  const breakdownYearEnd   = breakdownYearOffset === 0 ? today : `${breakdownYear}-12-31`;
   const yearEntries = useMemo(
-    () => entries.filter((e) => e.date >= yearStart && e.date <= today),
-    [entries, yearStart, today],
+    () => entries.filter((e) => e.date >= breakdownYearStart && e.date <= breakdownYearEnd),
+    [entries, breakdownYearStart, breakdownYearEnd],
   );
-  const breakdownEntries = breakdownScope === "year" ? yearEntries : cycleEntries;
-  const breakdownFrom    = breakdownScope === "year" ? yearStart   : cycleStart;
-  const breakdownTo      = breakdownScope === "year" ? today       : cycleRefDate;
+  const canGoOlderYear = entries.some((e) => e.date && e.date < breakdownYearStart);
+  const canGoNewerYear = breakdownYearOffset < 0;
+  const breakdownEntries = breakdownScope === "year" ? yearEntries        : cycleEntries;
+  const breakdownFrom    = breakdownScope === "year" ? breakdownYearStart : cycleStart;
+  const breakdownTo      = breakdownScope === "year" ? breakdownYearEnd   : cycleRefDate;
 
   const currentBalance = useMemo(
     () => closingBalance(entries, anchor.anchor_date, anchor.anchor_amount, today),
@@ -420,21 +426,24 @@ export default function SummaryPage() {
   }, [cycleEntries]);
   const biggestCat = byCategory[0];
 
-  const prevOut = useMemo(() => {
+  const prevCycleEntries = useMemo(() => {
     if (!cycle) {
       const d = new Date(); d.setMonth(d.getMonth() - 1);
       const pm = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-      return entries.filter((e) => e.date?.startsWith(pm) && e.flow === "out" && e.category !== "Self")
-                    .reduce((s, e) => s + Number(e.amount), 0);
+      return entries.filter((e) => e.date?.startsWith(pm) && e.category !== "Self");
     }
     const cs = new Date(cycle.start + "T00:00:00");
     const ce = new Date(cs); ce.setDate(ce.getDate() - 1);
     const ps = new Date(cs); ps.setDate(ps.getDate() - (new Date(cycle.end + "T00:00:00") - cs) / 86400000 - 1);
     const prevStart = ps.toISOString().slice(0, 10);
     const prevEnd   = ce.toISOString().slice(0, 10);
-    return entries.filter((e) => e.flow === "out" && e.category !== "Self" && e.date >= prevStart && e.date <= prevEnd)
-                  .reduce((s, e) => s + Number(e.amount), 0);
+    return entries.filter((e) => e.category !== "Self" && e.date >= prevStart && e.date <= prevEnd);
   }, [entries, cycle]);
+
+  const prevOut = useMemo(
+    () => prevCycleEntries.filter((e) => e.flow === "out").reduce((s, e) => s + Number(e.amount), 0),
+    [prevCycleEntries],
+  );
 
   const delta      = monthOut - prevOut;
   const deltaDir   = delta > 0 ? "▲" : delta < 0 ? "▼" : "";
@@ -823,8 +832,20 @@ export default function SummaryPage() {
       </p>
 
       <div className="section-body">
+        <ReportCard
+          entries={cycleEntries}
+          salary={goals.salary}
+          monthsLiquidity={months}
+          prevOut={prevOut}
+          periodLabel={periodLabel}
+        />
         <MonthComparisonPanel entries={entries} />
-        <AnalyticsRow entries={entries} />
+        <AnalyticsRow
+          entries={cycleEntries}
+          prevEntries={prevCycleEntries}
+          periodLabel={cycle ? cycle.label : "This month"}
+          prevPeriodLabel={cycle ? getSalaryCycle(goals.payday_day, cycleOffset - 1)?.label : "last month"}
+        />
       </div>
 
       {/* ── SPEND BREAKDOWN ───────────────────────────────────────────────
@@ -842,10 +863,10 @@ export default function SummaryPage() {
       </p>
 
       <div className="section-body">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {[
             { key: "cycle", label: "This cycle" },
-            { key: "year",  label: `${thisMonth.slice(0, 4)} to date` },
+            { key: "year",  label: breakdownYearOffset === 0 ? `${breakdownYear} to date` : `${breakdownYear}` },
           ].map((opt) => (
             <button
               key={opt.key}
@@ -865,6 +886,27 @@ export default function SummaryPage() {
               {opt.label}
             </button>
           ))}
+
+          {breakdownScope === "year" && (
+            <div className="flex items-center gap-1" style={{ marginLeft: 4 }}>
+              <button
+                onClick={() => canGoOlderYear && setBreakdownYearOffset((o) => o - 1)}
+                disabled={!canGoOlderYear}
+                title="Previous year"
+                style={{ background: "var(--ink-3)", border: "1px solid var(--rule)", color: "var(--ink-text-dim)", fontSize: 11, padding: "5px 9px", borderRadius: 6, cursor: canGoOlderYear ? "pointer" : "default", opacity: canGoOlderYear ? 1 : 0.35 }}
+              >
+                ‹
+              </button>
+              <button
+                onClick={() => canGoNewerYear && setBreakdownYearOffset((o) => Math.min(0, o + 1))}
+                disabled={!canGoNewerYear}
+                title="Next year"
+                style={{ background: "var(--ink-3)", border: "1px solid var(--rule)", color: "var(--ink-text-dim)", fontSize: 11, padding: "5px 9px", borderRadius: 6, cursor: canGoNewerYear ? "pointer" : "default", opacity: canGoNewerYear ? 1 : 0.35 }}
+              >
+                ›
+              </button>
+            </div>
+          )}
         </div>
         <div className="grid-2">
           <WhereItWent entries={breakdownEntries} />
