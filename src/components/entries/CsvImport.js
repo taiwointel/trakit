@@ -819,43 +819,53 @@ export default function CsvImport({ onImported }) {
       const outEntries   = (data.rows || []).filter((r) => r.flow === "out" && r.status !== "done");
       let categorized = 0;
 
+      // Categorize in small chunks rather than one giant batch call: a
+      // single request covering 30+ entries risks exceeding the serverless
+      // function's execution window (the AI call itself can take longer
+      // than that for a large prompt), which previously showed as an
+      // indefinitely stuck "Categorizing 0/N..." bar with no feedback.
+      // Chunking also gives real incremental progress and means one slow/
+      // failed chunk doesn't sink entries that would've categorized fine.
+      const CHUNK_SIZE = 8;
       let catError = null;
       if (outEntries.length > 0) {
         setImporting(false);
         setCatProgress({ done: 0, total: outEntries.length });
         const supabase = createClient();
 
-        try {
-          const batchRes = await fetch("/api/ai/categorize-batch", {
-            method:  "POST",
-            headers: { "Content-Type": "application/json" },
-            body:    JSON.stringify({
-              entries: outEntries.map((e) => ({ description: e.desc, amount: e.amount, beneficiary: e.beneficiary })),
-            }),
-          });
+        for (let start = 0; start < outEntries.length; start += CHUNK_SIZE) {
+          const chunk = outEntries.slice(start, start + CHUNK_SIZE);
+          try {
+            const batchRes = await fetch("/api/ai/categorize-batch", {
+              method:  "POST",
+              headers: { "Content-Type": "application/json" },
+              body:    JSON.stringify({
+                entries: chunk.map((e) => ({ description: e.desc, amount: e.amount, beneficiary: e.beneficiary })),
+              }),
+            });
 
-          if (batchRes.ok) {
-            const { results } = await batchRes.json();
-            // Update all entries in Supabase in parallel
-            await Promise.all(
-              outEntries.map(async (e, i) => {
-                const ai = results?.[i];
-                if (!ai) return;
-                try {
-                  await supabase.from("entries").update(ai).eq("id", e.id);
-                  categorized++;
-                } catch { /* skip */ }
-              })
-            );
-          } else {
-            const errBody = await batchRes.json().catch(() => null);
-            catError = errBody?.error || `AI categorization failed (HTTP ${batchRes.status}).`;
+            if (batchRes.ok) {
+              const { results } = await batchRes.json();
+              await Promise.all(
+                chunk.map(async (e, i) => {
+                  const ai = results?.[i];
+                  if (!ai) return;
+                  try {
+                    await supabase.from("entries").update(ai).eq("id", e.id);
+                    categorized++;
+                  } catch { /* skip */ }
+                })
+              );
+            } else {
+              const errBody = await batchRes.json().catch(() => null);
+              catError = errBody?.error || `AI categorization failed (HTTP ${batchRes.status}).`;
+            }
+          } catch (err) {
+            catError = err?.message || "AI categorization request failed (network error or timeout).";
           }
-        } catch (err) {
-          catError = err?.message || "AI categorization request failed (network error or timeout).";
-        }
 
-        setCatProgress({ done: outEntries.length, total: outEntries.length });
+          setCatProgress({ done: Math.min(start + CHUNK_SIZE, outEntries.length), total: outEntries.length });
+        }
       }
 
       setStatus({
