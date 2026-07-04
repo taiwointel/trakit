@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { CATEGORY_NAMES, fallbackCategorize } from "@/lib/categories";
 import { callGemini } from "@/lib/gemini";
+import { lookupMerchantRule, saveMerchantRule } from "@/lib/merchantRules";
 
 const SYSTEM_PROMPT = `You are an expense categorizer for a Nigerian personal finance app called Trakit7.
 Given a transaction purpose/description and amount in Naira, classify it into exactly one of these 11 categories.
@@ -43,10 +44,17 @@ export async function POST(request) {
   const body = await request.json();
   // Accept either `purpose` (new field) or `description` (legacy)
   const description = body.purpose || body.description;
-  const { amount } = body;
+  const { amount, beneficiary } = body;
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
+
+  // Learned rule: if this beneficiary/narration has been categorized before
+  // (by AI or by a manual correction), reuse it instantly — no AI call.
+  if (user) {
+    const learned = await lookupMerchantRule(supabase, user.id, description, beneficiary);
+    if (learned) return NextResponse.json({ ...learned, confidence: 0.95, status: "learned" });
+  }
 
   let settings = null;
   if (user) {
@@ -113,6 +121,7 @@ export async function POST(request) {
 
     const cleaned = text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/, "");
     const result = JSON.parse(cleaned);
+    if (user) await saveMerchantRule(supabase, user.id, description, beneficiary, result);
     return NextResponse.json({ ...result, status: "done" });
 
   } catch {

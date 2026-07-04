@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { fallbackCategorize } from "@/lib/categories";
+import { saveMerchantRule } from "@/lib/merchantRules";
 
 export function useEntries() {
   const [entries,  setEntries]  = useState([]);
@@ -57,7 +58,7 @@ export function useEntries() {
         const res = await fetch("/api/ai/categorize", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ purpose, amount: draft.amount }),
+          body: JSON.stringify({ purpose, amount: draft.amount, beneficiary: draft.beneficiary }),
         });
         if (res.ok) {
           const ai = await res.json();
@@ -106,7 +107,24 @@ export function useEntries() {
   }, [userId]);
 
   const updateEntry = useCallback(async (id, patch) => {
-    setEntries((prev) => prev.map((e) => (e.id === id ? { ...e, ...patch } : e)));
+    setEntries((prev) => {
+      // A manual category correction (not an AI/import result — those never
+      // set just `category` in isolation) is the strongest possible training
+      // signal: teach it immediately so this beneficiary/narration never
+      // needs AI or the wizard again.
+      if (patch.category && userId && supabase) {
+        const entry = prev.find((e) => e.id === id);
+        if (entry && entry.flow === "out") {
+          saveMerchantRule(supabase, userId, entry.desc, entry.beneficiary, {
+            category:     patch.category,
+            subcategory:  entry.subcategory,
+            essentiality: patch.essentiality ?? entry.essentiality,
+            nature:       patch.nature ?? entry.nature,
+          });
+        }
+      }
+      return prev.map((e) => (e.id === id ? { ...e, ...patch } : e));
+    });
     if (userId && supabase) {
       await supabase.from("entries").update(patch).eq("id", id).eq("user_id", userId);
     }

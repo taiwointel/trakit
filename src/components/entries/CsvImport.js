@@ -793,8 +793,10 @@ export default function CsvImport({ onImported }) {
         return;
       }
 
-      // Step 2: AI-categorize all out-entries in one batch call, then update in parallel
-      const outEntries = (data.rows || []).filter((r) => r.flow === "out");
+      // Step 2: AI-categorize out-entries not already resolved by a learned
+      // rule (recurring beneficiary/narration) in one batch call, then update in parallel
+      const learnedCount = (data.rows || []).filter((r) => r.flow === "out" && r.status === "learned").length;
+      const outEntries   = (data.rows || []).filter((r) => r.flow === "out" && r.status !== "learned");
       let categorized = 0;
 
       if (outEntries.length > 0) {
@@ -807,7 +809,7 @@ export default function CsvImport({ onImported }) {
             method:  "POST",
             headers: { "Content-Type": "application/json" },
             body:    JSON.stringify({
-              entries: outEntries.map((e) => ({ description: e.desc, amount: e.amount })),
+              entries: outEntries.map((e) => ({ description: e.desc, amount: e.amount, beneficiary: e.beneficiary })),
             }),
           });
 
@@ -832,7 +834,7 @@ export default function CsvImport({ onImported }) {
 
       setStatus({
         type: "success",
-        msg: `${data.inserted} entries imported${categorized > 0 ? ` · ${categorized} categorized automatically` : ""}. Review them in the ledger below.`,
+        msg: `${data.inserted} entries imported${learnedCount > 0 ? ` · ${learnedCount} auto-categorized from memory` : ""}${categorized > 0 ? ` · ${categorized} categorized by AI` : ""}. Review them in the ledger below.`,
       });
       setRows([]);
       if (onImported) onImported();

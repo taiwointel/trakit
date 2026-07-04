@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { fallbackCategorize } from "@/lib/categories";
+import { lookupMerchantRules, saveMerchantRule, normalizeMerchantKey } from "@/lib/merchantRules";
 
 const SYSTEM_PROMPT = `You are an expense categorizer for a Nigerian personal finance app called Trakit7.
 Given a numbered list of transactions, classify each into exactly one of these 11 categories.
@@ -48,9 +49,30 @@ export async function POST(request) {
     settings = data;
   }
 
-  const listText = entries.map((e, i) => `${i + 1}. "${e.description}" ₦${e.amount}`).join("\n");
-  const userPrompt = `Categorize these ${entries.length} transactions:\n${listText}`;
-  const maxTokens = Math.min(6000, entries.length * 160 + 400);
+  // Learned rules first: any entry whose beneficiary/narration has been
+  // categorized before (by AI or a manual correction) is resolved instantly
+  // with no AI call. Only genuinely unrecognized entries go to the model.
+  const learnedMap = user ? await lookupMerchantRules(supabase, user.id, entries) : new Map();
+  const results = new Array(entries.length).fill(null);
+  const pending = []; // { entry, originalIndex }
+
+  entries.forEach((e, i) => {
+    const key = learnedMap.size ? normalizeMerchantKey(e.description, e.beneficiary) : null;
+    const learned = key ? learnedMap.get(key) : null;
+    if (learned) {
+      results[i] = { ...learned, confidence: 0.95, status: "learned" };
+    } else {
+      pending.push({ entry: e, originalIndex: i });
+    }
+  });
+
+  if (pending.length === 0) {
+    return NextResponse.json({ results });
+  }
+
+  const listText = pending.map(({ entry: e }, i) => `${i + 1}. "${e.description}" ₦${e.amount}`).join("\n");
+  const userPrompt = `Categorize these ${pending.length} transactions:\n${listText}`;
+  const maxTokens = Math.min(6000, pending.length * 160 + 400);
 
   let rawText = "";
 
@@ -118,20 +140,36 @@ export async function POST(request) {
 
     if (!Array.isArray(parsed)) throw new Error("Response is not an array");
 
-    // Map results back; fill gaps with keyword fallback
-    const results = entries.map((e, i) => {
-      const r = parsed[i];
-      if (r && r.category && r.essentiality && r.nature) {
-        return { ...r, status: "done" };
-      }
-      return { ...fallbackCategorize(e.description), status: "fallback" };
-    });
+    // Map results back into the sparse `results` array (learned entries were
+    // already filled in above); fill gaps with keyword fallback, and teach
+    // the merchant_rules table so the same beneficiary/narration never needs
+    // AI again.
+    if (user) {
+      await Promise.all(pending.map(({ entry: e, originalIndex: i }) => {
+        const r = parsed[i];
+        if (r && r.category && r.essentiality && r.nature) {
+          results[i] = { ...r, status: "done" };
+          return saveMerchantRule(supabase, user.id, e.description, e.beneficiary, r);
+        }
+        results[i] = { ...fallbackCategorize(e.description), status: "fallback" };
+        return null;
+      }));
+    } else {
+      pending.forEach(({ entry: e, originalIndex: i }) => {
+        const r = parsed[i];
+        results[i] = (r && r.category && r.essentiality && r.nature)
+          ? { ...r, status: "done" }
+          : { ...fallbackCategorize(e.description), status: "fallback" };
+      });
+    }
 
     return NextResponse.json({ results });
 
   } catch {
-    // Full fallback: keyword-categorize every entry
-    const results = entries.map((e) => ({ ...fallbackCategorize(e.description), status: "fallback" }));
+    // Full fallback: keyword-categorize every still-pending entry
+    pending.forEach(({ entry: e, originalIndex: i }) => {
+      results[i] = { ...fallbackCategorize(e.description), status: "fallback" };
+    });
     return NextResponse.json({ results });
   }
 }

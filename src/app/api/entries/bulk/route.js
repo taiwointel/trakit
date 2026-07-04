@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { fallbackCategorize } from "@/lib/categories";
+import { lookupMerchantRules, normalizeMerchantKey } from "@/lib/merchantRules";
 import { NextResponse } from "next/server";
 
 export async function POST(request) {
@@ -15,10 +16,26 @@ export async function POST(request) {
     return NextResponse.json({ error: "No rows provided" }, { status: 400 });
   }
 
+  // Learned rules first: a beneficiary/narration categorized before (via AI
+  // or a manual correction) is applied instantly here, before AI ever runs —
+  // this is what lets repeat imports (recurring transfers, the same
+  // landlord/vendor/family member) skip categorization entirely.
+  const learnedMap = await lookupMerchantRules(supabase, user.id, rows);
+
   const toInsert = rows.map((row) => {
-    const cats = row.flow === "out"
-      ? fallbackCategorize(row.desc || "")
-      : { category: "Income", essentiality: "—", nature: "—", confidence: 1, subcategory: "", note: "Income", status: "fallback" };
+    if (row.flow !== "out") {
+      return {
+        user_id: user.id, date: row.date, desc: row.desc || "", amount: Number(row.amount) || 0,
+        flow: row.flow || "out", beneficiary: row.beneficiary || null, source: "import",
+        category: "Income", essentiality: "—", nature: "—", confidence: 1, subcategory: "", note: "Income",
+        status: "done",
+      };
+    }
+    const key     = normalizeMerchantKey(row.desc, row.beneficiary);
+    const learned = key ? learnedMap.get(key) : null;
+    const cats    = learned
+      ? { ...learned, confidence: 0.95, note: "Learned from a previous correction" }
+      : fallbackCategorize(row.desc || "");
     return {
       user_id:      user.id,
       date:         row.date,
@@ -33,16 +50,16 @@ export async function POST(request) {
       confidence:   cats.confidence,
       subcategory:  cats.subcategory,
       note:         cats.note,
-      status:       "fallback",
+      status:       learned ? "learned" : "fallback",
     };
   });
 
-  let { data, error } = await supabase.from("entries").insert(toInsert).select("id, desc, amount, flow");
+  let { data, error } = await supabase.from("entries").insert(toInsert).select("id, desc, amount, flow, beneficiary, status");
 
   // If source column doesn't exist yet (migration pending), retry without it
   if (error?.code === "42703") {
     const withoutSource = toInsert.map(({ source: _s, ...r }) => r);
-    ({ data, error } = await supabase.from("entries").insert(withoutSource).select("id, desc, amount, flow"));
+    ({ data, error } = await supabase.from("entries").insert(withoutSource).select("id, desc, amount, flow, beneficiary, status"));
   }
 
   if (error) {
