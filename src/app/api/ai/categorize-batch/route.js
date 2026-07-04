@@ -32,7 +32,7 @@ DECISION RULES:
 Return ONLY a raw JSON array of exactly N objects in the same order as the input. No markdown, no explanation, no extra text — just the array:
 [{"category":"...","subcategory":"...","essentiality":"Essential|Discretionary","nature":"Fixed|Variable","confidence":0.9,"note":"..."},...]`;
 
-export const maxDuration = 30;
+export const maxDuration = 60;
 
 export async function POST(request) {
   const { entries } = await request.json();
@@ -74,7 +74,7 @@ export async function POST(request) {
 
   const listText = pending.map(({ entry: e }, i) => `${i + 1}. "${e.description}" ₦${e.amount}`).join("\n");
   const userPrompt = `Categorize these ${pending.length} transactions:\n${listText}`;
-  const maxTokens = Math.min(6000, pending.length * 160 + 400);
+  const maxTokens = Math.min(24000, pending.length * 160 + 400);
 
   let rawText = "";
 

@@ -892,7 +892,10 @@ export default function CsvImport({ onImported }) {
       const outEntries   = (data.rows || []).filter((r) => r.flow === "out" && r.status !== "done");
       let categorized = 0;
       let catError = null;
-      const CHUNK_SIZE = 6;
+      // Fewer, bigger chunks beats more, smaller ones: each chunk costs one
+      // fixed round-trip (network + AI latency) regardless of size, so chunk
+      // count — not entry count — dominates total wall time.
+      const CHUNK_SIZE = 25;
 
       if (outEntries.length > 0) {
         setImporting(false);
