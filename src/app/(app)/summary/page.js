@@ -406,6 +406,12 @@ export default function SummaryPage() {
 
   const cycleDailyAvg = cycleDaysElapsed > 0 ? monthOut / cycleDaysElapsed : 0;
 
+  const breakdownDays = useMemo(() => {
+    const a = new Date(breakdownFrom + "T00:00:00");
+    const b = new Date(breakdownTo   + "T00:00:00");
+    return Math.max(1, Math.round((b - a) / 86400000) + 1);
+  }, [breakdownFrom, breakdownTo]);
+
   const cycleEssential = useMemo(
     () => cycleEntries.filter((e) => e.flow === "out" && e.essentiality === "Essential").reduce((s, e) => s + Number(e.amount), 0),
     [cycleEntries]
@@ -912,7 +918,7 @@ export default function SummaryPage() {
           <WhereItWent entries={breakdownEntries} />
           <SpendTrendChart entries={entries} from={breakdownFrom} to={breakdownTo} />
         </div>
-        <CategoryExplorer entries={breakdownEntries} />
+        <CategoryExplorer entries={breakdownEntries} periodDays={breakdownDays} />
       </div>
 
       {/* ── COACH RBC ─────────────────────────────────────────────────────

@@ -3,8 +3,9 @@
 import { useState, useMemo } from "react";
 import { CATEGORY_COLORS } from "@/lib/categories";
 import { formatNaira, formatDateShort } from "@/lib/format";
+import { compareToBenchmark } from "@/lib/categoryBenchmarks";
 
-export default function CategoryExplorer({ entries }) {
+export default function CategoryExplorer({ entries, periodDays = 30 }) {
   const outEntries = entries.filter((e) => e.flow === "out" && e.category && e.category !== "Self");
 
   const byCategory = useMemo(() => {
@@ -21,8 +22,9 @@ export default function CategoryExplorer({ entries }) {
         total,
         items:    items.sort((a, b) => b.date.localeCompare(a.date)),
         color:    CATEGORY_COLORS[i % CATEGORY_COLORS.length],
+        bench:    compareToBenchmark(cat, total, periodDays),
       }));
-  }, [outEntries]);
+  }, [outEntries, periodDays]);
 
   const [openCat, setOpenCat]     = useState(byCategory[0]?.category || null);
   const [allOpen, setAllOpen]     = useState(false);
@@ -71,22 +73,37 @@ export default function CategoryExplorer({ entries }) {
           {/* Category row */}
           <button
             onClick={() => toggle(cat.category)}
-            className="w-full flex items-center gap-3 px-4 py-3 transition-colors text-left"
+            className="w-full flex flex-col gap-1 px-4 py-3 transition-colors text-left"
             style={{
               background: isOpen(cat.category) ? "var(--paper-2)" : "transparent",
               borderLeft: `3px solid ${cat.color}`,
             }}
           >
-            <div style={{ width: 10, height: 10, borderRadius: "50%", background: cat.color, flexShrink: 0, boxShadow: `0 0 8px ${cat.color}` }} />
-            <span className="flex-1 text-sm font-medium" style={{ color: "var(--paper-text)", fontFamily: "var(--font-sans)" }}>
-              {cat.category}
-            </span>
-            <span className="text-sm" style={{ color: "var(--paper-text-dim)", fontFamily: "var(--font-mono)" }}>
-              {formatNaira(cat.total)}
-            </span>
-            <span className="text-xs ml-1" style={{ color: "var(--paper-text-dim)" }}>
-              {isOpen(cat.category) ? "▲" : "▼"}
-            </span>
+            <div className="flex items-center gap-3 w-full">
+              <div style={{ width: 10, height: 10, borderRadius: "50%", background: cat.color, flexShrink: 0, boxShadow: `0 0 8px ${cat.color}` }} />
+              <span className="flex-1 text-sm font-medium" style={{ color: "var(--paper-text)", fontFamily: "var(--font-sans)" }}>
+                {cat.category}
+              </span>
+              <span className="text-sm" style={{ color: "var(--paper-text-dim)", fontFamily: "var(--font-mono)" }}>
+                {formatNaira(cat.total)}
+              </span>
+              <span className="text-xs ml-1" style={{ color: "var(--paper-text-dim)" }}>
+                {isOpen(cat.category) ? "▲" : "▼"}
+              </span>
+            </div>
+            {cat.bench && (
+              <div className="flex items-center gap-2 pl-[22px]">
+                <span
+                  className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full"
+                  style={{ color: cat.bench.color, background: `${cat.bench.color}22`, border: `1px solid ${cat.bench.color}55` }}
+                >
+                  {cat.bench.verdict}
+                </span>
+                <span className="text-[10.5px]" style={{ color: "var(--paper-text-dim)", fontFamily: "var(--font-sans)", opacity: 0.8 }}>
+                  vs. the average household's {formatNaira(cat.bench.low, { compact: true })}–{formatNaira(cat.bench.high, { compact: true })} for this period
+                </span>
+              </div>
+            )}
           </button>
 
           {/* Expanded items */}
