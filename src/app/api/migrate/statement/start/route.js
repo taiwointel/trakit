@@ -26,6 +26,7 @@ export async function POST(request) {
 
   const formData = await request.formData();
   const file = formData.get("file");
+  const password = formData.get("password");
   if (!file) return NextResponse.json({ error: "No file provided" }, { status: 400 });
 
   const mimeType = file.type || "application/octet-stream";
@@ -78,9 +79,20 @@ export async function POST(request) {
   try {
     const mod      = await import("pdf-parse/lib/pdf-parse.js");
     const pdfParse = mod.default ?? mod;
-    const parsed   = await pdfParse(buffer);
+    // pdf-parse forwards its input straight to pdfjs's getDocument(), which
+    // accepts either a raw buffer or a { data, password } object — passing
+    // the password only when supplied keeps the unprotected-PDF path
+    // untouched.
+    const source   = password ? { data: buffer, password: String(password) } : buffer;
+    const parsed   = await pdfParse(source);
     text = parsed.text?.trim();
-  } catch {
+  } catch (err) {
+    if (err?.name === "PasswordException") {
+      return NextResponse.json(
+        { error: password ? "Incorrect password. Please try again." : "This PDF is password-protected.", passwordRequired: true },
+        { status: 400 },
+      );
+    }
     return NextResponse.json({ error: "Could not read this PDF. Please try again." }, { status: 400 });
   }
   if (!text || text.length < 50) {

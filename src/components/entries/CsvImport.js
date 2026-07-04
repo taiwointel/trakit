@@ -556,6 +556,9 @@ export default function CsvImport({ onImported }) {
   const [importing,    setImporting]    = useState(false);
   const [catProgress,  setCatProgress]  = useState(null); // null | { done, total }
   const [extractProgress, setExtractProgress] = useState(null); // null | { done, total }
+  const [passwordFile, setPasswordFile] = useState(null); // file awaiting a password retry
+  const [passwordInput, setPasswordInput] = useState("");
+  const [passwordError, setPasswordError] = useState(null);
   const fileRef = useRef(null);
   const cancelledRef = useRef(false);
   useEffect(() => () => { cancelledRef.current = true; }, []);
@@ -596,7 +599,7 @@ export default function CsvImport({ onImported }) {
     }
   }, []);
 
-  const processFile = useCallback(async (file) => {
+  const processFile = useCallback(async (file, password) => {
     setStatus(null);
     setRows([]);
     setWizardGroups(null);
@@ -621,13 +624,21 @@ export default function CsvImport({ onImported }) {
       try {
         const fd = new FormData();
         fd.append("file", file);
+        if (password) fd.append("password", password);
         const startRes  = await fetch("/api/migrate/statement/start", { method: "POST", body: fd });
         const startData = await startRes.json();
         if (!startRes.ok) {
+          if (startData.passwordRequired) {
+            setPasswordFile(file);
+            setPasswordError(password ? startData.error : null);
+            return;
+          }
           const msg = startData.debug ? `${startData.error}: ${JSON.stringify(startData.debug)}` : (startData.error || "Extraction failed.");
           setStatus({ type: "error", msg });
           return;
         }
+        setPasswordFile(null);
+        setPasswordError(null);
 
         let rows = null;
         if (startData.status === "done") {
@@ -656,6 +667,16 @@ export default function CsvImport({ onImported }) {
 
   const onDrop = (e) => { e.preventDefault(); setDragging(false); const f = e.dataTransfer.files?.[0]; if (f) processFile(f); };
   const onPick = (e) => { const f = e.target.files?.[0]; if (f) processFile(f); e.target.value = ""; };
+
+  const submitPassword = () => {
+    if (!passwordFile || !passwordInput.trim()) return;
+    processFile(passwordFile, passwordInput.trim());
+  };
+  const cancelPassword = () => {
+    setPasswordFile(null);
+    setPasswordInput("");
+    setPasswordError(null);
+  };
 
   const updateRow = (i, field, val) =>
     setRows((prev) => prev.map((r, idx) => idx === i ? { ...r, [field]: val } : r));
@@ -795,6 +816,53 @@ export default function CsvImport({ onImported }) {
             )}
             <input ref={fileRef} type="file" accept=".csv,.txt,.pdf,.jpg,.jpeg,.png,.webp" className="hidden" onChange={onPick} />
           </div>
+
+          {/* Password prompt — shown when a PDF turns out to be encrypted */}
+          {passwordFile && (
+            <div
+              className="rounded-lg p-3 flex flex-col gap-2"
+              style={{ background: "var(--ink-3)", border: "1px solid var(--rule)" }}
+            >
+              <p className="text-sm font-medium" style={{ color: "var(--ink-text)", fontFamily: "var(--font-sans)" }}>
+                🔒 {passwordFile.name} is password-protected
+              </p>
+              {passwordError && (
+                <p className="text-xs" style={{ color: "var(--red)", fontFamily: "var(--font-sans)" }}>
+                  {passwordError}
+                </p>
+              )}
+              <div className="flex gap-2">
+                <input
+                  type="password"
+                  autoFocus
+                  value={passwordInput}
+                  onChange={(e) => setPasswordInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter" && passwordInput.trim()) submitPassword(); }}
+                  placeholder="PDF password"
+                  style={{ ...inputBase, background: "var(--ink-2)", color: "var(--ink-text)", flex: 1 }}
+                />
+                <button
+                  onClick={submitPassword}
+                  disabled={!passwordInput.trim() || extracting}
+                  className="rounded-lg px-3 py-1 text-sm font-semibold"
+                  style={{
+                    background: "var(--gold)", color: "#fff", fontFamily: "var(--font-sans)",
+                    opacity: (!passwordInput.trim() || extracting) ? 0.6 : 1,
+                    cursor: (!passwordInput.trim() || extracting) ? "not-allowed" : "pointer",
+                  }}
+                >
+                  {extracting ? "Unlocking…" : "Unlock"}
+                </button>
+                <button
+                  onClick={cancelPassword}
+                  className="rounded-lg px-3 py-1 text-sm"
+                  style={{ background: "var(--ink-2)", color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", border: "1px solid var(--rule)" }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Status */}
           {status && (
