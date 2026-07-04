@@ -605,44 +605,44 @@ function LabelingWizard({ rows, groups, totalRows, onApply, onFinish, onSkipAll,
 
           {/* Actions */}
           <div style={{ display: "flex", gap: 8 }}>
-            {!isFirst && (
-              <button
-                onClick={goBack}
-                title="Go back to the previous batch — doesn't change anything you've already entered"
-                style={{
-                  background:   "var(--ink-3)",
-                  border:       "1px solid var(--rule)",
-                  color:        "var(--ink-text-dim)",
-                  borderRadius: 10,
-                  padding:      "13px 16px",
-                  fontFamily:   "var(--font-sans)",
-                  fontSize:     13,
-                  cursor:       "pointer",
-                  whiteSpace:   "nowrap",
-                }}
-              >
-                ‹ Back
-              </button>
-            )}
-            {step < maxStep && (
-              <button
-                onClick={goNext}
-                title="Go forward to a batch you've already handled — doesn't change anything you've already entered"
-                style={{
-                  background:   "var(--ink-3)",
-                  border:       "1px solid var(--rule)",
-                  color:        "var(--ink-text-dim)",
-                  borderRadius: 10,
-                  padding:      "13px 16px",
-                  fontFamily:   "var(--font-sans)",
-                  fontSize:     13,
-                  cursor:       "pointer",
-                  whiteSpace:   "nowrap",
-                }}
-              >
-                Next ›
-              </button>
-            )}
+            <button
+              onClick={goBack}
+              disabled={isFirst}
+              title={isFirst ? "This is the first batch" : "Go back to the previous batch — doesn't change anything you've already entered"}
+              style={{
+                background:   "var(--ink-3)",
+                border:       "1px solid var(--rule)",
+                color:        "var(--ink-text-dim)",
+                borderRadius: 10,
+                padding:      "13px 16px",
+                fontFamily:   "var(--font-sans)",
+                fontSize:     13,
+                cursor:       isFirst ? "not-allowed" : "pointer",
+                opacity:      isFirst ? 0.4 : 1,
+                whiteSpace:   "nowrap",
+              }}
+            >
+              ‹ Back
+            </button>
+            <button
+              onClick={goNext}
+              disabled={step >= maxStep}
+              title={step >= maxStep ? "You haven't gone past this batch yet" : "Go forward to a batch you've already handled — doesn't change anything you've already entered"}
+              style={{
+                background:   "var(--ink-3)",
+                border:       "1px solid var(--rule)",
+                color:        "var(--ink-text-dim)",
+                borderRadius: 10,
+                padding:      "13px 16px",
+                fontFamily:   "var(--font-sans)",
+                fontSize:     13,
+                cursor:       step >= maxStep ? "not-allowed" : "pointer",
+                opacity:      step >= maxStep ? 0.4 : 1,
+                whiteSpace:   "nowrap",
+              }}
+            >
+              Next ›
+            </button>
             <button
               onClick={() => advance(label)}
               disabled={!label.trim()}
