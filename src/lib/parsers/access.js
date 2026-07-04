@@ -84,6 +84,40 @@ function resolveRow(candidates, runningBalance) {
   return matches.length ? matches[0] : null;
 }
 
+// Rows sharing the same posted date can be printed in a different order
+// than they actually posted internally (e.g. a same-day inbound transfer
+// printed first even though it posted after several fee deductions that
+// day) — confirmed against a real statement, where a same-day batch only
+// reconciles once one row is treated as happening last, not first. Since
+// the ledger only needs date-level granularity (not intraday order), this
+// searches every ordering of a same-date batch for one where each row
+// resolves in turn via resolveRow, rather than assuming print order.
+// Batches are small in practice (same-day transaction counts), and wrong
+// branches die immediately (resolveRow fails fast), so this stays cheap
+// despite being worst-case factorial.
+function resolveBatch(blocks, startBalance) {
+  const n = blocks.length;
+  const used = new Array(n).fill(false);
+  const order = [];
+
+  function dfs(running) {
+    if (order.length === n) return true;
+    for (let i = 0; i < n; i++) {
+      if (used[i]) continue;
+      const chosen = resolveRow(blocks[i].candidates, running);
+      if (!chosen) continue;
+      used[i] = true;
+      order.push({ index: i, chosen });
+      if (dfs(chosen.balance)) return true;
+      order.pop();
+      used[i] = false;
+    }
+    return false;
+  }
+
+  return dfs(startBalance) ? order : null;
+}
+
 function buildInternalRegex(holderName) {
   if (!holderName) return null;
   const escaped = holderName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+");
@@ -154,6 +188,10 @@ export function parseAccessStatementDebug(text) {
     totalBlocks += blocks.length;
     let runningBalance = section.openingBalance;
 
+    // Parse every block up front and group consecutive same-date blocks
+    // into batches, since intraday order in the printout isn't reliable
+    // (see resolveBatch) but the date grouping itself is.
+    const parsed = [];
     for (const raw of blocks) {
       const block = raw.replace(/\s+/g, " ").trim();
       const pm = block.match(PREFIX_RE);
@@ -162,43 +200,57 @@ export function parseAccessStatementDebug(text) {
         if (unmatchedSamples.length < 8) unmatchedSamples.push(block.slice(0, 200));
         continue;
       }
-      const candidates = getCandidates(pm[3]);
-      const chosen = candidates.length ? resolveRow(candidates, runningBalance) : null;
-      if (!chosen) {
-        // Leave runningBalance untouched rather than guessing — a later row
-        // in the same same-day batch often reconciles cleanly against this
-        // same last-known-good balance (see resolveRow's comment).
-        unmatched++;
-        if (unmatchedSamples.length < 8) unmatchedSamples.push(block.slice(0, 200));
+      parsed.push({ date: pm[1], candidates: getCandidates(pm[3]), block });
+    }
+
+    let i = 0;
+    while (i < parsed.length) {
+      let j = i + 1;
+      while (j < parsed.length && parsed[j].date === parsed[i].date) j++;
+      const batch = parsed.slice(i, j);
+      i = j;
+
+      const resolution = resolveBatch(batch, runningBalance);
+      if (!resolution) {
+        unmatched += batch.length;
+        for (const b of batch) {
+          if (unmatchedSamples.length < 8) unmatchedSamples.push(b.block.slice(0, 200));
+        }
         continue;
       }
 
-      const desc = chosen.desc.replace(/\s+/g, " ").trim();
-      const amount = Math.round(Math.abs(chosen.balance - runningBalance) * 100) / 100;
-      const isOut = chosen.balance < runningBalance;
-      runningBalance = chosen.balance;
+      for (const { index, chosen } of resolution) {
+        const pm = batch[index];
+        const desc = chosen.desc.replace(/\s+/g, " ").trim();
+        const amount = Math.round(Math.abs(chosen.balance - runningBalance) * 100) / 100;
+        const isOut = chosen.balance < runningBalance;
+        runningBalance = chosen.balance;
 
-      if (!amount || amount <= 0) continue;
-      if (INTERNAL && INTERNAL.test(desc)) continue;
+        if (!amount || amount <= 0) continue;
+        if (INTERNAL && INTERNAL.test(desc)) continue;
 
-      const [dd, mm, yyyy] = pm[1].split("/");
-      rows.push({
-        date: `${yyyy}-${mm}-${dd}`,
-        desc,
-        amount,
-        flow: isOut ? "out" : "in",
-        beneficiary: extractBeneficiary(desc),
-      });
+        const [dd, mm, yyyy] = pm.date.split("/");
+        rows.push({
+          date: `${yyyy}-${mm}-${dd}`,
+          desc,
+          amount,
+          flow: isOut ? "out" : "in",
+          beneficiary: extractBeneficiary(desc),
+        });
+      }
     }
 
     // The declared Closing Balance is a useful cross-check but isn't always
-    // reliable — real-world statements can have a Closing Balance field
-    // inconsistent with their own Debits/Credits totals. It's now a secondary
-    // safety net (the primary one is the unmatched-block ratio below, since
-    // unresolved rows no longer silently guess a wrong balance), so a modest
-    // tolerance is enough — a large drift means something structurally wrong.
+    // reliable — confirmed against a real statement where it's off by
+    // ~486 from its own Debits/Credits totals (894.38 declared vs 408.48
+    // actually implied), while every individual row still reconciles
+    // correctly via resolveBatch. So this stays a generous backstop against
+    // gross structural failures (a mis-detected section, wholesale bad
+    // parsing), not a precise validator — the real correctness check is the
+    // per-batch reconciliation above, which only accepts a batch when every
+    // row in it resolves exactly.
     const drift = Math.abs(runningBalance - section.closingBalance);
-    if (drift > 50) {
+    if (drift > 1000) {
       return {
         ok: false,
         reason: "balance-mismatch",
