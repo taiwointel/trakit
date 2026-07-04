@@ -312,6 +312,7 @@ function buildLabelGroups(rows) {
 const CHIPS = [
   "Fuel", "Food / suya", "Transport", "Airtime", "Salary",
   "Loan repayment", "School fees", "Rent", "Crypto", "Shopping",
+  "Family support",
 ];
 
 // A distinct chip, not a text label: picking it tags the batch as cash
