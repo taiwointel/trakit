@@ -30,10 +30,11 @@ export async function POST(request) {
   const fullName   = body?.accountHolderName || user.user_metadata?.full_name || null;
 
   const toInsert = rows.map((row) => {
-    // A transfer to/from the account holder's own name (any word order) is
-    // cash moving between the user's own accounts, not real income or
-    // spend — tag it distinctly regardless of flow direction.
-    if (fullName && isSelfTransfer(row.beneficiary, fullName)) {
+    // A transfer to/from the account holder's own name (any word order), or
+    // one the user explicitly tagged via the labeling wizard's "Self
+    // transfer" chip, is cash moving between the user's own accounts, not
+    // real income or spend — tag it distinctly regardless of flow direction.
+    if (row.forceInternalTransfer || (fullName && isSelfTransfer(row.beneficiary, fullName))) {
       return {
         user_id: user.id, date: row.date, desc: row.desc || "", amount: Number(row.amount) || 0,
         flow: row.flow || "out", beneficiary: row.beneficiary || null, source: "import",

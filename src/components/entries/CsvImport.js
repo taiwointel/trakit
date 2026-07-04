@@ -314,6 +314,11 @@ const CHIPS = [
   "Loan repayment", "School fees", "Rent", "Crypto", "Shopping",
 ];
 
+// A distinct chip, not a text label: picking it tags the batch as cash
+// moving between the user's own accounts (see internalTransferFields()),
+// bypassing description-based categorization entirely.
+const SELF_TRANSFER_CHIP = "Self transfer";
+
 // ── Labeling Wizard ───────────────────────────────────────────────────────────
 
 function LabelingWizard({ rows, groups, totalRows, onApply, onFinish, onSkipAll, onCancel }) {
@@ -531,6 +536,23 @@ function LabelingWizard({ rows, groups, totalRows, onApply, onFinish, onSkipAll,
                   {chip}
                 </button>
               ))}
+              <button
+                key={SELF_TRANSFER_CHIP}
+                onClick={() => advance(SELF_TRANSFER_CHIP)}
+                title="Cash movement between your own accounts"
+                style={{
+                  background: "rgba(91,143,168,0.15)",
+                  border: "1px solid var(--blue-accent)",
+                  color:  "var(--blue-accent)",
+                  borderRadius: 20,
+                  padding: "4px 12px",
+                  fontFamily: "var(--font-sans)",
+                  fontSize: 12,
+                  cursor: "pointer",
+                }}
+              >
+                ↔ Self transfer
+              </button>
             </div>
           </div>
 
@@ -817,6 +839,16 @@ export default function CsvImport({ onImported }) {
   // Called by wizard for each batch
   const handleWizardApply = (indices, label) => {
     if (!label) return;
+    if (label === SELF_TRANSFER_CHIP) {
+      setRows((prev) =>
+        prev.map((r, i) =>
+          indices.includes(i)
+            ? { ...r, desc: `Internal transfer — ${r.desc}`, forceInternalTransfer: true }
+            : r
+        )
+      );
+      return;
+    }
     setRows((prev) =>
       prev.map((r, i) =>
         indices.includes(i) ? { ...r, desc: `${label} — ${r.desc}` } : r
