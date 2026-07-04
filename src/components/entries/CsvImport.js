@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
-import { createClient } from "@/lib/supabase/client";
 
 // ── CSV parsing ───────────────────────────────────────────────────────────────
 
@@ -71,6 +70,15 @@ function cleanBank(raw) {
 function extractBeneficiary(desc) {
   const d = (desc || "").trim();
   let m;
+
+  // TRF//FRM NAME TO NAME2 (double-slash transfer log format) — the party
+  // of interest is whoever is named after FRM, before TO.
+  m = d.match(/^TRF\/+\s*FRM\s+(.+?)\s+TO\s+/i);
+  if (m) return cleanName(m[1]);
+
+  // MOBILE TRF TO PAY/ /NAME
+  m = d.match(/^MOBILE\s+TRF\s+TO\s+PAY\/+\s*(.+)/i);
+  if (m) return cleanName(m[1]);
 
   // NIP/YYYYMMDD/NAME/BANK
   m = d.match(/^NIP\/\d+\/([^\/]+)/i);
@@ -610,7 +618,6 @@ export default function CsvImport({ onImported }) {
   const [status,       setStatus]       = useState(null);
   const [extracting,   setExtracting]   = useState(false);
   const [importing,    setImporting]    = useState(false);
-  const [catProgress,  setCatProgress]  = useState(null); // null | { done, total }
   const [extractProgress, setExtractProgress] = useState(null); // null | { done, total }
   const [passwordFile, setPasswordFile] = useState(null); // file awaiting a password retry
   const [passwordInput, setPasswordInput] = useState("");
@@ -810,67 +817,16 @@ export default function CsvImport({ onImported }) {
         return;
       }
 
-      // Step 2: AI-categorize out-entries not already resolved by a learned
-      // rule (recurring beneficiary/narration) in one batch call, then update in parallel
-      // Bulk import never calls AI itself, so an "out" row it returns is
-      // either resolved by a learned rule (status 'done') or still needs
-      // categorization (status 'fallback', keyword-matched only).
-      const learnedCount = (data.rows || []).filter((r) => r.flow === "out" && r.status === "done").length;
-      const outEntries   = (data.rows || []).filter((r) => r.flow === "out" && r.status !== "done");
-      let categorized = 0;
-
-      // Categorize in small chunks rather than one giant batch call: a
-      // single request covering 30+ entries risks exceeding the serverless
-      // function's execution window (the AI call itself can take longer
-      // than that for a large prompt), which previously showed as an
-      // indefinitely stuck "Categorizing 0/N..." bar with no feedback.
-      // Chunking also gives real incremental progress and means one slow/
-      // failed chunk doesn't sink entries that would've categorized fine.
-      const CHUNK_SIZE = 8;
-      let catError = null;
-      if (outEntries.length > 0) {
-        setImporting(false);
-        setCatProgress({ done: 0, total: outEntries.length });
-        const supabase = createClient();
-
-        for (let start = 0; start < outEntries.length; start += CHUNK_SIZE) {
-          const chunk = outEntries.slice(start, start + CHUNK_SIZE);
-          try {
-            const batchRes = await fetch("/api/ai/categorize-batch", {
-              method:  "POST",
-              headers: { "Content-Type": "application/json" },
-              body:    JSON.stringify({
-                entries: chunk.map((e) => ({ description: e.desc, amount: e.amount, beneficiary: e.beneficiary })),
-              }),
-            });
-
-            if (batchRes.ok) {
-              const { results } = await batchRes.json();
-              await Promise.all(
-                chunk.map(async (e, i) => {
-                  const ai = results?.[i];
-                  if (!ai) return;
-                  try {
-                    await supabase.from("entries").update(ai).eq("id", e.id);
-                    categorized++;
-                  } catch { /* skip */ }
-                })
-              );
-            } else {
-              const errBody = await batchRes.json().catch(() => null);
-              catError = errBody?.error || `AI categorization failed (HTTP ${batchRes.status}).`;
-            }
-          } catch (err) {
-            catError = err?.message || "AI categorization request failed (network error or timeout).";
-          }
-
-          setCatProgress({ done: Math.min(start + CHUNK_SIZE, outEntries.length), total: outEntries.length });
-        }
-      }
+      // AI categorization is disabled for import: bulk import resolves every
+      // row itself, either from a learned rule (a beneficiary/narration
+      // categorized before, by AI or a manual correction) or the keyword
+      // fallback table — no AI call, no risk of a stuck/timed-out batch.
+      const learnedCount  = (data.rows || []).filter((r) => r.flow === "out" && r.status === "done").length;
+      const fallbackCount = (data.rows || []).filter((r) => r.flow === "out" && r.status === "fallback").length;
 
       setStatus({
-        type: catError && categorized === 0 && learnedCount === 0 ? "error" : "success",
-        msg: `${data.inserted} entries imported${learnedCount > 0 ? ` · ${learnedCount} auto-categorized from memory` : ""}${categorized > 0 ? ` · ${categorized} categorized by AI` : ""}${catError ? ` · ⚠ ${catError} (entries still imported, uncategorized ones can be fixed manually or re-categorized from the ledger)` : ""}. Review them in the ledger below.`,
+        type: "success",
+        msg: `${data.inserted} entries imported${learnedCount > 0 ? ` · ${learnedCount} auto-categorized from memory` : ""}${fallbackCount > 0 ? ` · ${fallbackCount} keyword-categorized` : ""}. Review them in the ledger below.`,
       });
       setRows([]);
       if (onImported) onImported();
@@ -878,7 +834,6 @@ export default function CsvImport({ onImported }) {
       setStatus({ type: "error", msg: "Network error. Please try again." });
     } finally {
       setImporting(false);
-      setCatProgress(null);
     }
   };
 
@@ -1107,29 +1062,22 @@ export default function CsvImport({ onImported }) {
 
               <button
                 onClick={doImport}
-                disabled={importing || !!catProgress}
+                disabled={importing}
                 className="rounded-lg px-4 py-2 text-sm font-semibold"
                 style={{
                   background: "var(--gold)",
                   color:      "#fff",
                   fontFamily: "var(--font-sans)",
-                  opacity:    (importing || catProgress) ? 0.7 : 1,
-                  cursor:     (importing || catProgress) ? "not-allowed" : "pointer",
+                  opacity:    importing ? 0.7 : 1,
+                  cursor:     importing ? "not-allowed" : "pointer",
                   display:    "flex",
                   alignItems: "center",
                   gap:        8,
                 }}
               >
-                {catProgress ? (
-                  <>
-                    <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: "#fff", opacity: 0.8, animation: "pulse 1s infinite" }} />
-                    Categorizing {catProgress.done}/{catProgress.total}...
-                  </>
-                ) : importing ? (
-                  "Importing…"
-                ) : (
-                  `Import ${rows.filter((r) => r.date && r.desc && Number(r.amount) > 0).length} rows`
-                )}
+                {importing
+                  ? "Importing…"
+                  : `Import ${rows.filter((r) => r.date && r.desc && Number(r.amount) > 0).length} rows`}
               </button>
             </div>
           )}
