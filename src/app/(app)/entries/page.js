@@ -66,7 +66,7 @@ export default function EntriesPage() {
   const [budgetsOpen,   setBudgetsOpen]   = useState(false);
   const [toolsOpen,     setToolsOpen]     = useState(false);
 
-  const { entries, budgets, loading, addEntry, updateEntry, deleteEntry, deleteEntries, saveBudget, clearAllEntries } = useEntries();
+  const { entries, budgets, loading, addEntry, updateEntry, deleteEntry, deleteEntries, saveBudget, clearAllEntries, refetch } = useEntries();
   const { goals } = useGoals();
   const salary = goals.salary || null;
 
@@ -228,7 +228,7 @@ export default function EntriesPage() {
           tagColor="var(--teal)"
           description="Drop in a PDF or CSV bank statement and Trakit7 extracts every transaction and categorizes them in one action. Months of history entered in under a minute. The most efficient way to catch up on weeks you have not yet tracked manually."
         >
-          <CsvImport onImported={() => window.location.reload()} />
+          <CsvImport onImported={refetch} />
         </FeatureCard>
         </div>
 

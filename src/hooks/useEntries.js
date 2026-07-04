@@ -17,25 +17,24 @@ export function useEntries() {
   ) ? createClient() : null;
 
   // Load user + initial data
-  useEffect(() => {
-    async function load() {
-      if (!supabase) { setLoading(false); return; }
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { setLoading(false); return; }
-      setUserId(user.id);
+  const load = useCallback(async () => {
+    if (!supabase) { setLoading(false); return; }
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setLoading(false); return; }
+    setUserId(user.id);
 
-      const [{ data: rows }, { data: bud }] = await Promise.all([
-        supabase.from("entries").select("*").eq("user_id", user.id).order("date", { ascending: false }),
-        supabase.from("budgets").select("*").eq("user_id", user.id).maybeSingle(),
-      ]);
+    const [{ data: rows }, { data: bud }] = await Promise.all([
+      supabase.from("entries").select("*").eq("user_id", user.id).order("date", { ascending: false }),
+      supabase.from("budgets").select("*").eq("user_id", user.id).maybeSingle(),
+    ]);
 
-      setEntries(rows || []);
-      if (bud) setBudgets({ overall: bud.overall, categories: bud.category_budgets || {} });
-      setLoading(false);
-    }
-    load();
+    setEntries(rows || []);
+    if (bud) setBudgets({ overall: bud.overall, categories: bud.category_budgets || {} });
+    setLoading(false);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => { load(); }, [load]);
 
   const addEntry = useCallback(async (draft) => {
     const tempId = crypto.randomUUID();
@@ -162,5 +161,5 @@ export function useEntries() {
     }
   }, [userId, supabase]);
 
-  return { entries, budgets, loading, addEntry, updateEntry, deleteEntry, deleteEntries, saveBudget, clearAllEntries };
+  return { entries, budgets, loading, addEntry, updateEntry, deleteEntry, deleteEntries, saveBudget, clearAllEntries, refetch: load };
 }

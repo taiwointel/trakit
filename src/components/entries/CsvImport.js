@@ -325,27 +325,38 @@ const SELF_TRANSFER_CHIP = "Self transfer";
 function LabelingWizard({ rows, groups, totalRows, onApply, onFinish, onSkipAll, onCancel }) {
   const [step,  setStep]  = useState(0);
   const [label, setLabel] = useState("");
+  // Remembers what was picked for each batch so ‹ Back can re-show it, and
+  // so re-labeling a batch after going back replaces rather than stacks
+  // onto the previous choice (onApply always rebuilds from group.desc, the
+  // untouched original narration, never the already-labeled one).
+  const [appliedLabels, setAppliedLabels] = useState({});
   const inputRef = useRef(null);
 
   const group    = groups[step];
   const isLast   = step === groups.length - 1;
+  const isFirst  = step === 0;
   const groupRows = group.indices.map((i) => rows[i]);
   const progress  = (step / Math.max(groups.length, 1)) * 100;
 
   useEffect(() => {
-    setLabel("");
+    setLabel(appliedLabels[step] || "");
     const t = setTimeout(() => inputRef.current?.focus(), 80);
     return () => clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step]);
 
   const advance = (labelStr) => {
-    onApply(group.indices, labelStr && labelStr.trim() ? labelStr.trim() : null);
+    const clean = labelStr && labelStr.trim() ? labelStr.trim() : null;
+    setAppliedLabels((prev) => ({ ...prev, [step]: clean }));
+    onApply(group.indices, clean, group.desc);
     if (isLast) {
       onFinish();
     } else {
       setStep((s) => s + 1);
     }
   };
+
+  const goBack = () => { if (!isFirst) setStep((s) => s - 1); };
 
   const totalAmt = groupRows.reduce((s, r) => s + Number(r.amount), 0);
 
@@ -580,6 +591,25 @@ function LabelingWizard({ rows, groups, totalRows, onApply, onFinish, onSkipAll,
 
           {/* Actions */}
           <div style={{ display: "flex", gap: 8 }}>
+            {!isFirst && (
+              <button
+                onClick={goBack}
+                title="Go back to the previous batch"
+                style={{
+                  background:   "var(--ink-3)",
+                  border:       "1px solid var(--rule)",
+                  color:        "var(--ink-text-dim)",
+                  borderRadius: 10,
+                  padding:      "13px 16px",
+                  fontFamily:   "var(--font-sans)",
+                  fontSize:     13,
+                  cursor:       "pointer",
+                  whiteSpace:   "nowrap",
+                }}
+              >
+                ‹ Back
+              </button>
+            )}
             <button
               onClick={() => advance(label)}
               disabled={!label.trim()}
@@ -837,14 +867,23 @@ export default function CsvImport({ onImported }) {
   const deleteRow = (i) =>
     setRows((prev) => prev.filter((_, idx) => idx !== i));
 
-  // Called by wizard for each batch
-  const handleWizardApply = (indices, label) => {
-    if (!label) return;
+  // Called by wizard for each batch. `origDesc` is the untouched narration
+  // captured when the wizard opened (group.desc) — always rebuild the label
+  // prefix from that, never from the row's current (possibly already
+  // labeled) desc, so going ‹ Back and picking a different label replaces
+  // it instead of stacking prefixes.
+  const handleWizardApply = (indices, label, origDesc) => {
+    if (!label) {
+      setRows((prev) =>
+        prev.map((r, i) => (indices.includes(i) ? { ...r, desc: origDesc, forceInternalTransfer: false } : r))
+      );
+      return;
+    }
     if (label === SELF_TRANSFER_CHIP) {
       setRows((prev) =>
         prev.map((r, i) =>
           indices.includes(i)
-            ? { ...r, desc: `Internal transfer — ${r.desc}`, forceInternalTransfer: true }
+            ? { ...r, desc: `Internal transfer — ${origDesc}`, forceInternalTransfer: true }
             : r
         )
       );
@@ -852,7 +891,7 @@ export default function CsvImport({ onImported }) {
     }
     setRows((prev) =>
       prev.map((r, i) =>
-        indices.includes(i) ? { ...r, desc: `${label} — ${r.desc}` } : r
+        indices.includes(i) ? { ...r, desc: `${label} — ${origDesc}`, forceInternalTransfer: false } : r
       )
     );
   };
