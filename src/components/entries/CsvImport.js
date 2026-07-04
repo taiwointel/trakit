@@ -976,11 +976,14 @@ export default function CsvImport({ onImported, onJumpToMonth }) {
       if (auto) return { ...r, beneficiary, desc: `${auto} — ${r.desc}` };
       return { ...r, beneficiary };
     });
+    // The labeling wizard no longer auto-launches — every row goes straight
+    // into the ledger via keyword-fallback + AI categorization, same as any
+    // manually-typed entry. Anything the categorizer can't confidently place
+    // gets flagged with the normal low-confidence review dot instead of
+    // blocking the import behind a question. buildLabelGroups/AUTO_LABEL_RULES
+    // are still applied above (self-transfer, loan, auto-label prefixing) —
+    // only the "ask the user" modal step is skipped.
     setRows(rowsWithBene);
-    const groups = buildLabelGroups(rowsWithBene);
-    if (groups.length > 0) {
-      setWizardGroups(groups);
-    }
   }, []);
 
   const processFile = useCallback(async (file, password) => {
