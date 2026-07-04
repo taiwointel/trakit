@@ -58,11 +58,13 @@ export function lastNDays(n) {
   return dates;
 }
 
-/** Compute the current salary cycle based on payday day of month.
- *  Returns { start: 'YYYY-MM-DD', end: 'YYYY-MM-DD', label: 'DD Mon – DD Mon' }
- *  start = most recent payday; end = day before the next payday.
+/** Compute a salary cycle based on payday day of month.
+ *  `offset` shifts by that many cycles relative to the current one:
+ *  0 = current cycle, -1 = the cycle before that, etc.
+ *  Returns { start: 'YYYY-MM-DD', end: 'YYYY-MM-DD', label: 'DD Mon – DD Mon', offset }
+ *  start = payday for that cycle; end = day before the next payday.
  */
-export function getSalaryCycle(paydayDay) {
+export function getSalaryCycle(paydayDay, offset = 0) {
   if (!paydayDay) return null;
   const today = new Date();
   const d = today.getDate();
@@ -73,16 +75,25 @@ export function getSalaryCycle(paydayDay) {
   if (d >= paydayDay) { sy = y; sm = m; }
   else { sy = m === 0 ? y - 1 : y; sm = m === 0 ? 11 : m - 1; }
 
+  sm += offset;
+
   const start      = new Date(sy, sm, paydayDay);
-  const nextPayday = new Date(sy, sm + 1, paydayDay); // JS handles Dec→Jan overflow
+  const nextPayday = new Date(sy, sm + 1, paydayDay); // JS handles month/year overflow both ways
   const endDate    = new Date(nextPayday); endDate.setDate(endDate.getDate() - 1);
 
   const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
   const fmt = (iso) => `${parseInt(iso.slice(8), 10)} ${MONTHS[parseInt(iso.slice(5, 7), 10) - 1]}`;
+  const fmtYr = (iso) => `${parseInt(iso.slice(8), 10)} ${MONTHS[parseInt(iso.slice(5, 7), 10) - 1]} '${iso.slice(2, 4)}`;
 
   const startISO = start.toISOString().slice(0, 10);
   const endISO   = endDate.toISOString().slice(0, 10);
-  return { start: startISO, end: endISO, label: `${fmt(startISO)} – ${fmt(endISO)}` };
+  const sameYear = startISO.slice(0, 4) === endISO.slice(0, 4);
+  return {
+    start: startISO,
+    end: endISO,
+    label: sameYear ? `${fmt(startISO)} – ${fmt(endISO)}` : `${fmtYr(startISO)} – ${fmtYr(endISO)}`,
+    offset,
+  };
 }
 
 /** All calendar dates for a given YYYY-MM month */

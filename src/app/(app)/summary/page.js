@@ -25,6 +25,7 @@ import SpendHeatmap      from "@/components/summary/SpendHeatmap";
 import AnnualWrapped     from "@/components/summary/AnnualWrapped";
 import MonthComparisonPanel from "@/components/summary/MonthComparisonPanel";
 import WorthASecondLook  from "@/components/summary/WorthASecondLook";
+import YearToDatePanel   from "@/components/summary/YearToDatePanel";
 
 const GREETINGS = {
   latenight: (n) => [
@@ -318,16 +319,45 @@ export default function SummaryPage() {
   const today     = new Date().toISOString().slice(0, 10);
   const thisMonth = today.slice(0, 7);
 
-  const cycle = useMemo(
-    () => getSalaryCycle(goals.payday_day),
+  // Which salary cycle "Your Numbers" is browsing. 0 = the current, live
+  // cycle; negative values page backwards into history. Anomaly alerts and
+  // the forecast banner always use the live cycle regardless of this.
+  const [cycleOffset, setCycleOffset] = useState(0);
+
+  const liveCycle = useMemo(
+    () => getSalaryCycle(goals.payday_day, 0),
     [goals.payday_day],
   );
+  const cycle = useMemo(
+    () => getSalaryCycle(goals.payday_day, cycleOffset),
+    [goals.payday_day, cycleOffset],
+  );
   const cycleStart = cycle?.start || `${thisMonth}-01`;
+  // For past cycles the whole range already happened; for the live cycle
+  // (or when no payday is set) cap at today so we don't look into the future.
+  const cycleRefDate = cycle && cycle.end < today ? cycle.end : today;
+  const liveCycleStart = liveCycle?.start || `${thisMonth}-01`;
 
   const cycleEntries = useMemo(
-    () => entries.filter((e) => e.date >= cycleStart && e.date <= today),
-    [entries, cycleStart, today],
+    () => entries.filter((e) => e.date >= cycleStart && e.date <= cycleRefDate),
+    [entries, cycleStart, cycleRefDate],
   );
+
+  const canGoOlder = entries.some((e) => e.date && e.date < cycleStart);
+  const canGoNewer = cycleOffset < 0;
+
+  // Spend Breakdown can look at either the browsed salary cycle or the
+  // whole calendar year to date — "where it all went" shouldn't only ever
+  // mean "this month".
+  const [breakdownScope, setBreakdownScope] = useState("cycle"); // 'cycle' | 'year'
+  const yearStart   = `${thisMonth.slice(0, 4)}-01-01`;
+  const yearEntries = useMemo(
+    () => entries.filter((e) => e.date >= yearStart && e.date <= today),
+    [entries, yearStart, today],
+  );
+  const breakdownEntries = breakdownScope === "year" ? yearEntries : cycleEntries;
+  const breakdownFrom    = breakdownScope === "year" ? yearStart   : cycleStart;
+  const breakdownTo      = breakdownScope === "year" ? today       : cycleRefDate;
 
   const currentBalance = useMemo(
     () => closingBalance(entries, anchor.anchor_date, anchor.anchor_amount, today),
@@ -356,10 +386,10 @@ export default function SummaryPage() {
   const cycleTxCount = cycleEntries.filter((e) => e.flow === "out" && e.category !== "Self").length;
 
   const cycleDaysElapsed = useMemo(() => {
-    const a = new Date(cycleStart + "T00:00:00");
-    const b = new Date(today    + "T00:00:00");
+    const a = new Date(cycleStart   + "T00:00:00");
+    const b = new Date(cycleRefDate + "T00:00:00");
     return Math.max(1, Math.round((b - a) / 86400000) + 1);
-  }, [cycleStart, today]);
+  }, [cycleStart, cycleRefDate]);
 
   const cycleDaysTotal = useMemo(() => {
     if (!cycle) return 30;
@@ -624,8 +654,8 @@ export default function SummaryPage() {
       <div style={{ padding: "12px 24px 0" }} className="sm:px-8">
         <AnomalyAlerts
           entries={entries}
-          cycleStart={cycleStart}
-          cycle={cycle}
+          cycleStart={liveCycleStart}
+          cycle={liveCycle}
           today={today}
         />
       </div>
@@ -657,10 +687,32 @@ export default function SummaryPage() {
             }}
           >
             {/* Header row */}
-            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
-              <p style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", margin: 0 }}>
-                {periodLabel}
-              </p>
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                {cycle && (
+                  <button
+                    onClick={() => canGoOlder && setCycleOffset((o) => o - 1)}
+                    disabled={!canGoOlder}
+                    title="Previous salary cycle"
+                    style={{ background: "var(--ink-3)", border: "1px solid var(--rule)", color: "var(--ink-text-dim)", fontSize: 11, padding: "2px 7px", borderRadius: 6, cursor: canGoOlder ? "pointer" : "default", opacity: canGoOlder ? 1 : 0.35, flexShrink: 0 }}
+                  >
+                    ‹
+                  </button>
+                )}
+                <p style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", margin: 0 }}>
+                  {periodLabel}
+                </p>
+                {cycle && (
+                  <button
+                    onClick={() => canGoNewer && setCycleOffset((o) => Math.min(0, o + 1))}
+                    disabled={!canGoNewer}
+                    title="Next salary cycle"
+                    style={{ background: "var(--ink-3)", border: "1px solid var(--rule)", color: "var(--ink-text-dim)", fontSize: 11, padding: "2px 7px", borderRadius: 6, cursor: canGoNewer ? "pointer" : "default", opacity: canGoNewer ? 1 : 0.35, flexShrink: 0 }}
+                  >
+                    ›
+                  </button>
+                )}
+              </div>
               <button
                 onClick={() => window.print()}
                 style={{ background: "var(--ink-3)", border: "1px solid var(--rule)", color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", fontSize: 11, padding: "4px 10px", borderRadius: 8, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }}
@@ -746,11 +798,14 @@ export default function SummaryPage() {
           />
         </div>
 
-        <NetWorthCard
-          cashBalance={currentBalance}
-          investments={investments}
-          transactions={transactions}
-        />
+        <div className="grid-2">
+          <NetWorthCard
+            cashBalance={currentBalance}
+            investments={investments}
+            transactions={transactions}
+          />
+          <YearToDatePanel entries={entries} />
+        </div>
       </div>
 
       {/* ── HOW THIS COMPARES ─────────────────────────────────────────────
@@ -787,11 +842,35 @@ export default function SummaryPage() {
       </p>
 
       <div className="section-body">
-        <div className="grid-2">
-          <WhereItWent entries={cycleEntries} />
-          <SpendTrendChart entries={entries} from={cycleStart} to={today} />
+        <div className="flex items-center gap-2">
+          {[
+            { key: "cycle", label: "This cycle" },
+            { key: "year",  label: `${thisMonth.slice(0, 4)} to date` },
+          ].map((opt) => (
+            <button
+              key={opt.key}
+              onClick={() => setBreakdownScope(opt.key)}
+              style={{
+                background:   breakdownScope === opt.key ? "var(--gold)" : "var(--ink-3)",
+                color:        breakdownScope === opt.key ? "#151515" : "var(--ink-text-dim)",
+                border:       "1px solid var(--rule)",
+                fontFamily:   "var(--font-sans)",
+                fontSize:     11,
+                fontWeight:   700,
+                padding:      "5px 12px",
+                borderRadius: 8,
+                cursor:       "pointer",
+              }}
+            >
+              {opt.label}
+            </button>
+          ))}
         </div>
-        <CategoryExplorer entries={cycleEntries} />
+        <div className="grid-2">
+          <WhereItWent entries={breakdownEntries} />
+          <SpendTrendChart entries={entries} from={breakdownFrom} to={breakdownTo} />
+        </div>
+        <CategoryExplorer entries={breakdownEntries} />
       </div>
 
       {/* ── COACH RBC ─────────────────────────────────────────────────────
@@ -832,8 +911,8 @@ export default function SummaryPage() {
 
       <div className="section-body">
         <ForecastBanner
-          cycleStart={cycleStart}
-          cycleEnd={cycle?.end || today}
+          cycleStart={liveCycleStart}
+          cycleEnd={liveCycle?.end || today}
           salary={goals.salary}
           entries={entries}
           today={today}

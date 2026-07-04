@@ -1,27 +1,32 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { formatNaira } from "@/lib/format";
 
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
 export default function MonthComparisonPanel({ entries }) {
+  const [windowOffset, setWindowOffset] = useState(0); // 0 = most recent 6 months; -1 = one month further back, etc.
+
   const monthly = useMemo(() => {
     const now = new Date();
     const rows = [];
     for (let i = 5; i >= 0; i--) {
-      const d   = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const d   = new Date(now.getFullYear(), now.getMonth() - i + windowOffset, 1);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
       const total = entries
         .filter((e) => e.date?.startsWith(key) && e.flow === "out" && e.category !== "Self")
         .reduce((s, e) => s + Number(e.amount), 0);
-      rows.push({ key, label: MONTHS[d.getMonth()], total });
+      rows.push({ key, label: `${MONTHS[d.getMonth()]} '${String(d.getFullYear()).slice(2)}`, total });
     }
     return rows;
-  }, [entries]);
+  }, [entries, windowOffset]);
+
+  const rangeLabel = `${monthly[0]?.label} – ${monthly[monthly.length - 1]?.label}`;
+  const isCurrentWindow = windowOffset === 0;
 
   const withData = monthly.filter((m) => m.total > 0);
-  if (withData.length < 2) return null;
+  if (withData.length < 2 && isCurrentWindow) return null;
 
   const thisMonth = monthly[monthly.length - 1];
   const lastMonth = monthly[monthly.length - 2];
@@ -50,17 +55,43 @@ export default function MonthComparisonPanel({ entries }) {
     >
       <div className="flex items-center justify-between flex-wrap gap-2">
         <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>
-          This month vs last month
+          {isCurrentWindow ? "This month vs last month" : `${thisMonth?.label} vs ${lastMonth?.label}`}
         </p>
-        {lastMonth.total > 0 && (
+        {lastMonth?.total > 0 && (
           <span
             className="text-sm font-semibold"
             style={{ color: momDelta > 0 ? "var(--red)" : "var(--green)", fontFamily: "var(--font-mono)" }}
           >
             {momDelta > 0 ? "▲" : momDelta < 0 ? "▼" : "—"} {formatNaira(Math.abs(momDelta), { compact: true })}
-            {lastMonth.total > 0 && ` (${momPct > 0 ? "+" : ""}${momPct}%)`}
+            {` (${momPct > 0 ? "+" : ""}${momPct}%)`}
           </span>
         )}
+      </div>
+
+      <div className="flex items-center justify-between gap-2">
+        <button
+          onClick={() => setWindowOffset((o) => o - 1)}
+          className="text-xs px-2 py-1 rounded-md"
+          style={{ background: "var(--ink-3)", border: "1px solid var(--rule)", color: "var(--ink-text-dim)", cursor: "pointer" }}
+        >
+          ‹ Older
+        </button>
+        <span className="text-[11px]" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-mono)" }}>
+          {rangeLabel}
+        </span>
+        <button
+          onClick={() => setWindowOffset((o) => Math.min(0, o + 1))}
+          disabled={isCurrentWindow}
+          className="text-xs px-2 py-1 rounded-md"
+          style={{
+            background: "var(--ink-3)", border: "1px solid var(--rule)",
+            color: isCurrentWindow ? "var(--ink-text-dim)" : "var(--ink-text)",
+            opacity: isCurrentWindow ? 0.4 : 1,
+            cursor: isCurrentWindow ? "default" : "pointer",
+          }}
+        >
+          Newer ›
+        </button>
       </div>
 
       {/* 6-month bar strip */}
