@@ -81,6 +81,10 @@ export default function SpendTrendChart({ entries, from, to }) {
   const BAR_W      = Math.max(24, Math.min(44, Math.floor(560 / buckets.length) - 6));
   const GAP        = 6;
   const LABEL_H    = 28;
+  // Headroom above the tallest bar for its value label — without this, a
+  // bar hitting 100% of maxAmount puts its label right at y=0, which the
+  // card's `overflow: hidden` then clips off at the top.
+  const TOP_PAD    = 18;
   const chartW     = buckets.length * (BAR_W + GAP);
   const gridLines  = [0, 0.25, 0.5, 0.75, 1].map((f) => Math.round(f * maxAmount));
   const showValLabels = buckets.length <= 14;
@@ -112,9 +116,9 @@ export default function SpendTrendChart({ entries, from, to }) {
           <div style={{ display: "flex", alignItems: "flex-start" }}>
 
             {/* Y-axis labels */}
-            <div style={{ width: 52, height: H + LABEL_H, position: "relative", flexShrink: 0 }}>
+            <div style={{ width: 52, height: TOP_PAD + H + LABEL_H, position: "relative", flexShrink: 0 }}>
               {gridLines.map((val) => {
-                const y = H - (val / maxAmount) * H;
+                const y = TOP_PAD + H - (val / maxAmount) * H;
                 return (
                   <div key={val} style={{
                     position:   "absolute",
@@ -135,13 +139,13 @@ export default function SpendTrendChart({ entries, from, to }) {
             {/* SVG chart */}
             <svg
               width={chartW}
-              height={H + LABEL_H}
+              height={TOP_PAD + H + LABEL_H}
               style={{ overflow: "visible" }}
               onMouseLeave={() => setHovered(null)}
             >
               {/* Gridlines */}
               {gridLines.map((val) => {
-                const y = H - (val / maxAmount) * H;
+                const y = TOP_PAD + H - (val / maxAmount) * H;
                 return (
                   <line key={val} x1={0} y1={y} x2={chartW} y2={y}
                     stroke="var(--rule)" strokeWidth={1} />
@@ -152,7 +156,7 @@ export default function SpendTrendChart({ entries, from, to }) {
               {buckets.map((b, i) => {
                 const barH   = Math.max(3, (b.amount / maxAmount) * H);
                 const x      = i * (BAR_W + GAP);
-                const y      = H - barH;
+                const y      = TOP_PAD + H - barH;
                 const isHov  = hovered?.i === i;
                 const showXLabel = i % labelStep === 0;
 
@@ -163,7 +167,7 @@ export default function SpendTrendChart({ entries, from, to }) {
                     onMouseEnter={() => setHovered({ i, label: b.label, amount: b.amount })}
                   >
                     {/* Invisible wider hit area */}
-                    <rect x={x - 3} y={0} width={BAR_W + 6} height={H} fill="transparent" />
+                    <rect x={x - 3} y={0} width={BAR_W + 6} height={TOP_PAD + H} fill="transparent" />
 
                     {/* Bar */}
                     <rect
@@ -190,7 +194,7 @@ export default function SpendTrendChart({ entries, from, to }) {
                     {/* X-axis label */}
                     {showXLabel && (
                       <text
-                        x={x + BAR_W / 2} y={H + 18}
+                        x={x + BAR_W / 2} y={TOP_PAD + H + 18}
                         textAnchor="middle" fontSize={9}
                         fill={isHov ? "var(--gold)" : "var(--ink-text-dim)"}
                         fontFamily="var(--font-mono)"
@@ -208,7 +212,7 @@ export default function SpendTrendChart({ entries, from, to }) {
                 const i   = hovered.i;
                 const x   = i * (BAR_W + GAP) + BAR_W / 2;
                 const barH = Math.max(3, (hovered.amount / maxAmount) * H);
-                const ty  = H - barH - 10;
+                const ty  = TOP_PAD + H - barH - 10;
                 const TW  = 90;
                 const tx  = Math.min(Math.max(x - TW / 2, 0), chartW - TW);
                 return (
