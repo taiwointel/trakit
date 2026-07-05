@@ -80,6 +80,7 @@ export default function SettingsDrawer({ open, onClose, onStartTour }) {
   const [retagStatus,      setRetagStatus]      = useState("");
   const [dupeScanning,     setDupeScanning]     = useState(false);
   const [dupeResult,       setDupeResult]       = useState(null);
+  const [dupeSelected,     setDupeSelected]     = useState(new Set());
   const [dupeDeleting,     setDupeDeleting]     = useState(false);
   const [dupeStatus,       setDupeStatus]       = useState("");
 
@@ -235,25 +236,44 @@ export default function SettingsDrawer({ open, onClose, onStartTour }) {
   }
 
   async function scanDuplicates() {
-    setDupeScanning(true); setDupeStatus(""); setDupeResult(null);
+    setDupeScanning(true); setDupeStatus(""); setDupeResult(null); setDupeSelected(new Set());
     try {
       const res  = await fetch("/api/entries/duplicates");
       const data = await res.json();
       if (!res.ok) { setDupeStatus(data.error || "Scan failed."); }
-      else if (data.extraRows === 0) { setDupeStatus("No duplicate entries found."); }
-      else { setDupeResult(data); }
+      else if (data.likelyExtraRows === 0 && data.ambiguousExtraRows === 0) { setDupeStatus("No duplicate-looking entries found."); }
+      else {
+        setDupeResult(data);
+        // pre-check only the cross-import (likely-genuine-duplicate) rows —
+        // same-day repeats need the user's own judgment before deleting.
+        setDupeSelected(new Set(data.likely.flatMap((g) => g.extraIds)));
+      }
     } catch { setDupeStatus("Network error."); }
     setDupeScanning(false);
   }
 
-  async function removeDuplicates() {
+  function toggleDupeGroup(ids, checked) {
+    setDupeSelected((prev) => {
+      const next = new Set(prev);
+      ids.forEach((id) => (checked ? next.add(id) : next.delete(id)));
+      return next;
+    });
+  }
+
+  async function removeSelectedDuplicates() {
+    if (!dupeSelected.size) return;
     setDupeDeleting(true);
     try {
-      const res  = await fetch("/api/entries/duplicates", { method: "DELETE" });
+      const res  = await fetch("/api/entries/duplicates", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: [...dupeSelected] }),
+      });
       const data = await res.json();
       if (!res.ok) { setDupeStatus(data.error || "Delete failed."); }
-      else { setDupeStatus(`Removed ${data.deleted} duplicate entr${data.deleted === 1 ? "y" : "ies"}. Refresh to see updated totals.`); }
+      else { setDupeStatus(`Removed ${data.deleted} entr${data.deleted === 1 ? "y" : "ies"}. Refresh to see updated totals.`); }
       setDupeResult(null);
+      setDupeSelected(new Set());
     } catch { setDupeStatus("Network error."); }
     setDupeDeleting(false);
   }
@@ -880,7 +900,7 @@ CREATE POLICY "own_backups" ON entry_backups
               <div className="flex flex-col gap-1.5">
                 <p className="text-xs font-medium" style={{ color: "var(--ink-text)", fontFamily: "var(--font-sans)" }}>Find duplicate entries</p>
                 <p className="text-xs" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>
-                  Finds entries with the exact same date, description, amount and flow — the signature of a statement getting imported twice (e.g. two uploads covering overlapping dates). Inflates both inflow and outflow.
+                  Finds entries with the exact same date, description, amount and flow. Dates have no time-of-day, so a genuine same-day repeat transfer looks identical to a true duplicate import — review each row below before removing anything.
                 </p>
                 <button
                   onClick={scanDuplicates}
@@ -891,18 +911,50 @@ CREATE POLICY "own_backups" ON entry_backups
                   {dupeScanning ? "Scanning..." : "Scan for duplicates"}
                 </button>
                 {dupeResult && (
-                  <div className="flex flex-col gap-2 p-3 rounded-lg" style={{ background: "var(--amber-soft)", border: "1px solid var(--amber)" }}>
-                    <p className="text-xs" style={{ color: "var(--ink-text)", fontFamily: "var(--font-mono)" }}>
-                      {dupeResult.groups} duplicate group{dupeResult.groups === 1 ? "" : "s"} · {dupeResult.extraRows} extra row{dupeResult.extraRows === 1 ? "" : "s"}
-                      {" "}(≈₦{Number(dupeResult.inflowExtra).toLocaleString()} extra inflow, ≈₦{Number(dupeResult.outflowExtra).toLocaleString()} extra outflow)
-                    </p>
+                  <div className="flex flex-col gap-3 p-3 rounded-lg" style={{ background: "var(--ink-3)", border: "1px solid var(--rule)" }}>
+                    {dupeResult.likely.length > 0 && (
+                      <div className="flex flex-col gap-1.5">
+                        <p className="text-xs font-semibold" style={{ color: "var(--red)", fontFamily: "var(--font-sans)" }}>
+                          Likely true duplicates — different import sessions ({dupeResult.likelyExtraRows} extra row{dupeResult.likelyExtraRows === 1 ? "" : "s"}, pre-checked)
+                        </p>
+                        {dupeResult.likely.map((g, i) => (
+                          <label key={i} className="flex items-start gap-2 text-xs" style={{ fontFamily: "var(--font-mono)", color: "var(--ink-text)" }}>
+                            <input
+                              type="checkbox"
+                              checked={g.extraIds.every((id) => dupeSelected.has(id))}
+                              onChange={(e) => toggleDupeGroup(g.extraIds, e.target.checked)}
+                              className="mt-0.5"
+                            />
+                            <span>{g.date} · {g.flow === "in" ? "+" : "-"}₦{Number(g.amount).toLocaleString()} · {g.desc?.slice(0, 50)} · ×{g.count} (removes {g.extraIds.length})</span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                    {dupeResult.ambiguous.length > 0 && (
+                      <div className="flex flex-col gap-1.5">
+                        <p className="text-xs font-semibold" style={{ color: "var(--amber)", fontFamily: "var(--font-sans)" }}>
+                          Same-day repeats from one import — could be genuine ({dupeResult.ambiguousExtraRows} extra row{dupeResult.ambiguousExtraRows === 1 ? "" : "s"}, review before checking)
+                        </p>
+                        {dupeResult.ambiguous.map((g, i) => (
+                          <label key={i} className="flex items-start gap-2 text-xs" style={{ fontFamily: "var(--font-mono)", color: "var(--ink-text)" }}>
+                            <input
+                              type="checkbox"
+                              checked={g.extraIds.every((id) => dupeSelected.has(id))}
+                              onChange={(e) => toggleDupeGroup(g.extraIds, e.target.checked)}
+                              className="mt-0.5"
+                            />
+                            <span>{g.date} · {g.flow === "in" ? "+" : "-"}₦{Number(g.amount).toLocaleString()} · {g.desc?.slice(0, 50)} · ×{g.count} (removes {g.extraIds.length})</span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
                     <button
-                      onClick={removeDuplicates}
-                      disabled={dupeDeleting}
+                      onClick={removeSelectedDuplicates}
+                      disabled={dupeDeleting || dupeSelected.size === 0}
                       className="w-full py-2 rounded-lg text-xs font-medium"
-                      style={{ background: "var(--red)", border: "none", color: "#fff", fontFamily: "var(--font-sans)", opacity: dupeDeleting ? 0.6 : 1 }}
+                      style={{ background: "var(--red)", border: "none", color: "#fff", fontFamily: "var(--font-sans)", opacity: dupeDeleting || dupeSelected.size === 0 ? 0.5 : 1 }}
                     >
-                      {dupeDeleting ? "Removing..." : `Remove ${dupeResult.extraRows} duplicate row${dupeResult.extraRows === 1 ? "" : "s"}`}
+                      {dupeDeleting ? "Removing..." : `Remove ${dupeSelected.size} selected row${dupeSelected.size === 1 ? "" : "s"}`}
                     </button>
                   </div>
                 )}

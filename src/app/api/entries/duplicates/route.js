@@ -1,10 +1,18 @@
 import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 
-// Finds entries that are exact duplicates of each other (same date, desc,
-// amount, flow) — the signature of a statement being imported twice (e.g.
-// two uploads with an overlapping date range). Groups by that signature and
-// flags any group with more than one row.
+// Finds entries that share the same date, desc, amount and flow. This alone
+// is NOT proof of a duplicate import — the `date` column has no time-of-day,
+// so genuinely receiving the same amount from the same narration twice in
+// one day (e.g. two identical P2P transfers) looks byte-identical to a true
+// duplicate. To tell them apart we look at `created_at`: rows inserted
+// together in the same import batch (created_at within a couple minutes of
+// each other) are ambiguous and must be reviewed by the user; rows inserted
+// in two clearly separate sessions (minutes/hours/days apart) are the actual
+// signature of a statement being uploaded twice and are much safer to
+// pre-select for deletion.
+const CROSS_IMPORT_GAP_MS = 2 * 60 * 1000;
+
 function groupKey(e) {
   return `${e.date}|${(e.desc || "").trim().toLowerCase()}|${e.amount}|${e.flow}`;
 }
@@ -12,7 +20,7 @@ function groupKey(e) {
 async function findDuplicateGroups(supabase, userId) {
   const { data: entries, error } = await supabase
     .from("entries")
-    .select("id, date, desc, amount, flow, category, created_at")
+    .select("id, date, desc, amount, flow, created_at")
     .eq("user_id", userId)
     .order("created_at", { ascending: true });
   if (error) throw error;
@@ -24,8 +32,13 @@ async function findDuplicateGroups(supabase, userId) {
     groups.get(key).push(e);
   }
 
-  const dupeGroups = [...groups.values()].filter((g) => g.length > 1);
-  return dupeGroups;
+  return [...groups.values()]
+    .filter((g) => g.length > 1)
+    .map((g) => {
+      const times = g.map((e) => new Date(e.created_at).getTime());
+      const maxGap = Math.max(...times) - Math.min(...times);
+      return { rows: g, likelyDuplicate: maxGap > CROSS_IMPORT_GAP_MS };
+    });
 }
 
 export async function GET() {
@@ -34,48 +47,50 @@ export async function GET() {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
-    const dupeGroups = await findDuplicateGroups(supabase, user.id);
-    const extraCount = dupeGroups.reduce((s, g) => s + (g.length - 1), 0);
-    const inflowExtra = dupeGroups.reduce(
-      (s, g) => (g[0].flow === "in" ? s + Number(g[0].amount) * (g.length - 1) : s),
-      0,
-    );
-    const outflowExtra = dupeGroups.reduce(
-      (s, g) => (g[0].flow === "out" ? s + Number(g[0].amount) * (g.length - 1) : s),
-      0,
-    );
+    const groups = await findDuplicateGroups(supabase, user.id);
+    const toGroupPayload = (g) => ({
+      date: g.rows[0].date,
+      desc: g.rows[0].desc,
+      amount: g.rows[0].amount,
+      flow: g.rows[0].flow,
+      count: g.rows.length,
+      // keep the earliest row, offer the rest as deletable extras
+      extraIds: g.rows.slice(1).map((e) => e.id),
+    });
+
+    const likely   = groups.filter((g) => g.likelyDuplicate).map(toGroupPayload);
+    const ambiguous = groups.filter((g) => !g.likelyDuplicate).map(toGroupPayload);
+
     return NextResponse.json({
-      groups: dupeGroups.length,
-      extraRows: extraCount,
-      inflowExtra,
-      outflowExtra,
-      sample: dupeGroups.slice(0, 20).map((g) => ({
-        date: g[0].date, desc: g[0].desc, amount: g[0].amount, flow: g[0].flow, count: g.length,
-      })),
+      likely,
+      ambiguous,
+      likelyExtraRows: likely.reduce((s, g) => s + g.extraIds.length, 0),
+      ambiguousExtraRows: ambiguous.reduce((s, g) => s + g.extraIds.length, 0),
     });
   } catch (err) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
 
-// Keeps the earliest-inserted row in each duplicate group and deletes the
-// rest — this is the destructive counterpart to GET, only run when the user
-// explicitly confirms after reviewing the GET summary.
-export async function DELETE() {
+// Deletes only the specific entry ids the user selected after reviewing the
+// GET results — no blind "delete all matches" path, since same-day
+// legitimate repeat transactions are indistinguishable from true duplicates
+// without a human looking at them.
+export async function DELETE(req) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  try {
-    const dupeGroups = await findDuplicateGroups(supabase, user.id);
-    const idsToDelete = dupeGroups.flatMap((g) => g.slice(1).map((e) => e.id));
-    if (!idsToDelete.length) return NextResponse.json({ deleted: 0 });
+  const body = await req.json().catch(() => ({}));
+  const ids = Array.isArray(body.ids) ? body.ids : [];
+  if (!ids.length) return NextResponse.json({ error: "No entry ids provided." }, { status: 400 });
 
-    const { error } = await supabase.from("entries").delete().in("id", idsToDelete);
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  const { error, count } = await supabase
+    .from("entries")
+    .delete({ count: "exact" })
+    .eq("user_id", user.id)
+    .in("id", ids);
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-    return NextResponse.json({ deleted: idsToDelete.length });
-  } catch (err) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
-  }
+  return NextResponse.json({ deleted: count ?? ids.length });
 }
