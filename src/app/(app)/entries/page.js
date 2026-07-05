@@ -111,6 +111,13 @@ export default function EntriesPage() {
     return list;
   }, [displayEntries, selfFilter, importFilter]);
 
+  // Same import, but every month it touched — lets a bad statement import
+  // be undone in one action instead of hunting it down month by month.
+  const allImportEntries = useMemo(() => {
+    if (importFilter === "all") return [];
+    return entries.filter((e) => e.import_batch === importFilter);
+  }, [entries, importFilter]);
+
   const ledgerTotals = useMemo(() => {
     const totalIn  = filteredEntries.filter((e) => e.flow === "in").reduce((s, e) => s + Number(e.amount), 0);
     const totalOut = filteredEntries.filter((e) => e.flow === "out").reduce((s, e) => s + Number(e.amount), 0);
@@ -352,6 +359,23 @@ export default function EntriesPage() {
                   }}
                 >
                   Delete this import ({filteredEntries.length})
+                </button>
+              )}
+              {importFilter !== "all" && allImportEntries.length > filteredEntries.length && (
+                <button
+                  onClick={() => {
+                    if (!allImportEntries.length) return;
+                    if (!confirm(`Delete all ${allImportEntries.length} entries from "${importFilter}" across every month?`)) return;
+                    handleClearVisible(allImportEntries.map((e) => e.id));
+                    setImportFilter("all");
+                  }}
+                  style={{
+                    background: "none", border: "1px solid var(--red)", color: "var(--red)",
+                    fontFamily: "var(--font-sans)", fontSize: 11, fontWeight: 600,
+                    borderRadius: 6, padding: "5px 10px", cursor: "pointer",
+                  }}
+                >
+                  Delete from all months ({allImportEntries.length})
                 </button>
               )}
               <select
