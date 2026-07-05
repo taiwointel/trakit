@@ -40,8 +40,8 @@ const TRAILING_AMOUNT_RE = new RegExp(`^-?${AMOUNT}$`);
 // differ.
 const MONTHS_ABBR = { JAN: 1, FEB: 2, MAR: 3, APR: 4, MAY: 5, JUN: 6, JUL: 7, AUG: 8, SEP: 9, OCT: 10, NOV: 11, DEC: 12 };
 const DATE2 = "\\d{2}-[A-Z]{3}-\\d{2}";
-const RECORD_START2 = new RegExp(`^(${DATE2})(${DATE2})`);
-const PREFIX_RE2 = new RegExp(`^(${DATE2})(${DATE2})\\s*(.*)$`);
+const RECORD_START2 = new RegExp(`^(${DATE2})\\s*(${DATE2})`);
+const PREFIX_RE2 = new RegExp(`^(${DATE2})\\s*(${DATE2})\\s*(.*)$`);
 
 function toIsoDate2(d) {
   const m = d.match(/^(\d{2})-([A-Z]{3})-(\d{2})$/);
@@ -81,6 +81,29 @@ function formatAmount(n) {
   return n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+// candidate.desc is "everything before the resolved balance," which still
+// has the debit/credit amount (and, in the second Access format, its "-"
+// placeholder sibling) glued onto the true description text — strip it back
+// off so the ledger shows the narration, not "FGN STAMP DUTY50.00-".
+function stripTrailingAmount(desc, amount) {
+  const formatted = formatAmount(amount);
+  let stripped = desc;
+  const withDashMatch = stripped.match(new RegExp(escapeRegExp(formatted) + "\\s*-\\s*$"));
+  if (withDashMatch) {
+    stripped = stripped.slice(0, withDashMatch.index);
+  } else if (stripped.endsWith(formatted)) {
+    stripped = stripped.slice(0, -formatted.length);
+  } else {
+    return desc;
+  }
+  // The second Access format's other placeholder position — empty debit,
+  // populated credit — has "-<creditAmount><balance>" before the description
+  // boundary, so once the credit amount itself is stripped a lone trailing
+  // "-" placeholder (with possible surrounding whitespace) is left behind.
+  stripped = stripped.replace(/\s*-\s*$/, "");
+  return stripped;
+}
+
 // The debit/credit amount is glued directly in front of the balance with no
 // delimiter (e.g. "...19.630.00" = amount "19.63" + balance "0.00"), which
 // gives a strong local check: for the correct balance candidate, the exact
@@ -102,10 +125,33 @@ function formatAmount(n) {
 // row unresolved — the caller skips it and leaves runningBalance untouched
 // so a later row can resync against the last known-good balance — than to
 // fabricate a number.
+function escapeRegExp(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+// When a same-date batch can't be reconciled at all (seen in a real
+// statement: an internal rounding drift of a few kobo on one line offsets
+// every balance after it by that fixed amount), there's no attribution to
+// trust for any row in it — but its last line's own printed balance is
+// still real, so resyncing to that (rather than leaving runningBalance
+// frozen) lets every later, otherwise-correct batch keep reconciling
+// instead of cascading into "unmatched" for the rest of the statement.
+function lastPrintedBalance(block) {
+  const m = block.match(new RegExp(`(-?${AMOUNT})\\s*$`));
+  return m ? parseAmount(m[1]) : null;
+}
+
 function resolveRow(candidates, runningBalance) {
   const matches = candidates.filter((c) => {
     const amount = Math.round(Math.abs(c.balance - runningBalance) * 100) / 100;
-    return c.desc.endsWith(formatAmount(amount));
+    const formatted = formatAmount(amount);
+    if (c.desc.endsWith(formatted)) return true;
+    // The second Access Bank format (unlike the first) prints a literal "-"
+    // placeholder for whichever of Debit/Credit is empty, so a debit row's
+    // tail is "<amount> - <balance>" rather than "<amount><balance>" —
+    // tolerate that trailing placeholder dash, with or without the
+    // surrounding whitespace this format's table cells keep.
+    return new RegExp(escapeRegExp(formatted) + "\\s*-\\s*$").test(c.desc);
   });
   return matches.length ? matches[0] : null;
 }
@@ -268,13 +314,15 @@ function parseAccessFormat2(text) {
         for (const b of batch) {
           if (unmatchedSamples.length < 8) unmatchedSamples.push(b.block.slice(0, 200));
         }
+        const resync = lastPrintedBalance(batch[batch.length - 1].block);
+        if (resync !== null) runningBalance = resync;
         continue;
       }
 
       for (const { index, chosen } of resolution) {
         const pm = batch[index];
-        const desc = chosen.desc.replace(/\s+/g, " ").trim();
         const amount = Math.round(Math.abs(chosen.balance - runningBalance) * 100) / 100;
+        const desc = stripTrailingAmount(chosen.desc, amount).replace(/\s+/g, " ").trim();
         const isOut = chosen.balance < runningBalance;
         runningBalance = chosen.balance;
 
@@ -395,13 +443,15 @@ export function parseAccessStatementDebug(text) {
         for (const b of batch) {
           if (unmatchedSamples.length < 8) unmatchedSamples.push(b.block.slice(0, 200));
         }
+        const resync = lastPrintedBalance(batch[batch.length - 1].block);
+        if (resync !== null) runningBalance = resync;
         continue;
       }
 
       for (const { index, chosen } of resolution) {
         const pm = batch[index];
-        const desc = chosen.desc.replace(/\s+/g, " ").trim();
         const amount = Math.round(Math.abs(chosen.balance - runningBalance) * 100) / 100;
+        const desc = stripTrailingAmount(chosen.desc, amount).replace(/\s+/g, " ").trim();
         const isOut = chosen.balance < runningBalance;
         runningBalance = chosen.balance;
 
