@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { fallbackCategorize } from "@/lib/categories";
 import { lookupMerchantRules, normalizeMerchantKey } from "@/lib/merchantRules";
-import { isSelfTransfer, internalTransferFields } from "@/lib/selfTransfer";
+import { isSelfTransfer, isSelfTransferInText, internalTransferFields } from "@/lib/selfTransfer";
 import { NextResponse } from "next/server";
 
 export const maxDuration = 30;
@@ -34,7 +34,11 @@ export async function POST(request) {
     // one the user explicitly tagged via the labeling wizard's "Self
     // transfer" chip, is cash moving between the user's own accounts, not
     // real income or spend — tag it distinctly regardless of flow direction.
-    if (row.forceInternalTransfer || (fullName && isSelfTransfer(row.beneficiary, fullName))) {
+    if (
+      row.forceInternalTransfer ||
+      (fullName && isSelfTransfer(row.beneficiary, fullName)) ||
+      (fullName && !row.beneficiary && isSelfTransferInText(row.desc, fullName))
+    ) {
       return {
         user_id: user.id, date: row.date, desc: row.desc || "", amount: Number(row.amount) || 0,
         flow: row.flow || "out", beneficiary: row.beneficiary || null, source: "import",
