@@ -81,53 +81,6 @@ function formatAmount(n) {
   return n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-// candidate.desc is "everything before the resolved balance," which still
-// has the debit/credit amount (and, in the second Access format, its "-"
-// placeholder sibling) glued onto the true description text — strip it back
-// off so the ledger shows the narration, not "FGN STAMP DUTY50.00-".
-function stripTrailingAmount(desc, amount) {
-  const formatted = formatAmount(amount);
-  let stripped = desc;
-  const withDashMatch = stripped.match(new RegExp(escapeRegExp(formatted) + "\\s*-\\s*$"));
-  if (withDashMatch) {
-    stripped = stripped.slice(0, withDashMatch.index);
-  } else if (stripped.endsWith(formatted)) {
-    stripped = stripped.slice(0, -formatted.length);
-  } else {
-    return desc;
-  }
-  // The second Access format's other placeholder position — empty debit,
-  // populated credit — has "-<creditAmount><balance>" before the description
-  // boundary, so once the credit amount itself is stripped a lone trailing
-  // "-" placeholder (with possible surrounding whitespace) is left behind.
-  stripped = stripped.replace(/\s*-\s*$/, "");
-  return stripped;
-}
-
-// The debit/credit amount is glued directly in front of the balance with no
-// delimiter (e.g. "...19.630.00" = amount "19.63" + balance "0.00"), which
-// gives a strong local check: for the correct balance candidate, the exact
-// comma-formatted string of the implied amount (|candidate.balance -
-// runningBalance|) must appear as the literal trailing text of the
-// candidate's desc. Spurious candidates (splits that land mid-ref-number)
-// essentially never satisfy this, since ref numbers don't reconstruct into
-// the exact digit sequence of a real amount. This resolves each row using
-// only the running balance carried from prior rows — no dependency on the
-// statement's declared Closing Balance, which in practice can itself be
-// inconsistent with its own Debits/Credits totals (seen in a real sample).
-//
-// There is deliberately no "best guess" fallback here: on a same-day batch
-// of transactions, the printed order can be reshuffled relative to the true
-// posting order, so a row can legitimately fail to reconcile against the
-// immediately-preceding running balance even though nothing is wrong with
-// the extraction. Guessing (e.g. smallest-delta) produces silently wrong
-// amounts that cascade into every following row. It's safer to leave the
-// row unresolved — the caller skips it and leaves runningBalance untouched
-// so a later row can resync against the last known-good balance — than to
-// fabricate a number.
-function escapeRegExp(s) {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
 
 // When a same-date batch can't be reconciled at all (seen in a real
 // statement: an internal rounding drift of a few kobo on one line offsets
@@ -148,38 +101,65 @@ function lastPrintedBalance(block) {
 // every principal/interest liquidation that day was off the naive diff by
 // a cent or two) that would otherwise fail an exact diff/text match despite
 // the row being perfectly legitimate.
-function extractDeclaredAmount(desc) {
-  const m = desc.match(new RegExp(`(${AMOUNT})\\s*-?\\s*$`));
-  return m ? parseAmount(m[1]) : null;
+//
+// But a naive single regex match here has the exact same ambiguity problem
+// as the balance itself: a reference code's trailing digit can glue onto
+// the amount's own leading digit (e.g. desc "...STPL2504203X825,000.00-",
+// where the true amount is 25,000.00 and the "8" belongs to the reference),
+// and a plain "find the amount at the end" regex greedily prefers the
+// leftmost/longest match, silently absorbing that stray digit. So this
+// mirrors getCandidates: every syntactically valid trailing-amount split of
+// desc is kept as its own candidate (with an optional trailing "-" for the
+// format's empty-column placeholder), and resolveRow below picks whichever
+// one, combined with its balance candidate, best fits the running balance —
+// exactly the same "verify against the running balance, don't trust the
+// text in isolation" principle as the balance candidates themselves.
+function getAmountCandidates(desc) {
+  const candidates = [];
+  for (let i = 0; i < desc.length; i++) {
+    if (!(desc[i] >= "0" && desc[i] <= "9")) continue;
+    const suffix = desc.slice(i);
+    const m = suffix.match(new RegExp(`^(${AMOUNT})-?$`));
+    if (m) {
+      // Whichever of Debit/Credit is empty prints as a literal "-"
+      // placeholder immediately before the populated one (e.g. a credit-only
+      // row's tail is "...SALARY-747,647.50", the "-" marking the empty
+      // Debit column) — strip that placeholder along with the amount so it
+      // doesn't linger at the end of the narration.
+      const prefix = desc.slice(0, i).replace(/-\s*$/, "").trim();
+      candidates.push({ desc: prefix, amount: parseAmount(m[1]) });
+    }
+  }
+  return candidates;
 }
 
-function resolveRow(candidates, runningBalance, preferLeftmost) {
-  const matches = candidates.filter((c) => {
-    const amount = Math.round(Math.abs(c.balance - runningBalance) * 100) / 100;
-    const formatted = formatAmount(amount);
-    if (c.desc.endsWith(formatted)) return true;
-    // The second Access Bank format (unlike the first) prints a literal "-"
-    // placeholder for whichever of Debit/Credit is empty, so a debit row's
-    // tail is "<amount> - <balance>" rather than "<amount><balance>" —
-    // tolerate that trailing placeholder dash, with or without the
-    // surrounding whitespace this format's table cells keep.
-    return new RegExp(escapeRegExp(formatted) + "\\s*-\\s*$").test(c.desc);
-  });
-  if (matches.length) return matches[0];
-  // The second format's spaced columns mean a row's true balance (a
-  // multi-digit-group number like "748,133.38") always yields the FIRST,
-  // leftmost candidate from getCandidates — every candidate after it is
-  // just a truncated fragment of that same number's tail digits (e.g.
-  // "48,133.38", "133.38", ...), never a genuinely different amount, since
-  // this format's spacing means real ambiguity (as in the no-separator
-  // original format, where ref numbers can coincidentally look like a
-  // balance) doesn't happen here. So when a real statement's own kobo
-  // rounding noise makes the diff/text check above fail to match anything
-  // (confirmed against a real statement full of such 1-3 cent drifts),
-  // trust that leftmost candidate rather than dropping an otherwise-valid
-  // row entirely.
-  if (preferLeftmost && candidates.length) return candidates[0];
-  return null;
+// "Leftmost candidate is always correct" turned out to be false against a
+// real statement: a reference code glued directly onto its row's own amount
+// with zero separator produces a leftmost split that's a genuinely
+// different, wrong number — not just a truncated fragment of the real one.
+// The one signal that can't be fooled by ref-number digits is the running
+// balance: for the true balance/amount pair, the amount must equal the
+// balance delta (within the statement's own small kobo rounding noise); for
+// a wrong pairing, the "amount" is contaminated by stray reference digits
+// and misses the delta by whole naira, not kobo. So score every combination
+// of balance candidate x amount-within-that-candidate's-desc by how closely
+// it fits the delta, and take the best fit within a tolerance loose enough
+// for rounding noise but far too tight for a reference-digit collision to
+// sneak through.
+function resolveRow(candidates, runningBalance) {
+  let best = null;
+  let bestDelta = Infinity;
+  for (const c of candidates) {
+    const delta = Math.abs(c.balance - runningBalance);
+    for (const ac of getAmountCandidates(c.desc)) {
+      const diff = Math.abs(ac.amount - delta);
+      if (diff < bestDelta) {
+        bestDelta = diff;
+        best = { desc: ac.desc, balance: c.balance, amount: ac.amount };
+      }
+    }
+  }
+  return bestDelta <= 1 ? best : null;
 }
 
 // Rows sharing the same posted date can be printed in a different order
@@ -193,7 +173,7 @@ function resolveRow(candidates, runningBalance, preferLeftmost) {
 // Batches are small in practice (same-day transaction counts), and wrong
 // branches die immediately (resolveRow fails fast), so this stays cheap
 // despite being worst-case factorial.
-function resolveBatch(blocks, startBalance, preferLeftmost) {
+function resolveBatch(blocks, startBalance) {
   const n = blocks.length;
   const used = new Array(n).fill(false);
   const order = [];
@@ -202,7 +182,7 @@ function resolveBatch(blocks, startBalance, preferLeftmost) {
     if (order.length === n) return true;
     for (let i = 0; i < n; i++) {
       if (used[i]) continue;
-      const chosen = resolveRow(blocks[i].candidates, running, preferLeftmost);
+      const chosen = resolveRow(blocks[i].candidates, running);
       if (!chosen) continue;
       used[i] = true;
       order.push({ index: i, chosen });
@@ -223,11 +203,11 @@ function resolveBatch(blocks, startBalance, preferLeftmost) {
 // than losing every other, individually-correct row in that batch, walk it
 // in print order, resolving what matches and resyncing off each drifted
 // row's own printed balance (never fabricated) so later rows keep working.
-function resolveBatchSequential(blocks, startBalance, preferLeftmost) {
+function resolveBatchSequential(blocks, startBalance) {
   let running = startBalance;
   const resolved = [];
   for (let i = 0; i < blocks.length; i++) {
-    const chosen = resolveRow(blocks[i].candidates, running, preferLeftmost);
+    const chosen = resolveRow(blocks[i].candidates, running);
     if (chosen) {
       resolved.push({ index: i, chosen, prevBalance: running });
       running = chosen.balance;
@@ -321,7 +301,22 @@ function parseAccessFormat2(text) {
   for (const section of sections) {
     const INTERNAL = buildInternalRegex(section.holderName);
     const BOILERPLATE = /^(this is an automated transaction alert|account statement|generated on|account details|financial summary|summary\s*statement\s*period|currency:|account name:|branch address:|account class:|customer'?s?\s*address:|account number:|opening balance:|total withdrawals:|total deposits:|closing balance:|cleared balance:|uncleared balance:|posted\s*date\s*value\s*date\s*description|for enquiries on access bank)/i;
-    const lines = section.body.split(/\r?\n/).filter((line) => !BOILERPLATE.test(line.trim()));
+    // The trailing "automated transaction alert" disclaimer at the very end
+    // of the statement wraps across multiple pdf-parse lines (e.g. a phone
+    // number split mid-sentence), and only its first line matches
+    // BOILERPLATE above — later wrapped lines (like "2802500, +234 0201-
+    // 2712500-7 or send an email to...") don't start with any known phrase,
+    // so a stateless per-line filter lets them slip through and glue onto
+    // the last transaction block, corrupting its balance parse. Once the
+    // disclaimer starts, nothing meaningful follows it in the document, so
+    // stop collecting lines entirely rather than filtering line-by-line.
+    const rawLines = section.body.split(/\r?\n/);
+    const lines = [];
+    for (const line of rawLines) {
+      const trimmed = line.trim();
+      if (/^this is an automated transaction alert/i.test(trimmed)) break;
+      if (!BOILERPLATE.test(trimmed)) lines.push(line);
+    }
 
     const blocks = [];
     let current = null;
@@ -359,7 +354,7 @@ function parseAccessFormat2(text) {
 
       let resolution = resolveBatch(batch, runningBalance);
       if (!resolution) {
-        const fallback = resolveBatchSequential(batch, runningBalance, true);
+        const fallback = resolveBatchSequential(batch, runningBalance);
         unmatched += batch.length - fallback.resolved.length;
         for (const b of batch) {
           if (unmatchedSamples.length < 8) unmatchedSamples.push(b.block.slice(0, 200));
@@ -367,8 +362,7 @@ function parseAccessFormat2(text) {
         resolution = fallback.resolved;
         for (const { index, chosen, prevBalance } of resolution) {
           const pm = batch[index];
-          const amount = extractDeclaredAmount(chosen.desc) ?? Math.round(Math.abs(chosen.balance - prevBalance) * 100) / 100;
-          const desc = stripTrailingAmount(chosen.desc, amount).replace(/\s+/g, " ").trim();
+          const { amount, desc } = chosen;
           const isOut = chosen.balance < prevBalance;
 
           if (!amount || amount <= 0) continue;
@@ -390,8 +384,7 @@ function parseAccessFormat2(text) {
 
       for (const { index, chosen } of resolution) {
         const pm = batch[index];
-        const amount = extractDeclaredAmount(chosen.desc) ?? Math.round(Math.abs(chosen.balance - runningBalance) * 100) / 100;
-        const desc = stripTrailingAmount(chosen.desc, amount).replace(/\s+/g, " ").trim();
+        const { amount, desc } = chosen;
         const isOut = chosen.balance < runningBalance;
         runningBalance = chosen.balance;
 
@@ -516,8 +509,7 @@ export function parseAccessStatementDebug(text) {
         resolution = fallback.resolved;
         for (const { index, chosen, prevBalance } of resolution) {
           const pm = batch[index];
-          const amount = extractDeclaredAmount(chosen.desc) ?? Math.round(Math.abs(chosen.balance - prevBalance) * 100) / 100;
-          const desc = stripTrailingAmount(chosen.desc, amount).replace(/\s+/g, " ").trim();
+          const { amount, desc } = chosen;
           const isOut = chosen.balance < prevBalance;
 
           if (!amount || amount <= 0) continue;
@@ -538,8 +530,7 @@ export function parseAccessStatementDebug(text) {
 
       for (const { index, chosen } of resolution) {
         const pm = batch[index];
-        const amount = extractDeclaredAmount(chosen.desc) ?? Math.round(Math.abs(chosen.balance - runningBalance) * 100) / 100;
-        const desc = stripTrailingAmount(chosen.desc, amount).replace(/\s+/g, " ").trim();
+        const { amount, desc } = chosen;
         const isOut = chosen.balance < runningBalance;
         runningBalance = chosen.balance;
 
