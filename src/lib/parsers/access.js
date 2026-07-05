@@ -141,7 +141,19 @@ function lastPrintedBalance(block) {
   return m ? parseAmount(m[1]) : null;
 }
 
-function resolveRow(candidates, runningBalance) {
+// The declared Debit/Credit figure printed right before the balance is the
+// bank's own stated amount for the row — more trustworthy than the diff
+// against a running balance, since real statements carry small per-line
+// kobo rounding noise (confirmed against a real statement where nearly
+// every principal/interest liquidation that day was off the naive diff by
+// a cent or two) that would otherwise fail an exact diff/text match despite
+// the row being perfectly legitimate.
+function extractDeclaredAmount(desc) {
+  const m = desc.match(new RegExp(`(${AMOUNT})\\s*-?\\s*$`));
+  return m ? parseAmount(m[1]) : null;
+}
+
+function resolveRow(candidates, runningBalance, preferLeftmost) {
   const matches = candidates.filter((c) => {
     const amount = Math.round(Math.abs(c.balance - runningBalance) * 100) / 100;
     const formatted = formatAmount(amount);
@@ -153,7 +165,21 @@ function resolveRow(candidates, runningBalance) {
     // surrounding whitespace this format's table cells keep.
     return new RegExp(escapeRegExp(formatted) + "\\s*-\\s*$").test(c.desc);
   });
-  return matches.length ? matches[0] : null;
+  if (matches.length) return matches[0];
+  // The second format's spaced columns mean a row's true balance (a
+  // multi-digit-group number like "748,133.38") always yields the FIRST,
+  // leftmost candidate from getCandidates — every candidate after it is
+  // just a truncated fragment of that same number's tail digits (e.g.
+  // "48,133.38", "133.38", ...), never a genuinely different amount, since
+  // this format's spacing means real ambiguity (as in the no-separator
+  // original format, where ref numbers can coincidentally look like a
+  // balance) doesn't happen here. So when a real statement's own kobo
+  // rounding noise makes the diff/text check above fail to match anything
+  // (confirmed against a real statement full of such 1-3 cent drifts),
+  // trust that leftmost candidate rather than dropping an otherwise-valid
+  // row entirely.
+  if (preferLeftmost && candidates.length) return candidates[0];
+  return null;
 }
 
 // Rows sharing the same posted date can be printed in a different order
@@ -167,7 +193,7 @@ function resolveRow(candidates, runningBalance) {
 // Batches are small in practice (same-day transaction counts), and wrong
 // branches die immediately (resolveRow fails fast), so this stays cheap
 // despite being worst-case factorial.
-function resolveBatch(blocks, startBalance) {
+function resolveBatch(blocks, startBalance, preferLeftmost) {
   const n = blocks.length;
   const used = new Array(n).fill(false);
   const order = [];
@@ -176,7 +202,7 @@ function resolveBatch(blocks, startBalance) {
     if (order.length === n) return true;
     for (let i = 0; i < n; i++) {
       if (used[i]) continue;
-      const chosen = resolveRow(blocks[i].candidates, running);
+      const chosen = resolveRow(blocks[i].candidates, running, preferLeftmost);
       if (!chosen) continue;
       used[i] = true;
       order.push({ index: i, chosen });
@@ -188,6 +214,29 @@ function resolveBatch(blocks, startBalance) {
   }
 
   return dfs(startBalance) ? order : null;
+}
+
+// Fallback for when resolveBatch can't reconcile the whole same-date batch
+// as one chain — happens when one row's own printed balance has a small
+// internal drift (confirmed against a real statement: a same-day salary
+// credit whose implied amount was 2 kobo off its printed amount). Rather
+// than losing every other, individually-correct row in that batch, walk it
+// in print order, resolving what matches and resyncing off each drifted
+// row's own printed balance (never fabricated) so later rows keep working.
+function resolveBatchSequential(blocks, startBalance, preferLeftmost) {
+  let running = startBalance;
+  const resolved = [];
+  for (let i = 0; i < blocks.length; i++) {
+    const chosen = resolveRow(blocks[i].candidates, running, preferLeftmost);
+    if (chosen) {
+      resolved.push({ index: i, chosen, prevBalance: running });
+      running = chosen.balance;
+    } else {
+      const printed = lastPrintedBalance(blocks[i].block);
+      if (printed !== null) running = printed;
+    }
+  }
+  return { resolved, finalBalance: running };
 }
 
 function buildInternalRegex(holderName) {
@@ -308,20 +357,40 @@ function parseAccessFormat2(text) {
       const batch = parsed.slice(i, j);
       i = j;
 
-      const resolution = resolveBatch(batch, runningBalance);
+      let resolution = resolveBatch(batch, runningBalance);
       if (!resolution) {
-        unmatched += batch.length;
+        const fallback = resolveBatchSequential(batch, runningBalance, true);
+        unmatched += batch.length - fallback.resolved.length;
         for (const b of batch) {
           if (unmatchedSamples.length < 8) unmatchedSamples.push(b.block.slice(0, 200));
         }
-        const resync = lastPrintedBalance(batch[batch.length - 1].block);
-        if (resync !== null) runningBalance = resync;
+        resolution = fallback.resolved;
+        for (const { index, chosen, prevBalance } of resolution) {
+          const pm = batch[index];
+          const amount = extractDeclaredAmount(chosen.desc) ?? Math.round(Math.abs(chosen.balance - prevBalance) * 100) / 100;
+          const desc = stripTrailingAmount(chosen.desc, amount).replace(/\s+/g, " ").trim();
+          const isOut = chosen.balance < prevBalance;
+
+          if (!amount || amount <= 0) continue;
+          if (INTERNAL && INTERNAL.test(desc)) continue;
+
+          const isoDate = toIsoDate2(pm.date);
+          if (!isoDate) continue;
+          rows.push({
+            date: isoDate,
+            desc,
+            amount,
+            flow: isOut ? "out" : "in",
+            beneficiary: extractBeneficiary(desc),
+          });
+        }
+        runningBalance = fallback.finalBalance;
         continue;
       }
 
       for (const { index, chosen } of resolution) {
         const pm = batch[index];
-        const amount = Math.round(Math.abs(chosen.balance - runningBalance) * 100) / 100;
+        const amount = extractDeclaredAmount(chosen.desc) ?? Math.round(Math.abs(chosen.balance - runningBalance) * 100) / 100;
         const desc = stripTrailingAmount(chosen.desc, amount).replace(/\s+/g, " ").trim();
         const isOut = chosen.balance < runningBalance;
         runningBalance = chosen.balance;
@@ -437,20 +506,39 @@ export function parseAccessStatementDebug(text) {
       const batch = parsed.slice(i, j);
       i = j;
 
-      const resolution = resolveBatch(batch, runningBalance);
+      let resolution = resolveBatch(batch, runningBalance);
       if (!resolution) {
-        unmatched += batch.length;
+        const fallback = resolveBatchSequential(batch, runningBalance);
+        unmatched += batch.length - fallback.resolved.length;
         for (const b of batch) {
           if (unmatchedSamples.length < 8) unmatchedSamples.push(b.block.slice(0, 200));
         }
-        const resync = lastPrintedBalance(batch[batch.length - 1].block);
-        if (resync !== null) runningBalance = resync;
+        resolution = fallback.resolved;
+        for (const { index, chosen, prevBalance } of resolution) {
+          const pm = batch[index];
+          const amount = extractDeclaredAmount(chosen.desc) ?? Math.round(Math.abs(chosen.balance - prevBalance) * 100) / 100;
+          const desc = stripTrailingAmount(chosen.desc, amount).replace(/\s+/g, " ").trim();
+          const isOut = chosen.balance < prevBalance;
+
+          if (!amount || amount <= 0) continue;
+          if (INTERNAL && INTERNAL.test(desc)) continue;
+
+          const [dd, mm, yyyy] = pm.date.split("/");
+          rows.push({
+            date: `${yyyy}-${mm}-${dd}`,
+            desc,
+            amount,
+            flow: isOut ? "out" : "in",
+            beneficiary: extractBeneficiary(desc),
+          });
+        }
+        runningBalance = fallback.finalBalance;
         continue;
       }
 
       for (const { index, chosen } of resolution) {
         const pm = batch[index];
-        const amount = Math.round(Math.abs(chosen.balance - runningBalance) * 100) / 100;
+        const amount = extractDeclaredAmount(chosen.desc) ?? Math.round(Math.abs(chosen.balance - runningBalance) * 100) / 100;
         const desc = stripTrailingAmount(chosen.desc, amount).replace(/\s+/g, " ").trim();
         const isOut = chosen.balance < runningBalance;
         runningBalance = chosen.balance;
