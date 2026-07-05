@@ -75,9 +75,18 @@ export function parseOpayStatementDebug(text) {
 
   // Only the Wallet Account section holds real external transactions —
   // Savings Account (OWealth) is a separate table of internal sub-balance
-  // movements and interest accruals.
-  const walletStart = text.search(/wallet account/i);
-  const savingsStart = text.search(/savings account/i);
+  // movements and interest accruals. The literal "Savings Account" text is
+  // NOT a reliable boundary: OPay prints that section's summary box (Total
+  // Credit/Closing Balance/Debit Count/etc.) on the page *before* the Wallet
+  // Account table's final rows finish printing, so cutting at the text
+  // match truncates real trailing wallet transactions. The repeated column
+  // header ("Trans. Time Value Date Description Debit...") is reliable: it
+  // appears once above the Wallet Account table and again directly above
+  // the real Savings Account table, with no such gap.
+  const HEADER_FINGERPRINT = /trans\.?\s*time\s*value\s*date\s*description\s*debit/gi;
+  const headerPositions = [...text.matchAll(HEADER_FINGERPRINT)].map((m) => m.index);
+  const walletStart = headerPositions[0] ?? text.search(/wallet account/i);
+  const savingsStart = headerPositions.length > 1 ? headerPositions[1] : text.search(/savings account/i);
   const section = text.slice(walletStart, savingsStart > walletStart ? savingsStart : undefined);
 
   const lines = section.split(/\r?\n/);
