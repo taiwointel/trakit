@@ -476,6 +476,27 @@ export default function LedgerTable({ entries, onUpdate, onDelete, onClearAll })
   const [recatProgress,   setRecatProgress]   = useState(null);
   const [recatNotice,     setRecatNotice]     = useState(null);
   const [clearWizardOpen, setClearWizardOpen] = useState(false);
+  const [sortBy,          setSortBy]          = useState("date");
+  const [sortDir,         setSortDir]         = useState("desc");
+
+  function toggleSort(field) {
+    if (sortBy === field) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else { setSortBy(field); setSortDir(field === "date" ? "desc" : "desc"); }
+  }
+
+  const sortedEntries = useMemo(() => {
+    const list = [...entries];
+    const dir = sortDir === "asc" ? 1 : -1;
+    list.sort((a, b) => {
+      if (sortBy === "amount") return (Number(a.amount) - Number(b.amount)) * dir;
+      // date sort falls back to created_at (or id) for same-day entries so
+      // ties don't jump around unpredictably on re-render
+      const dateCmp = (a.date || "").localeCompare(b.date || "");
+      if (dateCmp !== 0) return dateCmp * dir;
+      return String(a.id).localeCompare(String(b.id)) * dir;
+    });
+    return list;
+  }, [entries, sortBy, sortDir]);
 
   async function handleRecategorizeAll() {
     // Re-categorize every "money out" entry in view, not just the ones still
@@ -572,7 +593,7 @@ export default function LedgerTable({ entries, onUpdate, onDelete, onClearAll })
 
       {/* ── Mobile: card list (hidden on md+) ── */}
       <div className="ledger-mobile">
-        {entries.map((entry) => {
+        {sortedEntries.map((entry) => {
           if (editingId === entry.id) {
             return (
               <div key={entry.id} style={{ padding: "12px 14px", borderBottom: "1px solid var(--rule-paper)", background: "var(--paper-2)" }}>
@@ -601,16 +622,36 @@ export default function LedgerTable({ entries, onUpdate, onDelete, onClearAll })
         <table className="w-full text-sm border-collapse">
           <thead>
             <tr style={{ background: "var(--paper-2)", borderBottom: "2px solid var(--rule-paper)" }}>
-              {["Date", "Purpose", "Detail", "Amount", "Category", "Tags", ""].map((h) => (
-                <th key={h} className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider"
-                  style={{ color: "var(--paper-text-dim)", fontFamily: "var(--font-sans)", whiteSpace: "nowrap" }}>
-                  {h}
-                </th>
-              ))}
+              {["Date", "Purpose", "Detail", "Amount", "Category", "Tags", ""].map((h) => {
+                const field = h === "Date" ? "date" : h === "Amount" ? "amount" : null;
+                const isSorted = field && sortBy === field;
+                return (
+                  <th key={h} className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider"
+                    style={{ color: "var(--paper-text-dim)", fontFamily: "var(--font-sans)", whiteSpace: "nowrap" }}>
+                    {field ? (
+                      <button
+                        onClick={() => toggleSort(field)}
+                        style={{
+                          background: "none", border: "none", cursor: "pointer", padding: 0,
+                          color: isSorted ? "var(--gold)" : "var(--paper-text-dim)",
+                          fontFamily: "var(--font-sans)", fontSize: "inherit", fontWeight: "inherit",
+                          textTransform: "inherit", letterSpacing: "inherit",
+                          display: "flex", alignItems: "center", gap: 3,
+                        }}
+                      >
+                        {h}
+                        <span style={{ fontSize: 9, opacity: isSorted ? 1 : 0.35 }}>
+                          {isSorted ? (sortDir === "asc" ? "▲" : "▼") : "▼"}
+                        </span>
+                      </button>
+                    ) : h}
+                  </th>
+                );
+              })}
             </tr>
           </thead>
           <tbody>
-            {entries.map((entry, i) => {
+            {sortedEntries.map((entry, i) => {
               if (editingId === entry.id) {
                 return (
                   <EditRow
@@ -626,7 +667,7 @@ export default function LedgerTable({ entries, onUpdate, onDelete, onClearAll })
                   key={entry.id}
                   entry={entry}
                   index={i}
-                  total={entries.length}
+                  total={sortedEntries.length}
                   onEdit={setEditingId}
                   onDelete={onDelete}
                   onUpdate={onUpdate}
