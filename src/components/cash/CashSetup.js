@@ -32,7 +32,7 @@ export default function CashSetup({ anchor, onSave }) {
         style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}
       >
         Cash balance
-        <InfoTooltip text="Your balance is calculated live from a single starting point (the anchor) plus all your entries after it. You are not storing a running total; the app recomputes it every time. Re-anchoring just moves that starting point and never changes your past entries." />
+        <InfoTooltip text="This is your one real-world data point: what you actually had, on a specific date. From there the app adds/subtracts every entry you log to work out your balance on any day — live, automatically, with nothing to keep re-typing. Re-anchoring just moves that starting point forward; it never changes past entries." />
       </p>
 
       {hasAnchor && (
@@ -52,7 +52,7 @@ export default function CashSetup({ anchor, onSave }) {
       <form onSubmit={handleSave} className="flex flex-wrap gap-3 items-end">
         <div className="flex flex-col gap-1">
           <label className="text-xs" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>
-            {hasAnchor ? "Re-anchor: as of date" : "As of date"}
+            {hasAnchor ? "Re-anchor: as of date" : "The date you're sure about"}
           </label>
           <input
             type="date"
@@ -69,7 +69,7 @@ export default function CashSetup({ anchor, onSave }) {
         </div>
         <div className="flex flex-col gap-1">
           <label className="text-xs" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>
-            I had (₦)
+            What you actually had (₦)
           </label>
           <input
             type="text"

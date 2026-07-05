@@ -62,7 +62,7 @@ export default function CashPage() {
         <div className="section-divider-rule" />
       </div>
       <p className="section-desc">
-        Your balance is computed from a single anchor point plus every entry you have logged since, so it always matches your ledger exactly. There is no separate running total to fall out of sync. The daily navigator lets you check your opening and closing balance for any date on demand.
+        Tell it what you actually had in your account on one date, and it does the arithmetic for every day after that automatically — using the entries you log, not a second number you'd have to keep updating by hand. That single fact is also what powers your balance across the app: the liquidity/runway gauge and net worth both need a real cash figure to work from. Get a fresh reading out of sync with reality (found cash, a missed bank fee)? Re-anchor with today's date and true balance — it moves the starting point forward without touching any past entries.
       </p>
 
       {!hasAnchor ? (
