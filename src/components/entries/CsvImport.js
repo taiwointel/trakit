@@ -920,9 +920,22 @@ export default function CsvImport({ onImported, onJumpToMonth }) {
   const [sortKey, setSortKey] = useState(null); // null = default order (date, then in-before-out)
   const [sortDir, setSortDir] = useState("asc");
   const [importSummary, setImportSummary] = useState(null); // null | { inserted, learnedCount, categorized, catError, months }
+  const [queueInfo,    setQueueInfo]    = useState(null); // null | { index, total, name } while importing 2+ files at once
   const fileRef = useRef(null);
   const cancelledRef = useRef(false);
+  const passwordResolveRef = useRef(null); // resolves the promise processFile is awaiting on when a PDF turns out encrypted
   useEffect(() => () => { cancelledRef.current = true; }, []);
+
+  // Suspends the calling processFile() until the user submits a password
+  // (resolves with the string) or cancels (resolves with null, meaning
+  // "skip this file"), without needing the outer file queue to know or care.
+  const waitForPassword = useCallback((file, error) => {
+    return new Promise((resolve) => {
+      setPasswordFile(file);
+      setPasswordError(error);
+      passwordResolveRef.current = resolve;
+    });
+  }, []);
 
   // Drives a statement-import job to completion, stepping through it one
   // chunk at a time so extraction never exceeds free-tier AI rate limits
@@ -983,13 +996,13 @@ export default function CsvImport({ onImported, onJumpToMonth }) {
     // blocking the import behind a question. buildLabelGroups/AUTO_LABEL_RULES
     // are still applied above (self-transfer, loan, auto-label prefixing) —
     // only the "ask the user" modal step is skipped.
-    setRows(rowsWithBene);
+    // Appends rather than replaces so multiple statements (even from
+    // different banks) queued in one drop all land in the same review table.
+    setRows((prev) => [...prev, ...rowsWithBene]);
   }, []);
 
-  const processFile = useCallback(async (file, password) => {
+  const processFile = useCallback(async (file) => {
     setStatus(null);
-    setRows([]);
-    setWizardGroups(null);
 
     if (file.size > MAX_BYTES) {
       setStatus({ type: "error", msg: "File too large (max 4 MB). For PDFs, try exporting a shorter date range from your bank." });
@@ -1009,20 +1022,30 @@ export default function CsvImport({ onImported, onJumpToMonth }) {
     } else if (ext === "pdf" || ["jpg","jpeg","png","webp"].includes(ext)) {
       setExtracting(true);
       try {
-        const fd = new FormData();
-        fd.append("file", file);
-        if (password) fd.append("password", password);
-        const startRes  = await fetch("/api/migrate/statement/start", { method: "POST", body: fd });
-        const startData = await startRes.json();
-        if (!startRes.ok) {
-          if (startData.passwordRequired) {
-            setPasswordFile(file);
-            setPasswordError(password ? startData.error : null);
+        let password;
+        let startData;
+        // Loops in place (rather than bouncing back out to the caller) so a
+        // queued batch of files can await this one file's password prompt
+        // without losing its place — the queue driver just sees one long
+        // pending processFile() call.
+        while (true) {
+          const fd = new FormData();
+          fd.append("file", file);
+          if (password) fd.append("password", password);
+          const startRes = await fetch("/api/migrate/statement/start", { method: "POST", body: fd });
+          startData = await startRes.json();
+          if (!startRes.ok) {
+            if (startData.passwordRequired) {
+              const pw = await waitForPassword(file, password ? startData.error : null);
+              if (pw === null) return; // user cancelled — skip this file
+              password = pw;
+              continue;
+            }
+            const msg = startData.debug ? `${startData.error}: ${JSON.stringify(startData.debug)}` : (startData.error || "Extraction failed.");
+            setStatus({ type: "error", msg });
             return;
           }
-          const msg = startData.debug ? `${startData.error}: ${JSON.stringify(startData.debug)}` : (startData.error || "Extraction failed.");
-          setStatus({ type: "error", msg });
-          return;
+          break;
         }
         setPasswordFile(null);
         setPasswordError(null);
@@ -1050,19 +1073,46 @@ export default function CsvImport({ onImported, onJumpToMonth }) {
     } else {
       setStatus({ type: "error", msg: "Unsupported format. Drop a CSV, PDF, JPG, or PNG." });
     }
-  }, [launchWizard, pollJob]);
+  }, [launchWizard, pollJob, waitForPassword]);
 
-  const onDrop = (e) => { e.preventDefault(); setDragging(false); const f = e.dataTransfer.files?.[0]; if (f) processFile(f); };
-  const onPick = (e) => { const f = e.target.files?.[0]; if (f) processFile(f); e.target.value = ""; };
+  // Drives one or more dropped/picked files through processFile in sequence
+  // (statements from different banks are auto-detected per file, so nothing
+  // bank-specific needs to be told apart here) — all their rows land in the
+  // same review table via launchWizard's append behavior.
+  const processFiles = useCallback(async (fileList) => {
+    const files = Array.from(fileList).filter(Boolean);
+    if (!files.length) return;
+    setStatus(null);
+    setRows([]);
+    setWizardGroups(null);
+    setImportSummary(null);
+    cancelledRef.current = false;
+    for (let i = 0; i < files.length; i++) {
+      if (cancelledRef.current) break;
+      setQueueInfo(files.length > 1 ? { index: i + 1, total: files.length, name: files[i].name } : null);
+      await processFile(files[i]);
+    }
+    setQueueInfo(null);
+  }, [processFile]);
+
+  const onDrop = (e) => { e.preventDefault(); setDragging(false); processFiles(e.dataTransfer.files); };
+  const onPick = (e) => { processFiles(e.target.files); e.target.value = ""; };
 
   const submitPassword = () => {
     if (!passwordFile || !passwordInput.trim()) return;
-    processFile(passwordFile, passwordInput.trim());
+    const pw = passwordInput.trim();
+    setPasswordInput("");
+    const resolve = passwordResolveRef.current;
+    passwordResolveRef.current = null;
+    resolve?.(pw);
   };
   const cancelPassword = () => {
     setPasswordFile(null);
     setPasswordInput("");
     setPasswordError(null);
+    const resolve = passwordResolveRef.current;
+    passwordResolveRef.current = null;
+    resolve?.(null);
   };
 
   // Default order is chronological, with "in" rows sitting below "out" rows
@@ -1277,7 +1327,9 @@ export default function CsvImport({ onImported, onJumpToMonth }) {
             {extracting ? (
               <>
                 <span className="text-sm font-medium" style={{ color: "var(--gold)", fontFamily: "var(--font-sans)" }}>
-                  Trakit7 is extracting transactions...
+                  {queueInfo
+                    ? `(${queueInfo.index}/${queueInfo.total}) Extracting "${queueInfo.name}"...`
+                    : "Trakit7 is extracting transactions..."}
                 </span>
                 {extractProgress && extractProgress.total > 1 && (
                   <div style={{ width: "min(280px, 80%)", display: "flex", flexDirection: "column", gap: 4 }}>
@@ -1297,15 +1349,15 @@ export default function CsvImport({ onImported, onJumpToMonth }) {
             ) : (
               <>
                 <span className="text-sm" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>
-                  Drop your bank statement here, or{" "}
+                  Drop your bank statement(s) here, or{" "}
                   <span style={{ color: "var(--gold)" }}>click to select</span>
                 </span>
                 <span className="text-xs" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", opacity: 0.7 }}>
-                  CSV · PDF · JPG · PNG — GTBank, Access, Zenith, UBA, OPay (max 4 MB)
+                  CSV · PDF · JPG · PNG — GTBank, Access, Zenith, UBA, OPay (max 4 MB each) · multiple files/banks OK
                 </span>
               </>
             )}
-            <input ref={fileRef} type="file" accept=".csv,.txt,.pdf,.jpg,.jpeg,.png,.webp" className="hidden" onChange={onPick} />
+            <input ref={fileRef} type="file" multiple accept=".csv,.txt,.pdf,.jpg,.jpeg,.png,.webp" className="hidden" onChange={onPick} />
           </div>
 
           {/* Password prompt — shown when a PDF turns out to be encrypted */}
