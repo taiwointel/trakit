@@ -23,12 +23,28 @@ export function useEntries() {
     if (!user) { setLoading(false); return; }
     setUserId(user.id);
 
-    const [{ data: rows }, { data: bud }] = await Promise.all([
-      supabase.from("entries").select("*").eq("user_id", user.id).order("date", { ascending: false }),
-      supabase.from("budgets").select("*").eq("user_id", user.id).maybeSingle(),
-    ]);
+    // Supabase/PostgREST caps any single unpaginated response at 1000 rows.
+    // A plain .select("*") ordered newest-first would silently truncate the
+    // *oldest* rows once a user's ledger passes that count — exactly what
+    // happened to a multi-month statement import (Jan/Feb vanished while
+    // March onward, being newer, survived the cutoff). Page through with
+    // .range() until a page comes back short, so the full ledger loads
+    // regardless of size.
+    const PAGE_SIZE = 1000;
+    const allRows = [];
+    for (let from = 0; ; from += PAGE_SIZE) {
+      const { data: page } = await supabase
+        .from("entries")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("date", { ascending: false })
+        .range(from, from + PAGE_SIZE - 1);
+      allRows.push(...(page || []));
+      if (!page || page.length < PAGE_SIZE) break;
+    }
+    const { data: bud } = await supabase.from("budgets").select("*").eq("user_id", user.id).maybeSingle();
 
-    setEntries(rows || []);
+    setEntries(allRows);
     if (bud) setBudgets({ overall: bud.overall, categories: bud.category_budgets || {} });
     setLoading(false);
   // eslint-disable-next-line react-hooks/exhaustive-deps
