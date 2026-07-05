@@ -65,6 +65,7 @@ export default function EntriesPage() {
   const [ledgerOpen,    setLedgerOpen]    = useState(true);
   const [budgetsOpen,   setBudgetsOpen]   = useState(false);
   const [toolsOpen,     setToolsOpen]     = useState(false);
+  const [selfFilter,    setSelfFilter]    = useState("all"); // "all" | "hide" | "only"
 
   const { entries, budgets, loading, addEntry, updateEntry, deleteEntry, deleteEntries, saveBudget, clearAllEntries, refetch } = useEntries();
   const { goals } = useGoals();
@@ -84,12 +85,24 @@ export default function EntriesPage() {
     return monthEntries.filter((e) => e.date === dayStr);
   }, [monthEntries, selectedDay, monthStr]);
 
+  const filteredEntries = useMemo(() => {
+    if (selfFilter === "hide") return displayEntries.filter((e) => e.category !== "Self");
+    if (selfFilter === "only") return displayEntries.filter((e) => e.category === "Self");
+    return displayEntries;
+  }, [displayEntries, selfFilter]);
+
+  const ledgerTotals = useMemo(() => {
+    const totalIn  = filteredEntries.filter((e) => e.flow === "in").reduce((s, e) => s + Number(e.amount), 0);
+    const totalOut = filteredEntries.filter((e) => e.flow === "out").reduce((s, e) => s + Number(e.amount), 0);
+    return { totalIn, totalOut, net: totalIn - totalOut };
+  }, [filteredEntries]);
+
   const dayStr = selectedDay
     ? `${monthStr}-${String(selectedDay).padStart(2, "0")}`
     : null;
 
   async function handleClearVisible(selectedIds) {
-    const ids = selectedIds ?? displayEntries.map((e) => e.id);
+    const ids = selectedIds ?? filteredEntries.map((e) => e.id);
     if (!ids.length) return;
     try {
       const scope = selectedDay ? `day ${dayStr}` : `${monthStr}`;
@@ -267,18 +280,54 @@ export default function EntriesPage() {
           <div style={{ borderBottom: "1px solid var(--rule)" }}>
             <MonthNav year={year} month={month} onChange={(y, m) => { setYear(y); setMonth(m); setSelectedDay(null); }} />
           </div>
+
+          <div style={{
+            display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10,
+            padding: "10px 16px", borderBottom: "1px solid var(--rule)", background: "var(--ink-3)",
+          }}>
+            <div style={{ display: "flex", gap: 18, flexWrap: "wrap" }}>
+              <div>
+                <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>Total in</div>
+                <div style={{ fontFamily: "var(--font-mono)", fontSize: 13, fontWeight: 700, color: "var(--green)" }}>{formatNaira(ledgerTotals.totalIn, { compact: true })}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>Total out</div>
+                <div style={{ fontFamily: "var(--font-mono)", fontSize: 13, fontWeight: 700, color: "var(--red)" }}>{formatNaira(ledgerTotals.totalOut, { compact: true })}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>Net</div>
+                <div style={{ fontFamily: "var(--font-mono)", fontSize: 13, fontWeight: 700, color: ledgerTotals.net >= 0 ? "var(--green)" : "var(--red)" }}>
+                  {ledgerTotals.net >= 0 ? "+" : ""}{formatNaira(ledgerTotals.net, { compact: true })}
+                </div>
+              </div>
+            </div>
+            <select
+              value={selfFilter}
+              onChange={(e) => setSelfFilter(e.target.value)}
+              className="paper-select"
+              style={{
+                background: "var(--ink-2)", border: "1px solid var(--rule)", color: "var(--ink-text)",
+                fontFamily: "var(--font-sans)", fontSize: 11, borderRadius: 6, padding: "5px 22px 5px 8px", outline: "none",
+              }}
+            >
+              <option value="all">All entries</option>
+              <option value="hide">Hide self-transfers</option>
+              <option value="only">Self-transfers only</option>
+            </select>
+          </div>
+
           <button
             onClick={() => setLedgerOpen((v) => !v)}
             className="section-toggle"
           >
             <span className="section-toggle-label">
-              Entries ({displayEntries.length})
+              Entries ({filteredEntries.length})
             </span>
             <span className="section-toggle-arrow">
               {ledgerOpen ? "▲ Collapse" : "▼ Show"}
             </span>
           </button>
-          {ledgerOpen && <LedgerTable entries={displayEntries} onUpdate={updateEntry} onDelete={deleteEntry} onClearAll={handleClearVisible} />}
+          {ledgerOpen && <LedgerTable entries={filteredEntries} onUpdate={updateEntry} onDelete={deleteEntry} onClearAll={handleClearVisible} />}
         </div>
       </div>
 
