@@ -961,7 +961,7 @@ export default function CsvImport({ onImported, onJumpToMonth }) {
     return null;
   }, []);
 
-  const launchWizard = useCallback(async (extractedRows, statementHolderName) => {
+  const launchWizard = useCallback(async (extractedRows, statementHolderName, fileLabel) => {
     // Prefer the name printed on the statement itself (it's what will
     // actually match beneficiaries in *this* statement); fall back to the
     // Settings profile name if the statement didn't have a recognizable
@@ -978,16 +978,17 @@ export default function CsvImport({ onImported, onJumpToMonth }) {
 
     const rowsWithBene = extractedRows.map((r) => {
       const beneficiary = r.beneficiary || extractBeneficiary(r.desc) || "";
+      const base = fileLabel ? { ...r, importBatch: fileLabel } : r;
       if (fullName && isSelfTransfer(beneficiary, fullName)) {
-        return { ...r, beneficiary, desc: `Internal transfer — ${r.desc}` };
+        return { ...base, beneficiary, desc: `Internal transfer — ${r.desc}` };
       }
       if (isLoanRelated(r.desc)) {
         const label = r.flow === "in" ? "Loan disbursal" : "Loan repayment";
-        return { ...r, beneficiary, desc: `${label} — ${r.desc}` };
+        return { ...base, beneficiary, desc: `${label} — ${r.desc}` };
       }
       const auto = autoLabelFor(r.desc);
-      if (auto) return { ...r, beneficiary, desc: `${auto} — ${r.desc}` };
-      return { ...r, beneficiary };
+      if (auto) return { ...base, beneficiary, desc: `${auto} — ${r.desc}` };
+      return { ...base, beneficiary };
     });
     // The labeling wizard no longer auto-launches — every row goes straight
     // into the ledger via keyword-fallback + AI categorization, same as any
@@ -1018,7 +1019,7 @@ export default function CsvImport({ onImported, onJumpToMonth }) {
         setStatus({ type: "error", msg: "Could not detect columns. Make sure the file has Date, Narration, and Debit/Credit columns." });
         return;
       }
-      launchWizard(parsed, extractAccountHolderName(text));
+      launchWizard(parsed, extractAccountHolderName(text), file.name);
     } else if (ext === "pdf" || ["jpg","jpeg","png","webp"].includes(ext)) {
       setExtracting(true);
       try {
@@ -1062,7 +1063,7 @@ export default function CsvImport({ onImported, onJumpToMonth }) {
         } else if (!rows.length) {
           setStatus({ type: "error", msg: "No transactions found. Try a clearer image or a different page." });
         } else {
-          launchWizard(rows, startData.accountHolderName);
+          launchWizard(rows, startData.accountHolderName, file.name);
         }
       } catch {
         setStatus({ type: "error", msg: "Network error during extraction. Please try again." });

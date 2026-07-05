@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useEntries }  from "@/hooks/useEntries";
 import { useGoals }    from "@/hooks/useGoals";
 import MonthNav        from "@/components/entries/MonthNav";
@@ -66,6 +66,7 @@ export default function EntriesPage() {
   const [budgetsOpen,   setBudgetsOpen]   = useState(false);
   const [toolsOpen,     setToolsOpen]     = useState(false);
   const [selfFilter,    setSelfFilter]    = useState("all"); // "all" | "hide" | "only"
+  const [importFilter,  setImportFilter]  = useState("all"); // "all" | a specific import_batch value
 
   const { entries, budgets, loading, addEntry, updateEntry, deleteEntry, deleteEntries, saveBudget, clearAllEntries, refetch } = useEntries();
   const { goals } = useGoals();
@@ -85,11 +86,30 @@ export default function EntriesPage() {
     return monthEntries.filter((e) => e.date === dayStr);
   }, [monthEntries, selectedDay, monthStr]);
 
+  // Distinct import files present in this month's view, so a bad statement
+  // import can be isolated and cleared without touching entries typed in by
+  // hand or added from elsewhere — scoped to the month like the rest of the
+  // ledger, since that's the unit a user thinks in when undoing an import.
+  const importBatches = useMemo(() => {
+    const set = new Set();
+    monthEntries.forEach((e) => { if (e.import_batch) set.add(e.import_batch); });
+    return [...set].sort();
+  }, [monthEntries]);
+
+  // Reset a stale selection when the month changes (or that import no
+  // longer has any entries left in view) so it never silently filters to
+  // an empty, confusing ledger.
+  useEffect(() => {
+    if (importFilter !== "all" && !importBatches.includes(importFilter)) setImportFilter("all");
+  }, [importBatches, importFilter]);
+
   const filteredEntries = useMemo(() => {
-    if (selfFilter === "hide") return displayEntries.filter((e) => e.category !== "Self");
-    if (selfFilter === "only") return displayEntries.filter((e) => e.category === "Self");
-    return displayEntries;
-  }, [displayEntries, selfFilter]);
+    let list = displayEntries;
+    if (selfFilter === "hide") list = list.filter((e) => e.category !== "Self");
+    if (selfFilter === "only") list = list.filter((e) => e.category === "Self");
+    if (importFilter !== "all") list = list.filter((e) => e.import_batch === importFilter);
+    return list;
+  }, [displayEntries, selfFilter, importFilter]);
 
   const ledgerTotals = useMemo(() => {
     const totalIn  = filteredEntries.filter((e) => e.flow === "in").reduce((s, e) => s + Number(e.amount), 0);
@@ -301,19 +321,53 @@ export default function EntriesPage() {
                 </div>
               </div>
             </div>
-            <select
-              value={selfFilter}
-              onChange={(e) => setSelfFilter(e.target.value)}
-              className="paper-select"
-              style={{
-                background: "var(--ink-2)", border: "1px solid var(--rule)", color: "var(--ink-text)",
-                fontFamily: "var(--font-sans)", fontSize: 11, borderRadius: 6, padding: "5px 22px 5px 8px", outline: "none",
-              }}
-            >
-              <option value="all">All entries</option>
-              <option value="hide">Hide self-transfers</option>
-              <option value="only">Self-transfers only</option>
-            </select>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              {importBatches.length > 0 && (
+                <select
+                  value={importFilter}
+                  onChange={(e) => setImportFilter(e.target.value)}
+                  className="paper-select"
+                  style={{
+                    background: "var(--ink-2)", border: "1px solid var(--rule)", color: "var(--ink-text)",
+                    fontFamily: "var(--font-sans)", fontSize: 11, borderRadius: 6, padding: "5px 22px 5px 8px", outline: "none",
+                    maxWidth: 200,
+                  }}
+                >
+                  <option value="all">All imports</option>
+                  {importBatches.map((b) => <option key={b} value={b}>{b}</option>)}
+                </select>
+              )}
+              {importFilter !== "all" && (
+                <button
+                  onClick={() => {
+                    if (!filteredEntries.length) return;
+                    if (!confirm(`Delete all ${filteredEntries.length} entries from "${importFilter}" for ${monthStr}?`)) return;
+                    handleClearVisible(filteredEntries.map((e) => e.id));
+                    setImportFilter("all");
+                  }}
+                  style={{
+                    background: "none", border: "1px solid var(--red)", color: "var(--red)",
+                    fontFamily: "var(--font-sans)", fontSize: 11, fontWeight: 600,
+                    borderRadius: 6, padding: "5px 10px", cursor: "pointer",
+                  }}
+                >
+                  Delete this import ({filteredEntries.length})
+                </button>
+              )}
+              <select
+                value={selfFilter}
+                onChange={(e) => setSelfFilter(e.target.value)}
+                className="paper-select"
+                style={{
+                  background: "var(--ink-2)", border: "1px solid var(--rule)", color: "var(--ink-text)",
+                  fontFamily: "var(--font-sans)", fontSize: 11, borderRadius: 6, padding: "5px 22px 5px 8px", outline: "none",
+                }}
+              >
+                <option value="all">All entries</option>
+                <option value="hide">Hide self-transfers</option>
+                <option value="only">Self-transfers only</option>
+              </select>
+            </div>
           </div>
 
           <button
