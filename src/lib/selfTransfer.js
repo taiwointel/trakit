@@ -64,3 +64,16 @@ export function isSelfTransfer(beneficiary, fullName) {
   const shared  = benWords.filter((w) => selfSet.has(w)).length;
   return shared >= 2 && shared >= Math.min(benWords.length, selfWords.length);
 }
+
+// Fallback for rows whose `beneficiary` field was never populated (a parser
+// extraction gap, not a name mismatch) — checks whether all of the account
+// holder's name words appear somewhere in the raw description text. Requires
+// every word of fullName to be present (not just 2 shared), since desc text
+// is unstructured and a weaker threshold would false-positive on unrelated
+// narrations that happen to share a common word.
+export function isSelfTransferInText(desc, fullName) {
+  const selfWords = normalizeNameWords(fullName);
+  if (selfWords.length < 2) return false;
+  const descWords = new Set(normalizeNameWords(desc));
+  return selfWords.every((w) => descWords.has(w));
+}

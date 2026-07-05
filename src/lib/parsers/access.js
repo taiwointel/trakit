@@ -228,7 +228,11 @@ function buildInternalRegex(holderName) {
 function extractBeneficiary(desc) {
   let m = desc.match(/^transfer\s+from\s+(.+?)(?:\d{6,}.*)?$/i);
   if (m) return m[1].replace(/\s+/g, " ").trim();
-  m = desc.match(/\/\s*\/\s*([A-Za-z][A-Za-z\s]*?)\s*$/);
+  // Handles both "TO PAY/ /NAME" (double slash) and "TO PAY/ NAME" (single
+  // slash) narration variants — Access statements print either depending on
+  // the transaction's originating channel, and only matching the double
+  // slash left self-transfers with the single-slash variant untagged.
+  m = desc.match(/\/\s*\/?\s*([A-Za-z][A-Za-z\s]*?)\s*$/);
   if (m) return m[1].replace(/\s+/g, " ").trim();
   return null;
 }

@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { isSelfTransfer, internalTransferFields } from "@/lib/selfTransfer";
+import { isSelfTransfer, isSelfTransferInText, internalTransferFields } from "@/lib/selfTransfer";
 import { NextResponse } from "next/server";
 
 // One-time (repeatable) sweep over already-imported entries: catches
@@ -21,12 +21,19 @@ export async function POST() {
 
   const { data: entries, error } = await supabase
     .from("entries")
-    .select("id, beneficiary, category")
+    .select("id, desc, beneficiary, category")
     .eq("user_id", user.id)
     .neq("category", "Self");
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  const toUpdate = (entries || []).filter((e) => isSelfTransfer(e.beneficiary, fullName));
+  // Two passes: rows where beneficiary was populated but didn't match yet
+  // (e.g. display name set after import), and rows where beneficiary was
+  // never extracted at all (a parser gap) — those are caught by scanning
+  // the raw description text directly instead.
+  const toUpdate = (entries || []).filter(
+    (e) => isSelfTransfer(e.beneficiary, fullName) ||
+      (!e.beneficiary && isSelfTransferInText(e.desc, fullName)),
+  );
   if (!toUpdate.length) return NextResponse.json({ retagged: 0 });
 
   const { error: updErr } = await supabase
