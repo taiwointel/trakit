@@ -78,6 +78,10 @@ export default function SettingsDrawer({ open, onClose, onStartTour }) {
   const [exportStatus,     setExportStatus]     = useState("");
   const [retagging,        setRetagging]        = useState(false);
   const [retagStatus,      setRetagStatus]      = useState("");
+  const [dupeScanning,     setDupeScanning]     = useState(false);
+  const [dupeResult,       setDupeResult]       = useState(null);
+  const [dupeDeleting,     setDupeDeleting]     = useState(false);
+  const [dupeStatus,       setDupeStatus]       = useState("");
 
   // ── Backup state ──────────────────────────────────────────
   const [backups,          setBackups]          = useState([]);
@@ -228,6 +232,30 @@ export default function SettingsDrawer({ open, onClose, onStartTour }) {
       else { setRetagStatus(`Re-tagged ${data.retagged} entr${data.retagged === 1 ? "y" : "ies"} as Self. Refresh to see updated totals.`); }
     } catch { setRetagStatus("Network error."); }
     setRetagging(false);
+  }
+
+  async function scanDuplicates() {
+    setDupeScanning(true); setDupeStatus(""); setDupeResult(null);
+    try {
+      const res  = await fetch("/api/entries/duplicates");
+      const data = await res.json();
+      if (!res.ok) { setDupeStatus(data.error || "Scan failed."); }
+      else if (data.extraRows === 0) { setDupeStatus("No duplicate entries found."); }
+      else { setDupeResult(data); }
+    } catch { setDupeStatus("Network error."); }
+    setDupeScanning(false);
+  }
+
+  async function removeDuplicates() {
+    setDupeDeleting(true);
+    try {
+      const res  = await fetch("/api/entries/duplicates", { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok) { setDupeStatus(data.error || "Delete failed."); }
+      else { setDupeStatus(`Removed ${data.deleted} duplicate entr${data.deleted === 1 ? "y" : "ies"}. Refresh to see updated totals.`); }
+      setDupeResult(null);
+    } catch { setDupeStatus("Network error."); }
+    setDupeDeleting(false);
   }
 
   async function exportEntriesCSV() {
@@ -843,6 +871,44 @@ CREATE POLICY "own_backups" ON entry_backups
                 {retagStatus && (
                   <p className="text-xs" style={{ color: retagStatus.includes("Re-tagged") ? "var(--green)" : retagStatus.includes("first") || retagStatus.includes("failed") ? "var(--amber)" : "var(--ink-text-dim)", fontFamily: "var(--font-mono)" }}>
                     {retagStatus}
+                  </p>
+                )}
+              </div>
+
+              <div style={{ height: 1, background: "var(--rule)" }} />
+
+              <div className="flex flex-col gap-1.5">
+                <p className="text-xs font-medium" style={{ color: "var(--ink-text)", fontFamily: "var(--font-sans)" }}>Find duplicate entries</p>
+                <p className="text-xs" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>
+                  Finds entries with the exact same date, description, amount and flow — the signature of a statement getting imported twice (e.g. two uploads covering overlapping dates). Inflates both inflow and outflow.
+                </p>
+                <button
+                  onClick={scanDuplicates}
+                  disabled={dupeScanning}
+                  className="w-full py-2.5 rounded-lg text-sm font-medium"
+                  style={{ background: "var(--ink-3)", border: "1px solid var(--rule)", color: "var(--ink-text)", fontFamily: "var(--font-sans)", opacity: dupeScanning ? 0.6 : 1 }}
+                >
+                  {dupeScanning ? "Scanning..." : "Scan for duplicates"}
+                </button>
+                {dupeResult && (
+                  <div className="flex flex-col gap-2 p-3 rounded-lg" style={{ background: "var(--amber-soft)", border: "1px solid var(--amber)" }}>
+                    <p className="text-xs" style={{ color: "var(--ink-text)", fontFamily: "var(--font-mono)" }}>
+                      {dupeResult.groups} duplicate group{dupeResult.groups === 1 ? "" : "s"} · {dupeResult.extraRows} extra row{dupeResult.extraRows === 1 ? "" : "s"}
+                      {" "}(≈₦{Number(dupeResult.inflowExtra).toLocaleString()} extra inflow, ≈₦{Number(dupeResult.outflowExtra).toLocaleString()} extra outflow)
+                    </p>
+                    <button
+                      onClick={removeDuplicates}
+                      disabled={dupeDeleting}
+                      className="w-full py-2 rounded-lg text-xs font-medium"
+                      style={{ background: "var(--red)", border: "none", color: "#fff", fontFamily: "var(--font-sans)", opacity: dupeDeleting ? 0.6 : 1 }}
+                    >
+                      {dupeDeleting ? "Removing..." : `Remove ${dupeResult.extraRows} duplicate row${dupeResult.extraRows === 1 ? "" : "s"}`}
+                    </button>
+                  </div>
+                )}
+                {dupeStatus && (
+                  <p className="text-xs" style={{ color: dupeStatus.includes("Removed") ? "var(--green)" : "var(--ink-text-dim)", fontFamily: "var(--font-mono)" }}>
+                    {dupeStatus}
                   </p>
                 )}
               </div>
