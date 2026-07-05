@@ -478,6 +478,7 @@ export default function LedgerTable({ entries, onUpdate, onDelete, onClearAll })
   const [clearWizardOpen, setClearWizardOpen] = useState(false);
   const [sortBy,          setSortBy]          = useState("date");
   const [sortDir,         setSortDir]         = useState("desc");
+  const [query,           setQuery]           = useState("");
 
   function toggleSort(field) {
     if (sortBy === field) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -501,6 +502,26 @@ export default function LedgerTable({ entries, onUpdate, onDelete, onClearAll })
     });
     return list;
   }, [entries, sortBy, sortDir]);
+
+  // A single box that searches purpose, detail (beneficiary/subline text),
+  // category and amount at once — typing "3000" should surface a ₦3,000
+  // entry the same way typing "esther" surfaces her transfers, without the
+  // user having to know which column their memory of the transaction lives in.
+  const visibleEntries = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return sortedEntries;
+    const qDigits = q.replace(/[^0-9]/g, "");
+    return sortedEntries.filter((entry) => {
+      const { purpose, detail } = splitDesc(entry);
+      const haystack = [
+        purpose, detail, entry.desc, entry.beneficiary,
+        entry.category, entry.subcategory,
+      ].filter(Boolean).join(" ").toLowerCase();
+      if (haystack.includes(q)) return true;
+      if (qDigits && String(entry.amount).replace(/[^0-9]/g, "").includes(qDigits)) return true;
+      return false;
+    });
+  }, [sortedEntries, query]);
 
   async function handleRecategorizeAll() {
     // Re-categorize every "money out" entry in view, not just the ones still
@@ -559,6 +580,18 @@ export default function LedgerTable({ entries, onUpdate, onDelete, onClearAll })
         padding: "10px 14px", borderBottom: "1px solid var(--rule-paper)",
         background: "var(--paper-2)", flexWrap: "wrap", gap: 8,
       }}>
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search purpose, detail, amount…"
+          style={{
+            background: "var(--paper)", border: "1px solid var(--rule-paper)",
+            color: "var(--paper-text)", fontFamily: "var(--font-sans)", fontSize: 12,
+            borderRadius: 6, padding: "6px 10px", outline: "none",
+            flex: "1 1 220px", minWidth: 160, maxWidth: 320,
+          }}
+        />
         <button
           onClick={handleRecategorizeAll}
           disabled={!!recatProgress}
@@ -597,7 +630,7 @@ export default function LedgerTable({ entries, onUpdate, onDelete, onClearAll })
 
       {/* ── Mobile: card list (hidden on md+) ── */}
       <div className="ledger-mobile">
-        {sortedEntries.map((entry) => {
+        {visibleEntries.map((entry) => {
           if (editingId === entry.id) {
             return (
               <div key={entry.id} style={{ padding: "12px 14px", borderBottom: "1px solid var(--rule-paper)", background: "var(--paper-2)" }}>
@@ -655,7 +688,7 @@ export default function LedgerTable({ entries, onUpdate, onDelete, onClearAll })
             </tr>
           </thead>
           <tbody>
-            {sortedEntries.map((entry, i) => {
+            {visibleEntries.map((entry, i) => {
               if (editingId === entry.id) {
                 return (
                   <EditRow
@@ -671,7 +704,7 @@ export default function LedgerTable({ entries, onUpdate, onDelete, onClearAll })
                   key={entry.id}
                   entry={entry}
                   index={i}
-                  total={sortedEntries.length}
+                  total={visibleEntries.length}
                   onEdit={setEditingId}
                   onDelete={onDelete}
                   onUpdate={onUpdate}
