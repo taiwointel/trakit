@@ -487,8 +487,12 @@ export default function LedgerTable({ entries, onUpdate, onDelete, onClearAll })
   const sortedEntries = useMemo(() => {
     const list = [...entries];
     const dir = sortDir === "asc" ? 1 : -1;
+    // `amount` is stored unsigned regardless of flow — sort on the signed
+    // value (money out as negative) so ordering matches the +/- shown in
+    // the Amount column instead of ranking by raw magnitude.
+    const signedAmount = (e) => (e.flow === "out" ? -1 : 1) * Number(e.amount);
     list.sort((a, b) => {
-      if (sortBy === "amount") return (Number(a.amount) - Number(b.amount)) * dir;
+      if (sortBy === "amount") return (signedAmount(a) - signedAmount(b)) * dir;
       // date sort falls back to created_at (or id) for same-day entries so
       // ties don't jump around unpredictably on re-render
       const dateCmp = (a.date || "").localeCompare(b.date || "");
