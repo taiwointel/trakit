@@ -65,6 +65,15 @@ export function isSelfTransfer(beneficiary, fullName) {
   return shared >= 2 && shared >= Math.min(benWords.length, selfWords.length);
 }
 
+// Bank fee/levy narrations (VAT on a transfer, EMTL, USSD charge, etc.) often
+// embed the account holder's own name because they're printed right below —
+// or fused onto — the narration of the real self-transfer that triggered
+// them, e.g. "VAT MOBILE TRF TO PAY/ /TAIWO OLAGOKE OGUNFILE". That makes
+// every one of the holder's name words appear in the text, but the row
+// itself is a real (if tiny) expense, not money moving between the user's
+// own accounts — it must never be swept into isSelfTransferInText below.
+const FEE_LIKE = /\bvat\b|stamp duty|emtl|electronic money transfer levy|ussd charge|service charge|bank charge|sms alert|account maintenance|card maintenance|card issuance fee|card fee|annual fee|quarterly charge|\bcommission\b|\bcharges?\b|\bcot\b/i;
+
 // Fallback for rows whose `beneficiary` field was never populated (a parser
 // extraction gap, not a name mismatch) — checks whether all of the account
 // holder's name words appear somewhere in the raw description text. Requires
@@ -72,6 +81,7 @@ export function isSelfTransfer(beneficiary, fullName) {
 // is unstructured and a weaker threshold would false-positive on unrelated
 // narrations that happen to share a common word.
 export function isSelfTransferInText(desc, fullName) {
+  if (FEE_LIKE.test(desc || "")) return false;
   const selfWords = normalizeNameWords(fullName);
   if (selfWords.length < 2) return false;
   const descWords = new Set(normalizeNameWords(desc));
