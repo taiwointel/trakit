@@ -76,6 +76,8 @@ export default function SettingsDrawer({ open, onClose, onStartTour }) {
   const [clearChatStatus,  setClearChatStatus]  = useState("");
   const [clearingChat,     setClearingChat]     = useState(false);
   const [exportStatus,     setExportStatus]     = useState("");
+  const [retagging,        setRetagging]        = useState(false);
+  const [retagStatus,      setRetagStatus]      = useState("");
 
   // ── Backup state ──────────────────────────────────────────
   const [backups,          setBackups]          = useState([]);
@@ -214,6 +216,18 @@ export default function SettingsDrawer({ open, onClose, onStartTour }) {
       setClearChatStatus("Chat history cleared.");
     } catch { setClearChatStatus("Error — try again."); }
     setClearingChat(false);
+  }
+
+  async function retagSelfTransfers() {
+    setRetagging(true); setRetagStatus("Scanning your entries...");
+    try {
+      const res  = await fetch("/api/entries/retag-self", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) { setRetagStatus(data.error || "Scan failed."); }
+      else if (data.retagged === 0) { setRetagStatus("No missed self-transfers found."); }
+      else { setRetagStatus(`Re-tagged ${data.retagged} entr${data.retagged === 1 ? "y" : "ies"} as Self. Refresh to see updated totals.`); }
+    } catch { setRetagStatus("Network error."); }
+    setRetagging(false);
   }
 
   async function exportEntriesCSV() {
@@ -807,6 +821,28 @@ CREATE POLICY "own_backups" ON entry_backups
                 {exportStatus && (
                   <p className="text-xs" style={{ color: exportStatus.includes("Exported") ? "var(--green)" : "var(--ink-text-dim)", fontFamily: "var(--font-mono)" }}>
                     {exportStatus}
+                  </p>
+                )}
+              </div>
+
+              <div style={{ height: 1, background: "var(--rule)" }} />
+
+              <div className="flex flex-col gap-1.5">
+                <p className="text-xs font-medium" style={{ color: "var(--ink-text)", fontFamily: "var(--font-sans)" }}>Re-scan for self-transfers</p>
+                <p className="text-xs" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>
+                  Finds already-imported entries that are really transfers between your own accounts (matched against your display name above) but weren&apos;t tagged &ldquo;Self&rdquo; at import time, and fixes them so they stop counting as income or spend.
+                </p>
+                <button
+                  onClick={retagSelfTransfers}
+                  disabled={retagging}
+                  className="w-full py-2.5 rounded-lg text-sm font-medium"
+                  style={{ background: "var(--ink-3)", border: "1px solid var(--rule)", color: "var(--ink-text)", fontFamily: "var(--font-sans)", opacity: retagging ? 0.6 : 1 }}
+                >
+                  {retagging ? "Scanning..." : "Re-scan now"}
+                </button>
+                {retagStatus && (
+                  <p className="text-xs" style={{ color: retagStatus.includes("Re-tagged") ? "var(--green)" : retagStatus.includes("first") || retagStatus.includes("failed") ? "var(--amber)" : "var(--ink-text-dim)", fontFamily: "var(--font-mono)" }}>
+                    {retagStatus}
                   </p>
                 )}
               </div>
