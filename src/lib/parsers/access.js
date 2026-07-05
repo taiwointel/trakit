@@ -26,6 +26,32 @@ const RECORD_START = new RegExp(`^(${DATE})(${DATE})`);
 const PREFIX_RE = new RegExp(`^(${DATE})(${DATE})\\s*(.*)$`);
 const TRAILING_AMOUNT_RE = new RegExp(`^-?${AMOUNT}$`);
 
+// Access Bank also issues a second, differently-laid-out PDF for
+// customer-requested (as opposed to automatic monthly) statements: dates are
+// "01-JAN-26" instead of "01/06/2026", the column header reads "Posted Date
+// Value Date Description Debit (NGN) Credit (NGN) Balance (NGN)" instead of
+// "Post Date Value Date Narration Ref/Cheque No. Debits Credits Balance",
+// and the account/opening-closing balance summary sits in a differently
+// worded, two-column "Account Details" / "Financial Summary" block instead
+// of one inline "Account Number: ... Product Name: ..." line. The glued,
+// no-separator row layout that resolveRow/resolveBatch/getCandidates were
+// built for is otherwise identical, so this format reuses all of that —
+// only the date regex, header fingerprint, and section-boundary extraction
+// differ.
+const MONTHS_ABBR = { JAN: 1, FEB: 2, MAR: 3, APR: 4, MAY: 5, JUN: 6, JUL: 7, AUG: 8, SEP: 9, OCT: 10, NOV: 11, DEC: 12 };
+const DATE2 = "\\d{2}-[A-Z]{3}-\\d{2}";
+const RECORD_START2 = new RegExp(`^(${DATE2})(${DATE2})`);
+const PREFIX_RE2 = new RegExp(`^(${DATE2})(${DATE2})\\s*(.*)$`);
+
+function toIsoDate2(d) {
+  const m = d.match(/^(\d{2})-([A-Z]{3})-(\d{2})$/);
+  if (!m) return null;
+  const [, dd, mon, yy] = m;
+  const mm = MONTHS_ABBR[mon];
+  if (!mm) return null;
+  return `20${yy}-${String(mm).padStart(2, "0")}-${dd}`;
+}
+
 function parseAmount(str) {
   return Number(str.replace(/,/g, ""));
 }
@@ -148,7 +174,160 @@ function extractAccountSections(text) {
   return sections;
 }
 
+// Each account's block in this second format starts with its own
+// "ACCOUNT STATEMENT" title, and the account number / holder name / opening
+// / closing balance labels can appear in either order relative to each
+// other (they're printed in a two-column layout, so their glued order
+// depends on row Y-coordinates, not label position) — so each is matched
+// independently within the section rather than as one chained regex.
+function extractAccountSections2(text) {
+  const markerRe = /account\s*statement/gi;
+  const starts = [];
+  let m;
+  while ((m = markerRe.exec(text))) starts.push(m.index);
+  if (starts.length === 0) return [];
+
+  const sections = [];
+  for (let i = 0; i < starts.length; i++) {
+    const start = starts[i];
+    const end = i + 1 < starts.length ? starts[i + 1] : text.length;
+    const body = text.slice(start, end);
+    const txIdx = body.search(/transactions/i);
+    const preamble = txIdx === -1 ? body : body.slice(0, txIdx);
+
+    const accountNoM = preamble.match(/Account\s*Number:\s*(\d{5,})/i);
+    const holderM     = preamble.match(/Account\s*Name:\s*([A-Z][A-Za-z\s]+?)(?=Branch\s*Address|Account\s*Class|Customer|$)/i);
+    const openingM    = preamble.match(/Opening\s*Balance:\s*(-?[\d,]+\.\d{2})/i);
+    const closingM    = preamble.match(/Closing\s*Balance:\s*(-?[\d,]+\.\d{2})/i);
+    if (!accountNoM || !openingM || !closingM) continue;
+
+    sections.push({
+      accountNo:      accountNoM[1],
+      holderName:     holderM ? holderM[1].replace(/\s+/g, " ").trim() : null,
+      openingBalance: parseAmount(openingM[1]),
+      closingBalance: parseAmount(closingM[1]),
+      body,
+    });
+  }
+  return sections;
+}
+
+function parseAccessFormat2(text) {
+  const sections = extractAccountSections2(text);
+  if (sections.length === 0) {
+    return { ok: false, reason: "no-account-sections-found", sample: text.slice(0, 500) };
+  }
+
+  let totalBlocks = 0;
+  let unmatched = 0;
+  const unmatchedSamples = [];
+  const rows = [];
+
+  for (const section of sections) {
+    const INTERNAL = buildInternalRegex(section.holderName);
+    const BOILERPLATE = /^(this is an automated transaction alert|account statement|generated on|account details|financial summary|summary\s*statement\s*period|currency:|account name:|branch address:|account class:|customer'?s?\s*address:|account number:|opening balance:|total withdrawals:|total deposits:|closing balance:|cleared balance:|uncleared balance:|posted\s*date\s*value\s*date\s*description|for enquiries on access bank)/i;
+    const lines = section.body.split(/\r?\n/).filter((line) => !BOILERPLATE.test(line.trim()));
+
+    const blocks = [];
+    let current = null;
+    for (const line of lines) {
+      if (RECORD_START2.test(line)) {
+        if (current) blocks.push(current);
+        current = line;
+      } else if (current) {
+        current += " " + line;
+      }
+    }
+    if (current) blocks.push(current);
+
+    totalBlocks += blocks.length;
+    let runningBalance = section.openingBalance;
+
+    const parsed = [];
+    for (const raw of blocks) {
+      const block = raw.replace(/\s+/g, " ").trim();
+      const pm = block.match(PREFIX_RE2);
+      if (!pm) {
+        unmatched++;
+        if (unmatchedSamples.length < 8) unmatchedSamples.push(block.slice(0, 200));
+        continue;
+      }
+      parsed.push({ date: pm[1], candidates: getCandidates(pm[3]), block });
+    }
+
+    let i = 0;
+    while (i < parsed.length) {
+      let j = i + 1;
+      while (j < parsed.length && parsed[j].date === parsed[i].date) j++;
+      const batch = parsed.slice(i, j);
+      i = j;
+
+      const resolution = resolveBatch(batch, runningBalance);
+      if (!resolution) {
+        unmatched += batch.length;
+        for (const b of batch) {
+          if (unmatchedSamples.length < 8) unmatchedSamples.push(b.block.slice(0, 200));
+        }
+        continue;
+      }
+
+      for (const { index, chosen } of resolution) {
+        const pm = batch[index];
+        const desc = chosen.desc.replace(/\s+/g, " ").trim();
+        const amount = Math.round(Math.abs(chosen.balance - runningBalance) * 100) / 100;
+        const isOut = chosen.balance < runningBalance;
+        runningBalance = chosen.balance;
+
+        if (!amount || amount <= 0) continue;
+        if (INTERNAL && INTERNAL.test(desc)) continue;
+
+        const isoDate = toIsoDate2(pm.date);
+        if (!isoDate) continue;
+        rows.push({
+          date: isoDate,
+          desc,
+          amount,
+          flow: isOut ? "out" : "in",
+          beneficiary: extractBeneficiary(desc),
+        });
+      }
+    }
+
+    const drift = Math.abs(runningBalance - section.closingBalance);
+    if (drift > 1000) {
+      return {
+        ok: false,
+        reason: "balance-mismatch",
+        accountNo: section.accountNo,
+        expectedClosing: section.closingBalance,
+        computedClosing: runningBalance,
+      };
+    }
+  }
+
+  if (totalBlocks === 0) {
+    return { ok: false, reason: "no-record-start-lines-found", sample: text.slice(0, 1000) };
+  }
+
+  if (unmatched > totalBlocks * 0.5) {
+    return {
+      ok: false,
+      reason: "too-many-unmatched-blocks",
+      blocks: totalBlocks,
+      unmatched,
+      rows: rows.length,
+      unmatchedSamples,
+    };
+  }
+
+  return { ok: true, rows };
+}
+
 export function parseAccessStatementDebug(text) {
+  if (/posted\s*date\s*value\s*date\s*description\s*debit\s*\(ngn\)\s*credit\s*\(ngn\)\s*balance\s*\(ngn\)/i.test(text)) {
+    return parseAccessFormat2(text);
+  }
+
   if (!/post\s*date\s*value\s*date\s*narration\s*ref\s*\/?\s*cheque\s*no\.?\s*debits\s*credits\s*balance/i.test(text)) {
     return { ok: false, reason: "no-header-fingerprint", sample: text.slice(0, 500) };
   }
