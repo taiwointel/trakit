@@ -48,6 +48,15 @@ const RECORD_START = new RegExp(`^(${DATE})\\s*\\d{2}:\\d{2}:\\d{2}\\s*${DATE}`)
 const LINE_RE = new RegExp(
   `^(${DATE})\\s*\\d{2}:\\d{2}:\\d{2}\\s*${DATE}\\s*(.*?)(--|[\\d,]+\\.\\d{2})(--|[\\d,]+\\.\\d{2})(--|[\\d,]+\\.\\d{2})(Mobile|POS|WEB)(.*)$`,
 );
+// Transfer rows sometimes glue the counterparty's 10-digit (or masked,
+// "903****807"-shaped) phone/account number directly onto the description,
+// right before the amount, e.g. "Transfer to X | OPay | 90682518375,000.00".
+// There's no delimiter, so a plain amount regex greedily absorbs those 10
+// digits into the debit figure and turns ₦5,000 into ₦906,825,183,750,000.
+// Since it's always exactly 10 characters wide and always sits right after
+// the description's trailing "| ", it can be stripped unambiguously before
+// the amount regex ever runs.
+const ACCOUNT_TOKEN = /(\|\s*)(\d{10}|\d{3}\*{4}\d{3})(?=--|[\d,])/g;
 
 // Debug variant used while we're validating the parser against real
 // statements: instead of a bare null on failure, it reports exactly which
@@ -78,12 +87,23 @@ export function parseOpayStatementDebug(text) {
   // starting with the trans-time/value-date pair as a new record. Lines are
   // joined with NO separator (not a space): newlines here don't reliably
   // correspond to word boundaries in the source table.
+  // Bare reference-number fragments (a line that's nothing but digits) can
+  // land between the description and the debit/credit figures, e.g.
+  // "Transfer to X | OPay |" / "8026390703" / "20,000.00--0.00Mobile...".
+  // Glued with no separator, that digit run merges into the amount regex
+  // and inflates ₦20,000 into ₦802,639,070,320,000. None of the parsed
+  // fields ever use these fragments (only date/desc/debit/credit are read
+  // out of the match below), so they're safe to drop outright.
+  const REFERENCE_FRAGMENT = /^\d+$/;
+
   const blocks = [];
   let current = null;
   for (const line of lines) {
     if (RECORD_START.test(line)) {
       if (current) blocks.push(current);
       current = line;
+    } else if (REFERENCE_FRAGMENT.test(line.trim())) {
+      continue;
     } else if (current) {
       current += line;
     }
@@ -102,7 +122,7 @@ export function parseOpayStatementDebug(text) {
   const unmatchedSamples = [];
   const rows = [];
   for (const raw of blocks) {
-    const block = raw.trim();
+    const block = raw.trim().replace(ACCOUNT_TOKEN, "$1");
     const m = block.match(LINE_RE);
     if (!m) {
       unmatched++;
