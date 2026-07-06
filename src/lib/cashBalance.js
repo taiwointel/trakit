@@ -16,10 +16,33 @@ export function netFlowForDate(entries, date) {
  */
 export function closingBalance(entries, anchorDate, anchorAmount, date) {
   if (!anchorDate) return null;
+
+  // For a date on/after the anchor, walk forward from the anchor amount —
+  // unchanged from before (the anchor amount is treated as the opening
+  // balance for anchorDate itself, so that day's own entries are included).
+  if (date >= anchorDate) {
+    return (
+      Number(anchorAmount) +
+      entries
+        .filter((e) => e.date >= anchorDate && e.date <= date)
+        .reduce((s, e) => s + (e.flow === "in" ? Number(e.amount) : -Number(e.amount)), 0)
+    );
+  }
+
+  // For a date *before* the anchor, `e.date >= anchorDate && e.date <= date`
+  // is an impossible range and always filters to empty — that silently
+  // returned the bare anchor amount for every single earlier day, no
+  // matter what actually happened on the ledger between that day and the
+  // anchor. Project backwards instead: the anchor amount is the *opening*
+  // balance for anchorDate (the forward branch above adds anchorDate's own
+  // entries on top of it), so undo every entry strictly between the day
+  // after `date` and the day before the anchor — anchorDate's own entries
+  // are excluded here since they're already accounted for as the anchor's
+  // opening balance, not part of what happened before it.
   return (
-    Number(anchorAmount) +
+    Number(anchorAmount) -
     entries
-      .filter((e) => e.date >= anchorDate && e.date <= date)
+      .filter((e) => e.date > date && e.date < anchorDate)
       .reduce((s, e) => s + (e.flow === "in" ? Number(e.amount) : -Number(e.amount)), 0)
   );
 }
