@@ -164,11 +164,27 @@ export function useEntries() {
 
   const deleteEntries = useCallback(async (ids) => {
     if (!ids?.length) return;
-    setEntries((prev) => prev.filter((e) => !ids.includes(e.id)));
-    if (userId && supabase) {
-      await supabase.from("entries").delete().in("id", ids).eq("user_id", userId);
+    const idSet = new Set(ids);
+    setEntries((prev) => prev.filter((e) => !idSet.has(e.id)));
+    if (!userId || !supabase) return;
+
+    // PostgREST encodes .in("id", ids) as a query-string filter — a batch
+    // delete of an entire multi-month import (easily 500-1500+ UUIDs) can
+    // blow past URL length limits and fail outright. That failure was never
+    // checked, so the optimistic removal above stood even though nothing
+    // was actually deleted — the rows would silently reappear on the next
+    // reload. Chunking keeps each request well under any URL limit, and any
+    // chunk that still fails triggers a resync from the DB so the UI never
+    // lies about what's actually gone.
+    const CHUNK_SIZE = 200;
+    let anyFailed = false;
+    for (let i = 0; i < ids.length; i += CHUNK_SIZE) {
+      const chunk = ids.slice(i, i + CHUNK_SIZE);
+      const { error } = await supabase.from("entries").delete().in("id", chunk).eq("user_id", userId);
+      if (error) anyFailed = true;
     }
-  }, [userId, supabase]);
+    if (anyFailed) await load();
+  }, [userId, supabase, load]);
 
   const clearAllEntries = useCallback(async () => {
     setEntries([]);
