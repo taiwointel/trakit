@@ -904,6 +904,112 @@ function ImportSummaryModal({ summary, firstName, onJumpToMonth, onClose }) {
   );
 }
 
+// ── Name confirmation modal ──────────────────────────────────────────────────
+// Asked once per drop, before any row is tagged, since self-transfer
+// detection reads against exactly this string. Auto-extracting it from the
+// statement is best-effort and silently wrong on some bank layouts, so the
+// user gets the final say instead of a regex — a true full-screen popup so
+// it can't be mistaken for an inline, skippable card.
+function NameConfirmModal({ nameStep, setNameStep, onContinue, onBack, onConfirm, onSkip }) {
+  return (
+    <div
+      style={{
+        position: "fixed", inset: 0, zIndex: 9999,
+        background: "rgba(0,0,0,0.75)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        padding: "1rem",
+      }}
+    >
+      <div
+        style={{
+          background:   "var(--ink-2)",
+          border:       "1px solid rgba(169,133,79,0.4)",
+          borderRadius: 20,
+          width:        "100%",
+          maxWidth:     440,
+          padding:      "26px 26px 22px",
+          display:      "flex",
+          flexDirection:"column",
+          gap:          16,
+        }}
+      >
+        {nameStep.stage === "input" ? (
+          <>
+            <div>
+              <p style={{ color: "var(--gold)", fontFamily: "var(--font-serif)", fontSize: 20, fontWeight: 700, margin: "0 0 8px" }}>
+                Just one more thing
+              </p>
+              <p style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", fontSize: 13.5, lineHeight: 1.6, margin: 0 }}>
+                What&apos;s your full name exactly as it appears on this bank statement? Word order doesn&apos;t matter — this
+                lets Trakit7 recognize transfers between your own accounts and keep them out of your income and spending totals.
+              </p>
+            </div>
+            <input
+              type="text"
+              autoFocus
+              value={nameStep.value}
+              onChange={(e) => setNameStep((s) => ({ ...s, value: e.target.value }))}
+              onKeyDown={(e) => { if (e.key === "Enter" && nameStep.value.trim()) onContinue(); }}
+              placeholder="e.g. TAIWO OLAGOKE OGUNFILE"
+              style={{ ...inputBase, background: "var(--ink-3)", color: "var(--ink-text)", padding: "10px 12px", fontSize: 14, borderRadius: 10 }}
+            />
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={onSkip}
+                className="rounded-lg px-3 py-2 text-xs"
+                style={{ background: "none", color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", cursor: "pointer" }}
+              >
+                Skip — I&apos;ll fix self-transfers manually
+              </button>
+              <button
+                onClick={onContinue}
+                disabled={!nameStep.value.trim()}
+                className="rounded-lg px-5 py-2 text-sm font-semibold"
+                style={{
+                  background: "var(--gold)", color: "#fff", fontFamily: "var(--font-sans)",
+                  opacity: nameStep.value.trim() ? 1 : 0.5,
+                  cursor: nameStep.value.trim() ? "pointer" : "not-allowed",
+                }}
+              >
+                Continue
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div>
+              <p style={{ color: "var(--gold)", fontFamily: "var(--font-serif)", fontSize: 20, fontWeight: 700, margin: "0 0 8px" }}>
+                Just to confirm
+              </p>
+              <p style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", fontSize: 13.5, lineHeight: 1.6, margin: 0 }}>
+                Trakit7 will treat any transfer to or from{" "}
+                <strong style={{ color: "var(--ink-text)" }}>{nameStep.value.trim()}</strong>{" "}
+                as money moving between your own accounts, not real income or spending. Is that right?
+              </p>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={onBack}
+                className="rounded-lg px-3 py-2 text-xs"
+                style={{ background: "none", color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", cursor: "pointer" }}
+              >
+                ‹ Edit
+              </button>
+              <button
+                onClick={onConfirm}
+                className="rounded-lg px-5 py-2 text-sm font-semibold"
+                style={{ background: "var(--gold)", color: "#fff", fontFamily: "var(--font-sans)", cursor: "pointer" }}
+              >
+                Yes, that&apos;s me
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function CsvImport({ onImported, onJumpToMonth }) {
   const [rows,         setRows]         = useState([]);
   const [wizardGroups, setWizardGroups] = useState(null);
@@ -913,6 +1019,7 @@ export default function CsvImport({ onImported, onJumpToMonth }) {
   const [importing,    setImporting]    = useState(false);
   const [extractProgress, setExtractProgress] = useState(null); // null | { done, total }
   const [accountHolderName, setAccountHolderName] = useState(null);
+  const [nameStep, setNameStep] = useState(null); // null | { stage: "input" | "confirm", value }
   const [catProgress,  setCatProgress]  = useState(null); // null | { done, total }
   const [passwordFile, setPasswordFile] = useState(null); // file awaiting a password retry
   const [passwordInput, setPasswordInput] = useState("");
@@ -924,7 +1031,26 @@ export default function CsvImport({ onImported, onJumpToMonth }) {
   const fileRef = useRef(null);
   const cancelledRef = useRef(false);
   const passwordResolveRef = useRef(null); // resolves the promise processFile is awaiting on when a PDF turns out encrypted
+  const nameResolveRef = useRef(null); // resolves the promise processFile is awaiting on while the name-confirmation modal is open
+  // Auto-extracting the account holder's name off a statement is best-effort
+  // and silently fails on some bank layouts (glued labels, missing colons,
+  // scanned images) — the self-transfer detection it feeds is too important
+  // to leave to a regex that might be wrong without the user ever knowing.
+  // Asking once per drop and reusing the answer across every file in that
+  // same drop (undefined = not asked yet this batch) keeps a multi-file
+  // import from prompting once per file.
+  const confirmedNameRef = useRef(undefined);
   useEffect(() => () => { cancelledRef.current = true; }, []);
+
+  // Suspends the calling processFile() until the user confirms (or clears,
+  // to skip self-transfer detection for this import) their name — resolves
+  // with the trimmed string, or "" if skipped.
+  const promptForHolderName = useCallback((suggested) => {
+    return new Promise((resolve) => {
+      setNameStep({ stage: "input", value: suggested || "" });
+      nameResolveRef.current = resolve;
+    });
+  }, []);
 
   // Suspends the calling processFile() until the user submits a password
   // (resolves with the string) or cancels (resolves with null, meaning
@@ -962,17 +1088,27 @@ export default function CsvImport({ onImported, onJumpToMonth }) {
   }, []);
 
   const launchWizard = useCallback(async (extractedRows, statementHolderName, fileLabel) => {
-    // Prefer the name printed on the statement itself (it's what will
-    // actually match beneficiaries in *this* statement); fall back to the
-    // Settings profile name if the statement didn't have a recognizable
-    // "Account Name:" line (e.g. some CSV exports, or images).
-    let fullName = statementHolderName || null;
-    if (!fullName) {
-      try {
-        const supabase = createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-        fullName = user?.user_metadata?.full_name || null;
-      } catch { /* proceed without self-transfer detection */ }
+    // The user's confirmed name (asked once per drop, see promptForHolderName)
+    // always wins over auto-extraction — it's what self-transfer detection
+    // reads against for every file in this batch.
+    let fullName;
+    if (confirmedNameRef.current !== undefined) {
+      fullName = confirmedNameRef.current || null;
+    } else {
+      // Best-effort suggestion to pre-fill the confirmation modal with:
+      // prefer the name printed on the statement itself, fall back to the
+      // Settings profile name if extraction found nothing recognizable.
+      let guess = statementHolderName || null;
+      if (!guess) {
+        try {
+          const supabase = createClient();
+          const { data: { user } } = await supabase.auth.getUser();
+          guess = user?.user_metadata?.full_name || null;
+        } catch { /* no suggestion to offer */ }
+      }
+      const confirmed = await promptForHolderName(guess);
+      confirmedNameRef.current = confirmed;
+      fullName = confirmed || null;
     }
     setAccountHolderName(fullName);
 
@@ -1000,7 +1136,7 @@ export default function CsvImport({ onImported, onJumpToMonth }) {
     // Appends rather than replaces so multiple statements (even from
     // different banks) queued in one drop all land in the same review table.
     setRows((prev) => [...prev, ...rowsWithBene]);
-  }, []);
+  }, [promptForHolderName]);
 
   const processFile = useCallback(async (file) => {
     setStatus(null);
@@ -1019,7 +1155,7 @@ export default function CsvImport({ onImported, onJumpToMonth }) {
         setStatus({ type: "error", msg: "Could not detect columns. Make sure the file has Date, Narration, and Debit/Credit columns." });
         return;
       }
-      launchWizard(parsed, extractAccountHolderName(text), file.name);
+      await launchWizard(parsed, extractAccountHolderName(text), file.name);
     } else if (ext === "pdf" || ["jpg","jpeg","png","webp"].includes(ext)) {
       setExtracting(true);
       try {
@@ -1063,7 +1199,7 @@ export default function CsvImport({ onImported, onJumpToMonth }) {
         } else if (!rows.length) {
           setStatus({ type: "error", msg: "No transactions found. Try a clearer image or a different page." });
         } else {
-          launchWizard(rows, startData.accountHolderName, file.name);
+          await launchWizard(rows, startData.accountHolderName, file.name);
         }
       } catch {
         setStatus({ type: "error", msg: "Network error during extraction. Please try again." });
@@ -1088,6 +1224,7 @@ export default function CsvImport({ onImported, onJumpToMonth }) {
     setWizardGroups(null);
     setImportSummary(null);
     cancelledRef.current = false;
+    confirmedNameRef.current = undefined;
     for (let i = 0; i < files.length; i++) {
       if (cancelledRef.current) break;
       setQueueInfo(files.length > 1 ? { index: i + 1, total: files.length, name: files[i].name } : null);
@@ -1114,6 +1251,24 @@ export default function CsvImport({ onImported, onJumpToMonth }) {
     const resolve = passwordResolveRef.current;
     passwordResolveRef.current = null;
     resolve?.(null);
+  };
+
+  const nameGoToConfirm = () => {
+    if (!nameStep?.value.trim()) return;
+    setNameStep((s) => ({ ...s, stage: "confirm" }));
+  };
+  const nameGoBackToEdit = () => setNameStep((s) => ({ ...s, stage: "input" }));
+  const nameFinalConfirm = () => {
+    const resolve = nameResolveRef.current;
+    nameResolveRef.current = null;
+    setNameStep(null);
+    resolve?.(nameStep.value.trim());
+  };
+  const nameSkip = () => {
+    const resolve = nameResolveRef.current;
+    nameResolveRef.current = null;
+    setNameStep(null);
+    resolve?.("");
   };
 
   // Default order is chronological, with "in" rows sitting below "out" rows
@@ -1573,6 +1728,18 @@ export default function CsvImport({ onImported, onJumpToMonth }) {
           onFinish={handleWizardFinish}
           onSkipAll={handleWizardSkipAll}
           onCancel={handleWizardCancel}
+        />
+      )}
+
+      {/* Name confirmation — renders as full-viewport overlay */}
+      {nameStep && (
+        <NameConfirmModal
+          nameStep={nameStep}
+          setNameStep={setNameStep}
+          onContinue={nameGoToConfirm}
+          onBack={nameGoBackToEdit}
+          onConfirm={nameFinalConfirm}
+          onSkip={nameSkip}
         />
       )}
 

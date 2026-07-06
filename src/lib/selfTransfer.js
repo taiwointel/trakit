@@ -31,12 +31,25 @@ function normalizeNameWords(name) {
 // "Account Name:" / "Customer Name:" line banks print near the top), rather
 // than relying on a name the user separately typed into Settings — this is
 // the name that will actually match beneficiaries inside *this* statement.
+// [:\-]? (optional, not required) — OPay's PDF extraction renders the label
+// and value on separate lines with no colon at all ("Account Name\nTAIWO
+// OLAGOKE OGUNFILE"), while other banks use "Account Name: TAIWO...". A
+// required colon silently failed to match OPay statements, leaving
+// accountHolderName null and self-transfer detection dependent on whatever
+// name happens to be set in the user's profile instead of the statement.
 const HOLDER_NAME_PATTERNS = [
-  /account\s*name\s*[:\-]\s*([A-Za-z .'-]{4,60})/i,
-  /customer\s*name\s*[:\-]\s*([A-Za-z .'-]{4,60})/i,
-  /a\/?c\s*name\s*[:\-]\s*([A-Za-z .'-]{4,60})/i,
-  /name\s*of\s*account\s*holder\s*[:\-]\s*([A-Za-z .'-]{4,60})/i,
-  /account\s*holder\s*[:\-]\s*([A-Za-z .'-]{4,60})/i,
+  /account\s*name\s*[:\-]?\s*\n?\s*([A-Za-z .'-]{4,60})/i,
+  /customer\s*name\s*[:\-]?\s*\n?\s*([A-Za-z .'-]{4,60})/i,
+  /a\/?c\s*name\s*[:\-]?\s*\n?\s*([A-Za-z .'-]{4,60})/i,
+  /name\s*of\s*account\s*holder\s*[:\-]?\s*\n?\s*([A-Za-z .'-]{4,60})/i,
+  /account\s*holder\s*[:\-]?\s*\n?\s*([A-Za-z .'-]{4,60})/i,
+  // PalmPay glues the bare label directly onto the value with zero
+  // separator ("NameTAIWO OLAGOKE OGUNFILE"), immediately followed by the
+  // next glued label ("Phone Number..."). Matching a run of ALL-CAPS words
+  // right after "name" (rather than allowing mixed case) is what stops the
+  // capture at the name and not the next label, since real names print in
+  // caps on this statement but labels don't.
+  /\b[Nn]ame\s*((?:[A-Z]{2,}\s*){2,5})(?=[A-Z][a-z]|$)/,
 ];
 
 export function extractAccountHolderName(text) {
