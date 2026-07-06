@@ -63,7 +63,7 @@ function RankTable({ title, accent, icon, rows, emptyMsg }) {
 }
 
 export default function BeneficiaryRankings({ entries }) {
-  const [scope, setScope] = useState("month"); // "month" | "ytd"
+  const [scope, setScope] = useState("ytd"); // "month" | "ytd"
   const today = new Date();
   const [monthOffset, setMonthOffset] = useState(0);
   const [yearOffset,  setYearOffset]  = useState(0);

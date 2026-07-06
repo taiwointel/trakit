@@ -35,5 +35,17 @@ export function useCashBalance() {
     }
   }, [userId, supabase]);
 
-  return { anchor, loading, saveAnchor };
+  // Clears a bad anchor (e.g. saved with the wrong amount, or an
+  // accidental re-anchor) back to unset, returning the user to the
+  // first-time setup form instead of leaving every day's balance computed
+  // off a wrong number with no way to undo it short of guessing the
+  // original values back into the same form.
+  const clearAnchor = useCallback(async () => {
+    setAnchor({ anchor_date: null, anchor_amount: 0 });
+    if (userId && supabase) {
+      await supabase.from("cash_balance").delete().eq("user_id", userId);
+    }
+  }, [userId, supabase]);
+
+  return { anchor, loading, saveAnchor, clearAnchor };
 }

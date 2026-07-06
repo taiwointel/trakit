@@ -18,7 +18,7 @@ import PensionCard          from "@/components/investments/PensionCard";
 
 export default function CashPage() {
   const { entries, loading: entriesLoading } = useEntries();
-  const { anchor, loading: anchorLoading, saveAnchor } = useCashBalance();
+  const { anchor, loading: anchorLoading, saveAnchor, clearAnchor } = useCashBalance();
   const {
     investments, transactions, loading: invLoading,
     addInvestment, updateInvestment, deleteInvestment,
@@ -103,8 +103,27 @@ export default function CashPage() {
               </span>
             </button>
             {anchorEditOpen && (
-              <div style={{ padding: "16px 20px" }}>
+              <div style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 14 }}>
                 <CashSetup anchor={anchor} onSave={saveAnchor} />
+                <div style={{ borderTop: "1px solid var(--rule)", paddingTop: 14, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                  <p style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", fontSize: 12, lineHeight: 1.6, margin: 0, flex: 1, minWidth: 200 }}>
+                    Anchor looking wrong (e.g. saved with the wrong amount) and re-entering it above hasn&apos;t fixed it? Clear it entirely and set it up fresh.
+                  </p>
+                  <button
+                    onClick={() => {
+                      if (!confirm("Clear the cash balance anchor? You'll be asked to set a fresh starting date and amount — no ledger entries are affected.")) return;
+                      clearAnchor();
+                      setAnchorEditOpen(false);
+                    }}
+                    style={{
+                      background: "none", border: "1px solid var(--red)", color: "var(--red)",
+                      fontFamily: "var(--font-sans)", fontSize: 12, fontWeight: 600,
+                      borderRadius: 6, padding: "6px 12px", cursor: "pointer", whiteSpace: "nowrap",
+                    }}
+                  >
+                    Reset anchor
+                  </button>
+                </div>
               </div>
             )}
           </div>
