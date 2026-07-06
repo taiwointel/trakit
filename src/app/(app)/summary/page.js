@@ -26,6 +26,7 @@ import AnnualWrapped     from "@/components/summary/AnnualWrapped";
 import MonthComparisonPanel from "@/components/summary/MonthComparisonPanel";
 import WorthASecondLook  from "@/components/summary/WorthASecondLook";
 import YearToDatePanel   from "@/components/summary/YearToDatePanel";
+import BeneficiaryRankings from "@/components/summary/BeneficiaryRankings";
 import ReportCard        from "@/components/summary/ReportCard";
 
 const GREETINGS = {
@@ -852,6 +853,7 @@ export default function SummaryPage() {
           periodLabel={cycle ? cycle.label : "This month"}
           prevPeriodLabel={cycle ? getSalaryCycle(goals.payday_day, cycleOffset - 1)?.label : "last month"}
         />
+        <BeneficiaryRankings entries={entries} />
       </div>
 
       {/* ── SPEND BREAKDOWN ───────────────────────────────────────────────
