@@ -904,6 +904,112 @@ function ImportSummaryModal({ summary, firstName, onJumpToMonth, onClose }) {
   );
 }
 
+// ── Name confirmation modal ──────────────────────────────────────────────────
+// Asked once per drop, before any row is tagged, since self-transfer
+// detection reads against exactly this string. Auto-extracting it from the
+// statement is best-effort and silently wrong on some bank layouts, so the
+// user gets the final say instead of a regex — a true full-screen popup so
+// it can't be mistaken for an inline, skippable card.
+function NameConfirmModal({ nameStep, setNameStep, onContinue, onBack, onConfirm, onSkip }) {
+  return (
+    <div
+      style={{
+        position: "fixed", inset: 0, zIndex: 9999,
+        background: "rgba(0,0,0,0.75)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        padding: "1rem",
+      }}
+    >
+      <div
+        style={{
+          background:   "var(--ink-2)",
+          border:       "1px solid rgba(169,133,79,0.4)",
+          borderRadius: 20,
+          width:        "100%",
+          maxWidth:     440,
+          padding:      "26px 26px 22px",
+          display:      "flex",
+          flexDirection:"column",
+          gap:          16,
+        }}
+      >
+        {nameStep.stage === "input" ? (
+          <>
+            <div>
+              <p style={{ color: "var(--gold)", fontFamily: "var(--font-serif)", fontSize: 20, fontWeight: 700, margin: "0 0 8px" }}>
+                Just one more thing
+              </p>
+              <p style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", fontSize: 13.5, lineHeight: 1.6, margin: 0 }}>
+                What&apos;s your full name exactly as it appears on this bank statement? Word order doesn&apos;t matter — this
+                lets Trakit7 recognize transfers between your own accounts and keep them out of your income and spending totals.
+              </p>
+            </div>
+            <input
+              type="text"
+              autoFocus
+              value={nameStep.value}
+              onChange={(e) => setNameStep((s) => ({ ...s, value: e.target.value }))}
+              onKeyDown={(e) => { if (e.key === "Enter" && nameStep.value.trim()) onContinue(); }}
+              placeholder="e.g. TAIWO OLAGOKE OGUNFILE"
+              style={{ ...inputBase, background: "var(--ink-3)", color: "var(--ink-text)", padding: "10px 12px", fontSize: 14, borderRadius: 10 }}
+            />
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={onSkip}
+                className="rounded-lg px-3 py-2 text-xs"
+                style={{ background: "none", color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", cursor: "pointer" }}
+              >
+                Skip — I&apos;ll fix self-transfers manually
+              </button>
+              <button
+                onClick={onContinue}
+                disabled={!nameStep.value.trim()}
+                className="rounded-lg px-5 py-2 text-sm font-semibold"
+                style={{
+                  background: "var(--gold)", color: "#fff", fontFamily: "var(--font-sans)",
+                  opacity: nameStep.value.trim() ? 1 : 0.5,
+                  cursor: nameStep.value.trim() ? "pointer" : "not-allowed",
+                }}
+              >
+                Continue
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div>
+              <p style={{ color: "var(--gold)", fontFamily: "var(--font-serif)", fontSize: 20, fontWeight: 700, margin: "0 0 8px" }}>
+                Just to confirm
+              </p>
+              <p style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", fontSize: 13.5, lineHeight: 1.6, margin: 0 }}>
+                Trakit7 will treat any transfer to or from{" "}
+                <strong style={{ color: "var(--ink-text)" }}>{nameStep.value.trim()}</strong>{" "}
+                as money moving between your own accounts, not real income or spending. Is that right?
+              </p>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={onBack}
+                className="rounded-lg px-3 py-2 text-xs"
+                style={{ background: "none", color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", cursor: "pointer" }}
+              >
+                ‹ Edit
+              </button>
+              <button
+                onClick={onConfirm}
+                className="rounded-lg px-5 py-2 text-sm font-semibold"
+                style={{ background: "var(--gold)", color: "#fff", fontFamily: "var(--font-sans)", cursor: "pointer" }}
+              >
+                Yes, that&apos;s me
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function CsvImport({ onImported, onJumpToMonth }) {
   const [rows,         setRows]         = useState([]);
   const [wizardGroups, setWizardGroups] = useState(null);
@@ -1457,91 +1563,6 @@ export default function CsvImport({ onImported, onJumpToMonth }) {
             </div>
           )}
 
-          {/* Name confirmation — asked once per drop, before any row is
-              tagged, since self-transfer detection reads against exactly
-              this string. Auto-extracting it from the statement is
-              best-effort and silently wrong on some bank layouts, so the
-              user gets the final say instead of a regex. */}
-          {nameStep && (
-            <div
-              className="rounded-lg p-4 flex flex-col gap-3"
-              style={{ background: "var(--ink-3)", border: "1px solid rgba(169,133,79,0.35)" }}
-            >
-              {nameStep.stage === "input" ? (
-                <>
-                  <div>
-                    <p className="text-sm font-semibold" style={{ color: "var(--ink-text)", fontFamily: "var(--font-sans)" }}>
-                      Just one more thing
-                    </p>
-                    <p className="text-xs mt-1" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", lineHeight: 1.5 }}>
-                      What&apos;s your full name exactly as it appears on this bank statement? Word order doesn&apos;t matter — this
-                      lets Trakit7 recognize transfers between your own accounts and keep them out of your income and spending totals.
-                    </p>
-                  </div>
-                  <input
-                    type="text"
-                    autoFocus
-                    value={nameStep.value}
-                    onChange={(e) => setNameStep((s) => ({ ...s, value: e.target.value }))}
-                    onKeyDown={(e) => { if (e.key === "Enter" && nameStep.value.trim()) nameGoToConfirm(); }}
-                    placeholder="e.g. TAIWO OLAGOKE OGUNFILE"
-                    style={{ ...inputBase, background: "var(--ink-2)", color: "var(--ink-text)", padding: "8px 10px", fontSize: 13 }}
-                  />
-                  <div className="flex gap-2 justify-end">
-                    <button
-                      onClick={nameSkip}
-                      className="rounded-lg px-3 py-1.5 text-xs"
-                      style={{ background: "none", color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}
-                    >
-                      Skip — I&apos;ll fix self-transfers manually
-                    </button>
-                    <button
-                      onClick={nameGoToConfirm}
-                      disabled={!nameStep.value.trim()}
-                      className="rounded-lg px-4 py-1.5 text-sm font-semibold"
-                      style={{
-                        background: "var(--gold)", color: "#fff", fontFamily: "var(--font-sans)",
-                        opacity: nameStep.value.trim() ? 1 : 0.5,
-                        cursor: nameStep.value.trim() ? "pointer" : "not-allowed",
-                      }}
-                    >
-                      Continue
-                    </button>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div>
-                    <p className="text-sm font-semibold" style={{ color: "var(--ink-text)", fontFamily: "var(--font-sans)" }}>
-                      Just to confirm
-                    </p>
-                    <p className="text-xs mt-1" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", lineHeight: 1.5 }}>
-                      Trakit7 will treat any transfer to or from{" "}
-                      <strong style={{ color: "var(--gold)" }}>{nameStep.value.trim()}</strong>{" "}
-                      as money moving between your own accounts, not real income or spending. Is that right?
-                    </p>
-                  </div>
-                  <div className="flex gap-2 justify-end">
-                    <button
-                      onClick={nameGoBackToEdit}
-                      className="rounded-lg px-3 py-1.5 text-xs"
-                      style={{ background: "none", color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}
-                    >
-                      ‹ Edit
-                    </button>
-                    <button
-                      onClick={nameFinalConfirm}
-                      className="rounded-lg px-4 py-1.5 text-sm font-semibold"
-                      style={{ background: "var(--gold)", color: "#fff", fontFamily: "var(--font-sans)", cursor: "pointer" }}
-                    >
-                      Yes, that&apos;s me
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
-          )}
-
           {/* Status */}
           {status && (
             <p className="text-sm" style={{ color: status.type === "error" ? "var(--red)" : "var(--green)", fontFamily: "var(--font-sans)" }}>
@@ -1707,6 +1728,18 @@ export default function CsvImport({ onImported, onJumpToMonth }) {
           onFinish={handleWizardFinish}
           onSkipAll={handleWizardSkipAll}
           onCancel={handleWizardCancel}
+        />
+      )}
+
+      {/* Name confirmation — renders as full-viewport overlay */}
+      {nameStep && (
+        <NameConfirmModal
+          nameStep={nameStep}
+          setNameStep={setNameStep}
+          onContinue={nameGoToConfirm}
+          onBack={nameGoBackToEdit}
+          onConfirm={nameFinalConfirm}
+          onSkip={nameSkip}
         />
       )}
 
