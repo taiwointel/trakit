@@ -57,7 +57,8 @@ function rankBeneficiaries(entries) {
     map[key].total += Number(e.amount);
     map[key].count += 1;
   }
-  return clusterBeneficiaries(Object.values(map)).sort((a, b) => b.total - a.total).slice(0, 10);
+  // Exhaustive, not top-N — the scroll container in RankTable handles length.
+  return clusterBeneficiaries(Object.values(map)).sort((a, b) => b.total - a.total);
 }
 
 function RankTable({ title, accent, icon, rows, emptyMsg }) {
