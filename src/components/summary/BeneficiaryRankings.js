@@ -155,19 +155,43 @@ function DrillThroughModal({ row, accent, onClose }) {
 
 function RankTable({ title, accent, icon, rows, emptyMsg }) {
   const [drillRow, setDrillRow] = useState(null);
-  const max = rows.length ? rows[0].total : 0;
+  const [query,    setQuery]    = useState("");
+
+  const filteredRows = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return rows;
+    return rows.filter((r) => r.name.toLowerCase().includes(q));
+  }, [rows, query]);
+
+  // Scale bars against the filtered set's own leader, not the unfiltered
+  // list's — otherwise searching down to smaller names leaves every bar
+  // looking nearly empty against a leader that's no longer even shown.
+  const max = filteredRows.length ? filteredRows[0].total : 0;
   return (
     <div className="rounded-xl overflow-hidden" style={{ background: "var(--ink-2)", border: "1px solid var(--rule)", borderTop: `3px solid ${accent}` }}>
-      <div className="px-4 py-3 border-b flex items-center gap-2" style={{ borderColor: "var(--rule)" }}>
+      <div className="px-4 py-3 border-b flex items-center gap-2 flex-wrap" style={{ borderColor: "var(--rule)" }}>
         <span style={{ fontSize: 13 }}>{icon}</span>
-        <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: accent, fontFamily: "var(--font-sans)" }}>
+        <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: accent, fontFamily: "var(--font-sans)", flex: 1 }}>
           {title}
         </p>
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search…"
+          style={{
+            background: "var(--ink-3)", border: "1px solid var(--rule)", color: "var(--ink-text)",
+            fontFamily: "var(--font-sans)", fontSize: 11, borderRadius: 6, padding: "4px 8px",
+            outline: "none", width: 110,
+          }}
+        />
       </div>
       <div className="px-4 py-3 flex flex-col gap-2.5" style={{ maxHeight: 340, overflowY: "auto" }}>
-        {rows.length === 0 ? (
-          <p className="text-xs" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>{emptyMsg}</p>
-        ) : rows.map((r, i) => (
+        {filteredRows.length === 0 ? (
+          <p className="text-xs" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>
+            {rows.length === 0 ? emptyMsg : "No beneficiaries match that search."}
+          </p>
+        ) : filteredRows.map((r, i) => (
           <div key={r.name} className="flex flex-col gap-1">
             <div className="flex items-center gap-2">
               <span className="text-[10px] shrink-0" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-mono)", width: 16 }}>
