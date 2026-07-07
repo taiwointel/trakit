@@ -4,6 +4,18 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
+const PROVIDER_META = {
+  email:    { label: "Email & Password", icon: "✉️" },
+  google:   { label: "Google",           icon: "🔵" },
+  github:   { label: "GitHub",           icon: "⚫" },
+  azure:    { label: "Microsoft",        icon: "🟦" },
+  facebook: { label: "Facebook",         icon: "🔷" },
+  apple:    { label: "Apple",            icon: "⚪" },
+};
+function providerMeta(provider) {
+  return PROVIDER_META[provider] || { label: provider ? provider[0].toUpperCase() + provider.slice(1) : "Unknown", icon: "🔑" };
+}
+
 function Section({ title, color = "var(--ink-text-dim)", children }) {
   return (
     <div className="flex flex-col gap-3">
@@ -57,6 +69,8 @@ export default function SettingsDrawer({ open, onClose, onStartTour }) {
   const [displayNameInput, setDisplayNameInput] = useState("");
   const [savingName,       setSavingName]       = useState(false);
   const [nameStatus,       setNameStatus]       = useState("");
+  const [accountEmail,     setAccountEmail]     = useState("");
+  const [authProvider,     setAuthProvider]     = useState(""); // "email" | "google" | etc.
 
   const [newPassword,     setNewPassword]     = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -127,6 +141,11 @@ export default function SettingsDrawer({ open, onClose, onStartTour }) {
         const n = user.user_metadata?.full_name || user.email || "";
         setDisplayName(n);
         setDisplayNameInput(n);
+        setAccountEmail(user.email || "");
+        // app_metadata.provider is the primary sign-in method Supabase
+        // recorded for this user ("email", "google", etc.) — identities[0]
+        // as a fallback for older sessions where app_metadata wasn't set.
+        setAuthProvider(user.app_metadata?.provider || user.identities?.[0]?.provider || "email");
       }
       fetch("/api/ai/settings")
         .then((r) => r.json())
@@ -483,6 +502,22 @@ export default function SettingsDrawer({ open, onClose, onStartTour }) {
 
           {/* ── Profile ─────────────────────────────── */}
           <Section title="Your Profile" color="var(--gold)">
+            {/* Signed-in-as — the account identity itself, not editable here.
+                Exists so a user with more than one account (or who forgets
+                which email they used) can confirm at a glance which one
+                they're looking at, and how they authenticated into it. */}
+            <div className="px-3 py-2.5 rounded-xl flex items-center gap-2.5" style={{ background: "var(--ink-3)", border: "1px solid var(--rule)" }}>
+              <span style={{ fontSize: 16 }}>{providerMeta(authProvider).icon}</span>
+              <div className="min-w-0">
+                <p className="text-sm font-medium truncate" style={{ color: "var(--ink-text)", fontFamily: "var(--font-sans)" }}>
+                  {accountEmail || "—"}
+                </p>
+                <p className="text-xs" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>
+                  Signed in with {providerMeta(authProvider).label}
+                </p>
+              </div>
+            </div>
+
             <div className="flex flex-col gap-1.5">
               <label style={labelStyle}>Display name</label>
               <div className="flex gap-2">
@@ -515,24 +550,30 @@ export default function SettingsDrawer({ open, onClose, onStartTour }) {
               )}
             </div>
 
-            <div className="flex flex-col gap-1.5">
-              <label style={labelStyle}>New password</label>
-              <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="At least 8 characters" className="w-full px-3 py-2.5 rounded-lg text-sm" style={inputStyle} />
-              <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Confirm new password" className="w-full px-3 py-2.5 rounded-lg text-sm" style={inputStyle} />
-              <button
-                onClick={savePassword}
-                disabled={savingPass || !newPassword}
-                className="w-full py-2.5 rounded-lg text-sm font-semibold"
-                style={{ background: "var(--ink-3)", border: "1px solid var(--rule)", color: newPassword ? "var(--ink-text)" : "var(--ink-text-dim)", fontFamily: "var(--font-sans)", opacity: (!newPassword || savingPass) ? 0.6 : 1 }}
-              >
-                {savingPass ? "Saving..." : "Change Password"}
-              </button>
-              {passStatus && (
-                <p className="text-xs" style={{ color: passStatus.includes("changed") ? "var(--green)" : passStatus.includes("match") || passStatus.includes("8") ? "var(--amber)" : "var(--ink-text-dim)", fontFamily: "var(--font-mono)" }}>
-                  {passStatus}
-                </p>
-              )}
-            </div>
+            {authProvider === "email" ? (
+              <div className="flex flex-col gap-1.5">
+                <label style={labelStyle}>New password</label>
+                <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="At least 8 characters" className="w-full px-3 py-2.5 rounded-lg text-sm" style={inputStyle} />
+                <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Confirm new password" className="w-full px-3 py-2.5 rounded-lg text-sm" style={inputStyle} />
+                <button
+                  onClick={savePassword}
+                  disabled={savingPass || !newPassword}
+                  className="w-full py-2.5 rounded-lg text-sm font-semibold"
+                  style={{ background: "var(--ink-3)", border: "1px solid var(--rule)", color: newPassword ? "var(--ink-text)" : "var(--ink-text-dim)", fontFamily: "var(--font-sans)", opacity: (!newPassword || savingPass) ? 0.6 : 1 }}
+                >
+                  {savingPass ? "Saving..." : "Change Password"}
+                </button>
+                {passStatus && (
+                  <p className="text-xs" style={{ color: passStatus.includes("changed") ? "var(--green)" : passStatus.includes("match") || passStatus.includes("8") ? "var(--amber)" : "var(--ink-text-dim)", fontFamily: "var(--font-mono)" }}>
+                    {passStatus}
+                  </p>
+                )}
+              </div>
+            ) : (
+              <p className="text-xs" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>
+                You signed in with {providerMeta(authProvider).label} — manage your password there, not here.
+              </p>
+            )}
           </Section>
 
           <Divider />
