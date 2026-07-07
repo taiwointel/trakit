@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { formatNaira } from "@/lib/format";
 import { clusterByBeneficiary } from "@/lib/beneficiaryCluster";
+import { CATEGORY_NAMES, categoryDefaults } from "@/lib/categories";
 
 // Same self-transfer exclusion as every other summary panel — money moving
 // between the user's own accounts isn't a real beneficiary relationship.
@@ -28,10 +29,33 @@ function fmtDate(iso) {
 // Exhaustive, not top-N — the scroll container in RankTable handles length.
 const rankBeneficiaries = clusterByBeneficiary;
 
+const selectStyle = {
+  background: "var(--ink-2)", border: "1px solid var(--rule)", color: "var(--ink-text)",
+  fontFamily: "var(--font-sans)", fontSize: 11, borderRadius: 6, padding: "4px 22px 4px 8px", outline: "none",
+};
+
 // Full-screen drill-through — every transaction behind one ranked row, in
 // date order, with a short description and the running total confirmed
 // against the row's own figure so the two can never silently disagree.
-function DrillThroughModal({ row, accent, onClose }) {
+// Retagging lives right here: a bulk bar to recategorize every transaction
+// with this beneficiary in one action, plus a per-row select for the odd
+// one that shouldn't follow the group.
+function DrillThroughModal({ row, accent, onClose, onUpdate, onBulkUpdate }) {
+  const [bulkCategory, setBulkCategory] = useState("");
+  const [bulkApplying, setBulkApplying] = useState(false);
+  const [bulkNotice,   setBulkNotice]   = useState(null);
+
+  async function applyBulk() {
+    if (!bulkCategory || !onBulkUpdate) return;
+    if (!confirm(`Set category to "${bulkCategory}" for all ${row.entries.length} transactions with ${row.name}?`)) return;
+    setBulkApplying(true);
+    setBulkNotice(null);
+    await onBulkUpdate(row.entries.map((e) => e.id), { category: bulkCategory, ...categoryDefaults(bulkCategory) });
+    setBulkApplying(false);
+    setBulkNotice(`Retagged ${row.entries.length} transactions as "${bulkCategory}".`);
+    setBulkCategory("");
+  }
+
   return (
     <div
       style={{
@@ -74,6 +98,34 @@ function DrillThroughModal({ row, accent, onClose }) {
           </button>
         </div>
 
+        {onBulkUpdate && (
+          <div className="flex items-center gap-2 flex-wrap" style={{ background: "rgba(169,133,79,0.1)", borderRadius: 8, padding: "8px 10px" }}>
+            <span style={{ color: "var(--ink-text)", fontFamily: "var(--font-sans)", fontSize: 11.5, fontWeight: 600 }}>
+              Retag all {row.entries.length} →
+            </span>
+            <select value={bulkCategory} onChange={(e) => setBulkCategory(e.target.value)} style={selectStyle}>
+              <option value="">Choose category…</option>
+              {CATEGORY_NAMES.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+            <button
+              onClick={applyBulk}
+              disabled={!bulkCategory || bulkApplying}
+              style={{
+                background: "var(--gold)", color: "#fff", border: "none",
+                fontFamily: "var(--font-sans)", fontSize: 11, fontWeight: 600,
+                borderRadius: 6, padding: "4px 10px",
+                cursor: (!bulkCategory || bulkApplying) ? "not-allowed" : "pointer",
+                opacity: (!bulkCategory || bulkApplying) ? 0.6 : 1,
+              }}
+            >
+              {bulkApplying ? "Applying…" : "Apply"}
+            </button>
+            {bulkNotice && (
+              <span style={{ fontFamily: "var(--font-sans)", fontSize: 11, color: "var(--green)" }}>{bulkNotice}</span>
+            )}
+          </div>
+        )}
+
         <div style={{ overflowY: "auto", display: "flex", flexDirection: "column", gap: 8, paddingRight: 2 }}>
           {row.entries.map((e) => (
             <div
@@ -83,13 +135,24 @@ function DrillThroughModal({ row, accent, onClose }) {
                 padding: "8px 10px", background: "var(--ink-3)", borderRadius: 8,
               }}
             >
-              <div style={{ minWidth: 0 }}>
+              <div style={{ minWidth: 0, flex: 1 }}>
                 <p style={{ color: "var(--ink-text)", fontFamily: "var(--font-sans)", fontSize: 12.5, fontWeight: 600, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {shortDesc(e) || "—"}
                 </p>
-                <p style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-mono)", fontSize: 10.5, margin: "2px 0 0" }}>
-                  {fmtDate(e.date)}
-                </p>
+                <div className="flex items-center gap-2 flex-wrap" style={{ marginTop: 4 }}>
+                  <p style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-mono)", fontSize: 10.5, margin: 0 }}>
+                    {fmtDate(e.date)}
+                  </p>
+                  {onUpdate && (
+                    <select
+                      value={e.category || ""}
+                      onChange={(ev) => onUpdate(e.id, { category: ev.target.value, ...categoryDefaults(ev.target.value) })}
+                      style={{ ...selectStyle, fontSize: 10, padding: "2px 18px 2px 6px" }}
+                    >
+                      {CATEGORY_NAMES.map((c) => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  )}
+                </div>
               </div>
               <span style={{ color: accent, fontFamily: "var(--font-mono)", fontSize: 12.5, fontWeight: 700, flexShrink: 0, whiteSpace: "nowrap" }}>
                 {formatNaira(e.amount)}
@@ -102,7 +165,7 @@ function DrillThroughModal({ row, accent, onClose }) {
   );
 }
 
-function RankTable({ title, accent, icon, rows, emptyMsg }) {
+function RankTable({ title, accent, icon, rows, emptyMsg, onUpdate, onBulkUpdate }) {
   const [drillRow, setDrillRow] = useState(null);
   const [query,    setQuery]    = useState("");
 
@@ -178,13 +241,13 @@ function RankTable({ title, accent, icon, rows, emptyMsg }) {
       </div>
 
       {drillRow && (
-        <DrillThroughModal row={drillRow} accent={accent} onClose={() => setDrillRow(null)} />
+        <DrillThroughModal row={drillRow} accent={accent} onClose={() => setDrillRow(null)} onUpdate={onUpdate} onBulkUpdate={onBulkUpdate} />
       )}
     </div>
   );
 }
 
-export default function BeneficiaryRankings({ entries }) {
+export default function BeneficiaryRankings({ entries, onUpdate, onBulkUpdate }) {
   const [scope, setScope] = useState("ytd"); // "month" | "ytd"
   const today = new Date();
   const [monthOffset, setMonthOffset] = useState(0);
@@ -288,6 +351,8 @@ export default function BeneficiaryRankings({ entries }) {
           icon="📤"
           rows={topSent}
           emptyMsg="No outgoing transfers with a named beneficiary in this period."
+          onUpdate={onUpdate}
+          onBulkUpdate={onBulkUpdate}
         />
         <RankTable
           title="Highest Received From"
@@ -295,6 +360,8 @@ export default function BeneficiaryRankings({ entries }) {
           icon="📥"
           rows={topReceived}
           emptyMsg="No incoming transfers with a named sender in this period."
+          onUpdate={onUpdate}
+          onBulkUpdate={onBulkUpdate}
         />
       </div>
     </div>

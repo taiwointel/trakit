@@ -313,7 +313,7 @@ function GreetingTimeIcon() {
 export default function SummaryPage() {
   const [greetingIdx] = useState(() => Math.floor(Math.random() * 100));
 
-  const { entries, loading: entriesLoading } = useEntries();
+  const { entries, updateEntry, updateEntries, loading: entriesLoading } = useEntries();
   const { goals,   loading: goalsLoading   } = useGoals();
   const { anchor,  loading: cashLoading    } = useCashBalance();
   const { name }                             = useUser();
@@ -810,8 +810,8 @@ export default function SummaryPage() {
           <YearToDatePanel entries={entries} />
         </div>
 
-        <BeneficiaryRankings entries={entries} />
-        <SpendConcentration entries={entries} />
+        <BeneficiaryRankings entries={entries} onUpdate={updateEntry} onBulkUpdate={updateEntries} />
+        <SpendConcentration entries={entries} onUpdate={updateEntry} onBulkUpdate={updateEntries} />
 
         <NetWorthCard
           cashBalance={currentBalance}

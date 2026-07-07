@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { formatNaira } from "@/lib/format";
 import { clusterByBeneficiary } from "@/lib/beneficiaryCluster";
+import { CATEGORY_NAMES, categoryDefaults } from "@/lib/categories";
 
 function relevant(entries) {
   return entries.filter((e) => e.flow === "out" && e.category && e.category !== "Self");
@@ -32,10 +33,33 @@ function rankCategories(entries) {
   return Object.values(map).sort((a, b) => b.total - a.total);
 }
 
+const selectStyle = {
+  background: "var(--ink-2)", border: "1px solid var(--rule)", color: "var(--ink-text)",
+  fontFamily: "var(--font-sans)", fontSize: 11, borderRadius: 6, padding: "4px 22px 4px 8px", outline: "none",
+};
+
 // Full-screen drill-through for one beneficiary's spend *within a single
 // category* — every underlying transaction, in date order, with a short
 // description and the running total confirmed against the row's own figure.
-function BeneficiaryDrillModal({ row, accent, onClose }) {
+// Retagging lives right here: a bulk bar to recategorize every transaction
+// with this beneficiary (within this category) in one action, plus a
+// per-row select for the odd one that shouldn't follow the group.
+function BeneficiaryDrillModal({ row, accent, onClose, onUpdate, onBulkUpdate }) {
+  const [bulkCategory, setBulkCategory] = useState("");
+  const [bulkApplying, setBulkApplying] = useState(false);
+  const [bulkNotice,   setBulkNotice]   = useState(null);
+
+  async function applyBulk() {
+    if (!bulkCategory || !onBulkUpdate) return;
+    if (!confirm(`Set category to "${bulkCategory}" for all ${row.entries.length} transactions with ${row.name}?`)) return;
+    setBulkApplying(true);
+    setBulkNotice(null);
+    await onBulkUpdate(row.entries.map((e) => e.id), { category: bulkCategory, ...categoryDefaults(bulkCategory) });
+    setBulkApplying(false);
+    setBulkNotice(`Retagged ${row.entries.length} transactions as "${bulkCategory}".`);
+    setBulkCategory("");
+  }
+
   return (
     <div
       style={{
@@ -78,6 +102,34 @@ function BeneficiaryDrillModal({ row, accent, onClose }) {
           </button>
         </div>
 
+        {onBulkUpdate && (
+          <div className="flex items-center gap-2 flex-wrap" style={{ background: "rgba(169,133,79,0.1)", borderRadius: 8, padding: "8px 10px" }}>
+            <span style={{ color: "var(--ink-text)", fontFamily: "var(--font-sans)", fontSize: 11.5, fontWeight: 600 }}>
+              Retag all {row.entries.length} →
+            </span>
+            <select value={bulkCategory} onChange={(e) => setBulkCategory(e.target.value)} style={selectStyle}>
+              <option value="">Choose category…</option>
+              {CATEGORY_NAMES.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+            <button
+              onClick={applyBulk}
+              disabled={!bulkCategory || bulkApplying}
+              style={{
+                background: "var(--gold)", color: "#fff", border: "none",
+                fontFamily: "var(--font-sans)", fontSize: 11, fontWeight: 600,
+                borderRadius: 6, padding: "4px 10px",
+                cursor: (!bulkCategory || bulkApplying) ? "not-allowed" : "pointer",
+                opacity: (!bulkCategory || bulkApplying) ? 0.6 : 1,
+              }}
+            >
+              {bulkApplying ? "Applying…" : "Apply"}
+            </button>
+            {bulkNotice && (
+              <span style={{ fontFamily: "var(--font-sans)", fontSize: 11, color: "var(--green)" }}>{bulkNotice}</span>
+            )}
+          </div>
+        )}
+
         <div style={{ overflowY: "auto", display: "flex", flexDirection: "column", gap: 8, paddingRight: 2 }}>
           {row.entries.map((e) => (
             <div
@@ -87,13 +139,24 @@ function BeneficiaryDrillModal({ row, accent, onClose }) {
                 padding: "8px 10px", background: "var(--ink-3)", borderRadius: 8,
               }}
             >
-              <div style={{ minWidth: 0 }}>
+              <div style={{ minWidth: 0, flex: 1 }}>
                 <p style={{ color: "var(--ink-text)", fontFamily: "var(--font-sans)", fontSize: 12.5, fontWeight: 600, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {shortDesc(e) || "—"}
                 </p>
-                <p style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-mono)", fontSize: 10.5, margin: "2px 0 0" }}>
-                  {fmtDate(e.date)}
-                </p>
+                <div className="flex items-center gap-2 flex-wrap" style={{ marginTop: 4 }}>
+                  <p style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-mono)", fontSize: 10.5, margin: 0 }}>
+                    {fmtDate(e.date)}
+                  </p>
+                  {onUpdate && (
+                    <select
+                      value={e.category || ""}
+                      onChange={(ev) => onUpdate(e.id, { category: ev.target.value, ...categoryDefaults(ev.target.value) })}
+                      style={{ ...selectStyle, fontSize: 10, padding: "2px 18px 2px 6px" }}
+                    >
+                      {CATEGORY_NAMES.map((c) => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  )}
+                </div>
               </div>
               <span style={{ color: accent, fontFamily: "var(--font-mono)", fontSize: 12.5, fontWeight: 700, flexShrink: 0, whiteSpace: "nowrap" }}>
                 {formatNaira(e.amount)}
@@ -110,7 +173,7 @@ function BeneficiaryDrillModal({ row, accent, onClose }) {
 // reveals every beneficiary spent on within that category, summed and
 // clustered the same way Major Beneficiaries does, ranked highest first,
 // each with its own (i) drill-through into the individual transactions.
-function CategoryRow({ cat, index, accent, isOpen, onToggle }) {
+function CategoryRow({ cat, index, accent, isOpen, onToggle, onUpdate, onBulkUpdate }) {
   const beneficiaries = useMemo(() => clusterByBeneficiary(cat.entries), [cat.entries]);
   const [drillRow, setDrillRow] = useState(null);
   const maxBene = beneficiaries.length ? beneficiaries[0].total : 0;
@@ -175,13 +238,13 @@ function CategoryRow({ cat, index, accent, isOpen, onToggle }) {
       )}
 
       {drillRow && (
-        <BeneficiaryDrillModal row={drillRow} accent={accent} onClose={() => setDrillRow(null)} />
+        <BeneficiaryDrillModal row={drillRow} accent={accent} onClose={() => setDrillRow(null)} onUpdate={onUpdate} onBulkUpdate={onBulkUpdate} />
       )}
     </div>
   );
 }
 
-export default function SpendConcentration({ entries }) {
+export default function SpendConcentration({ entries, onUpdate, onBulkUpdate }) {
   const [scope, setScope] = useState("ytd"); // "month" | "ytd"
   const today = new Date();
   const [monthOffset, setMonthOffset] = useState(0);
@@ -326,6 +389,8 @@ export default function SpendConcentration({ entries }) {
               accent={accent}
               isOpen={openCats.has(cat.name)}
               onToggle={() => toggleCat(cat.name)}
+              onUpdate={onUpdate}
+              onBulkUpdate={onBulkUpdate}
             />
           ))}
         </div>
