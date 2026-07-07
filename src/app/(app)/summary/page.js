@@ -809,6 +809,8 @@ export default function SummaryPage() {
           <YearToDatePanel entries={entries} />
         </div>
 
+        <BeneficiaryRankings entries={entries} />
+
         <div className="grid-2">
           <NetWorthCard
             cashBalance={currentBalance}
@@ -853,7 +855,6 @@ export default function SummaryPage() {
           periodLabel={cycle ? cycle.label : "This month"}
           prevPeriodLabel={cycle ? getSalaryCycle(goals.payday_day, cycleOffset - 1)?.label : "last month"}
         />
-        <BeneficiaryRankings entries={entries} />
       </div>
 
       {/* ── SPEND BREAKDOWN ───────────────────────────────────────────────
