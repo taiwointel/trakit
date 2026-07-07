@@ -72,21 +72,7 @@ Rules you MUST follow:
   try {
     let text = "";
 
-    if (settings?.provider === "groq" && settings.groq_key_encrypted) {
-      const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${settings.groq_key_encrypted}` },
-        body: JSON.stringify({
-          model: "llama-3.3-70b-versatile",
-          messages: [{ role: "system", content: PERSONA }, { role: "user", content: PROMPT }],
-          max_tokens: 1400,
-          temperature: 0.85,
-        }),
-      });
-      const data = await res.json();
-      if (res.ok) text = data.choices?.[0]?.message?.content || "";
-
-    } else if (settings?.provider === "claude" && settings.claude_key_encrypted) {
+    if (settings?.provider === "claude" && settings.claude_key_encrypted) {
       const res = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: {
@@ -104,20 +90,20 @@ Rules you MUST follow:
       const data = await res.json();
       if (res.ok) text = data.content?.[0]?.text || "";
 
-    } else if (settings?.gemini_key_encrypted) {
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${settings.gemini_key_encrypted}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: `${PERSONA}\n\n${PROMPT}` }] }],
-            generationConfig: { maxOutputTokens: 1400, temperature: 0.85 },
-          }),
-        }
-      );
+    } else if (settings?.groq_key_encrypted) {
+      // Groq (default)
+      const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${settings.groq_key_encrypted}` },
+        body: JSON.stringify({
+          model: "llama-3.3-70b-versatile",
+          messages: [{ role: "system", content: PERSONA }, { role: "user", content: PROMPT }],
+          max_tokens: 1400,
+          temperature: 0.85,
+        }),
+      });
       const data = await res.json();
-      if (res.ok) text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+      if (res.ok) text = data.choices?.[0]?.message?.content || "";
     }
 
     if (text) {
@@ -672,7 +658,7 @@ export async function POST() {
     supabase.from("entries").select("amount, flow, essentiality, category").eq("user_id", user.id)
       .gte("date", monthStart).lte("date", toDate),
     supabase.from("budgets").select("overall, category_budgets").eq("user_id", user.id).maybeSingle(),
-    supabase.from("user_ai_settings").select("provider, gemini_key_encrypted, groq_key_encrypted, claude_key_encrypted").eq("user_id", user.id).maybeSingle(),
+    supabase.from("user_ai_settings").select("provider, groq_key_encrypted, claude_key_encrypted").eq("user_id", user.id).maybeSingle(),
   ]);
 
   const allEntries = (entries || []).sort((a,b) => a.date.localeCompare(b.date) || (a.created_at||"").localeCompare(b.created_at||""));

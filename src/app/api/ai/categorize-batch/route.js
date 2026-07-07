@@ -45,7 +45,7 @@ export async function POST(request) {
   if (user) {
     const { data } = await supabase
       .from("user_ai_settings")
-      .select("provider, gemini_key_encrypted, groq_key_encrypted, claude_key_encrypted")
+      .select("provider, groq_key_encrypted, claude_key_encrypted")
       .eq("user_id", user.id)
       .maybeSingle();
     settings = data;
@@ -79,25 +79,7 @@ export async function POST(request) {
   let rawText = "";
 
   try {
-    if (settings?.provider === "groq" && settings.groq_key_encrypted) {
-      const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${settings.groq_key_encrypted}` },
-        body: JSON.stringify({
-          model: "llama-3.3-70b-versatile",
-          messages: [
-            { role: "system", content: SYSTEM_PROMPT },
-            { role: "user",   content: userPrompt },
-          ],
-          max_tokens: maxTokens,
-          temperature: 0.1,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error?.message);
-      rawText = data.choices?.[0]?.message?.content || "";
-
-    } else if (settings?.provider === "claude" && settings.claude_key_encrypted) {
+    if (settings?.provider === "claude" && settings.claude_key_encrypted) {
       const res = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: {
@@ -117,23 +99,25 @@ export async function POST(request) {
       rawText = data.content?.[0]?.text || "";
 
     } else {
-      const key = settings?.gemini_key_encrypted;
+      // Groq (default)
+      const key = settings?.groq_key_encrypted;
       if (!key) throw new Error("No AI key configured.");
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
-            contents: [{ parts: [{ text: userPrompt }] }],
-            generationConfig: { temperature: 0.1, maxOutputTokens: maxTokens },
-          }),
-        }
-      );
+      const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+        body: JSON.stringify({
+          model: "llama-3.3-70b-versatile",
+          messages: [
+            { role: "system", content: SYSTEM_PROMPT },
+            { role: "user",   content: userPrompt },
+          ],
+          max_tokens: maxTokens,
+          temperature: 0.1,
+        }),
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error?.message);
-      rawText = data.candidates?.[0]?.content?.parts?.map((p) => p.text || "").join("") || "";
+      rawText = data.choices?.[0]?.message?.content || "";
     }
 
     // Parse — strip markdown fences if the model included them

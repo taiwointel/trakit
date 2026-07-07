@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { callGemini } from "@/lib/gemini";
 
 export async function POST() {
   const supabase = await createClient();
@@ -12,7 +11,7 @@ export async function POST() {
 
   const { data: settings } = await supabase
     .from("user_ai_settings")
-    .select("provider, gemini_key_encrypted, groq_key_encrypted, claude_key_encrypted")
+    .select("provider, groq_key_encrypted, claude_key_encrypted")
     .eq("user_id", user.id)
     .single();
 
@@ -23,17 +22,6 @@ export async function POST() {
   const { provider } = settings;
 
   try {
-    if (provider === "gemini") {
-      const key = settings.gemini_key_encrypted;
-      if (!key) return NextResponse.json({ message: "No Gemini key saved." }, { status: 400 });
-
-      const text = await callGemini(key, {
-        contents: [{ parts: [{ text: "Reply with exactly one lowercase word: ok" }] }],
-        generationConfig: { maxOutputTokens: 10 },
-      });
-      return NextResponse.json({ message: `Gemini: ${text.trim()}` });
-    }
-
     if (provider === "groq") {
       const key = settings.groq_key_encrypted;
       if (!key) return NextResponse.json({ message: "No Groq key saved." }, { status: 400 });

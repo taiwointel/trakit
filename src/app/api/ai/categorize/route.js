@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { CATEGORY_NAMES, fallbackCategorize } from "@/lib/categories";
-import { callGemini } from "@/lib/gemini";
 import { lookupMerchantRule, saveMerchantRule } from "@/lib/merchantRules";
 import { isSelfTransfer, internalTransferFields } from "@/lib/selfTransfer";
 
@@ -65,7 +64,7 @@ export async function POST(request) {
   if (user) {
     const { data } = await supabase
       .from("user_ai_settings")
-      .select("provider, gemini_key_encrypted, groq_key_encrypted, claude_key_encrypted")
+      .select("provider, groq_key_encrypted, claude_key_encrypted")
       .eq("user_id", user.id)
       .maybeSingle();
     settings = data;
@@ -76,25 +75,7 @@ export async function POST(request) {
   try {
     let text = "";
 
-    if (settings?.provider === "groq" && settings.groq_key_encrypted) {
-      const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${settings.groq_key_encrypted}` },
-        body: JSON.stringify({
-          model: "llama-3.3-70b-versatile",
-          messages: [
-            { role: "system", content: SYSTEM_PROMPT },
-            { role: "user",   content: userPrompt },
-          ],
-          max_tokens: 200,
-          temperature: 0.1,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error?.message);
-      text = data.choices?.[0]?.message?.content || "";
-
-    } else if (settings?.provider === "claude" && settings.claude_key_encrypted) {
+    if (settings?.provider === "claude" && settings.claude_key_encrypted) {
       const res = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: {
@@ -114,14 +95,25 @@ export async function POST(request) {
       text = data.content?.[0]?.text || "";
 
     } else {
-      // Default: Gemini — with automatic fallback to gemini-1.5-flash on quota errors
-      const key = settings?.gemini_key_encrypted;
-      if (!key) throw new Error("No Gemini key");
-      text = await callGemini(key, {
-        system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
-        contents: [{ parts: [{ text: userPrompt }] }],
-        generationConfig: { temperature: 0.1, maxOutputTokens: 200 },
+      // Groq (default)
+      const key = settings?.groq_key_encrypted;
+      if (!key) throw new Error("No Groq key");
+      const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+        body: JSON.stringify({
+          model: "llama-3.3-70b-versatile",
+          messages: [
+            { role: "system", content: SYSTEM_PROMPT },
+            { role: "user",   content: userPrompt },
+          ],
+          max_tokens: 200,
+          temperature: 0.1,
+        }),
       });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error?.message);
+      text = data.choices?.[0]?.message?.content || "";
     }
 
     const cleaned = text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/, "");

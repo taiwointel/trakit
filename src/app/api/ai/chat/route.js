@@ -22,7 +22,7 @@ export async function POST(request) {
 
   const { data: settings } = await supabase
     .from("user_ai_settings")
-    .select("provider, gemini_key_encrypted, groq_key_encrypted, claude_key_encrypted")
+    .select("provider, groq_key_encrypted, claude_key_encrypted")
     .eq("user_id", user.id)
     .maybeSingle();
 
@@ -33,58 +33,16 @@ export async function POST(request) {
 
   const systemPrompt = buildPersona(name) + snapshotText;
 
+  const hasFiles = files.length > 0;
+
   try {
     let reply = "";
 
-    if (settings?.provider === "groq" && settings.groq_key_encrypted) {
-      const groqSystem = systemPrompt + (webSearch
-        ? `\n\n${name || "The user"} has turned on web research. Use it to ground your answer in current information. When you cite something you found, name the source plainly. Rates, fees, and product terms change — always tell ${name || "them"} to verify the exact figure directly with the provider before acting on it. Never present yourself as executing a financial decision, only informing one.`
-        : "") + (files.length > 0
-        ? `\n\n${name} has attached ${files.length} file(s) to this message. File upload analysis is only supported when using Gemini. Ask ${name} to switch to Gemini in Settings to get AI analysis of uploaded documents and images.`
-        : "");
-
-      const groqModel = webSearch ? "groq/compound" : "llama-3.3-70b-versatile";
-
-      const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${settings.groq_key_encrypted}`,
-        },
-        body: JSON.stringify({
-          model: groqModel,
-          messages: [{ role: "system", content: groqSystem }, ...messages],
-          max_tokens: 1000,
-          temperature: 0.7,
-        }),
-      });
-      let data = await res.json();
-      if (!res.ok && webSearch) {
-        const fallbackRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${settings.groq_key_encrypted}`,
-          },
-          body: JSON.stringify({
-            model: "llama-3.3-70b-versatile",
-            messages: [{ role: "system", content: groqSystem }, ...messages],
-            max_tokens: 1000,
-            temperature: 0.7,
-          }),
-        });
-        data = await fallbackRes.json();
-        if (!fallbackRes.ok) throw new Error(data.error?.message || "Groq error");
-      } else if (!res.ok) {
-        throw new Error(data.error?.message || "Groq error");
-      }
-      reply = data.choices?.[0]?.message?.content || "";
-
-    } else if (settings?.provider === "claude" && settings.claude_key_encrypted) {
+    if (settings?.provider === "claude" && settings.claude_key_encrypted) {
       const claudeSystem = systemPrompt + (webSearch
         ? `\n\nWhen you use web search, always name your source explicitly and remind ${name || "the user"} that rates change — they should verify directly with the provider before acting. Never present yourself as executing a financial decision, only informing one.`
-        : "") + (files.length > 0
-        ? `\n\n${name} has attached ${files.length} file(s). File upload analysis requires Gemini. Let ${name} know they should switch to Gemini in Settings to use this feature.`
+        : "") + (hasFiles
+        ? `\n\n${name} has attached ${files.length} file(s). File upload analysis isn't available on Claude in this app yet — let ${name} know they should switch to Groq in Settings to use this feature.`
         : "");
 
       const claudeHeaders = {
@@ -115,65 +73,77 @@ export async function POST(request) {
       reply = textBlocks.map((b) => b.text).join("") || "";
 
     } else {
-      // Gemini (default) — supports multimodal via inline_data
-      const key = settings?.gemini_key_encrypted;
+      // Groq (default)
+      const key = settings?.groq_key_encrypted;
       if (!key) throw new Error("No AI key configured. Open Settings and add one.");
 
-      const geminiSystem = systemPrompt + (webSearch
-        ? `\n\nWhen you use Google Search, always name your source explicitly and remind ${name || "the user"} that rates change — they should verify directly with the provider before acting. Never present yourself as executing a financial decision, only informing one.`
-        : "") + (files.length > 0
-        ? `\n\n${name} has uploaded ${files.length} file(s) for analysis. Read them carefully and give specific, detailed insights based on the actual content — amounts, dates, merchants, patterns you notice. Reference specific figures from the documents in your response.`
-        : "");
+      if (hasFiles) {
+        // Vision path — qwen/qwen3.6-27b reads images directly via an
+        // OpenAI-compatible image_url data URI. Attached only to the
+        // current (last) user message, same as every provider before this.
+        const groqSystem = systemPrompt + `\n\n${name} has uploaded ${files.length} file(s) for analysis. Read them carefully and give specific, detailed insights based on the actual content — amounts, dates, merchants, patterns you notice. Reference specific figures from the documents in your response.`;
 
-      // Build Gemini contents with multimodal support for the last user message
-      const geminiContents = messages.map((m, idx) => {
-        const isLastUser = idx === messages.length - 1 && m.role === "user";
-        const parts = [];
-
-        if (m.content && m.content.trim()) {
-          parts.push({ text: m.content });
-        }
-
-        // Attach uploaded files only to the current (last) user message
-        if (isLastUser && files.length > 0) {
+        const groqMessages = messages.map((m, idx) => {
+          const isLastUser = idx === messages.length - 1 && m.role === "user";
+          if (!isLastUser) return m;
+          const content = [];
+          if (m.content && m.content.trim()) content.push({ type: "text", text: m.content });
           for (const file of files) {
-            parts.push({
-              inline_data: {
-                mime_type: file.mimeType,
-                data: file.data,
-              },
-            });
+            content.push({ type: "image_url", image_url: { url: `data:${file.mimeType};base64,${file.data}` } });
           }
-        }
+          return { role: m.role, content };
+        });
 
-        if (parts.length === 0) parts.push({ text: "" });
-
-        return {
-          role: m.role === "assistant" ? "model" : "user",
-          parts,
-        };
-      });
-
-      const geminiBody = {
-        system_instruction: { parts: [{ text: geminiSystem }] },
-        contents: geminiContents,
-        generationConfig: { temperature: 0.7, maxOutputTokens: 1500 },
-      };
-      if (webSearch) {
-        geminiBody.tools = [{ google_search: {} }];
-      }
-
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`,
-        {
+        const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(geminiBody),
-        },
-      );
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error?.message || "Gemini error");
-      reply = data.candidates?.[0]?.content?.parts?.map((p) => p.text || "").join("") || "";
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+          body: JSON.stringify({
+            model: "qwen/qwen3.6-27b",
+            messages: [{ role: "system", content: groqSystem }, ...groqMessages],
+            max_completion_tokens: 1200,
+            temperature: 0.7,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error?.message || "Groq vision error");
+        reply = data.choices?.[0]?.message?.content || "";
+
+      } else {
+        const groqSystem = systemPrompt + (webSearch
+          ? `\n\n${name || "The user"} has turned on web research. Use it to ground your answer in current information. When you cite something you found, name the source plainly. Rates, fees, and product terms change — always tell ${name || "them"} to verify the exact figure directly with the provider before acting on it. Never present yourself as executing a financial decision, only informing one.`
+          : "");
+
+        const groqModel = webSearch ? "groq/compound" : "llama-3.3-70b-versatile";
+
+        const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+          body: JSON.stringify({
+            model: groqModel,
+            messages: [{ role: "system", content: groqSystem }, ...messages],
+            max_tokens: 1000,
+            temperature: 0.7,
+          }),
+        });
+        let data = await res.json();
+        if (!res.ok && webSearch) {
+          const fallbackRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+            body: JSON.stringify({
+              model: "llama-3.3-70b-versatile",
+              messages: [{ role: "system", content: groqSystem }, ...messages],
+              max_tokens: 1000,
+              temperature: 0.7,
+            }),
+          });
+          data = await fallbackRes.json();
+          if (!fallbackRes.ok) throw new Error(data.error?.message || "Groq error");
+        } else if (!res.ok) {
+          throw new Error(data.error?.message || "Groq error");
+        }
+        reply = data.choices?.[0]?.message?.content || "";
+      }
     }
 
     return NextResponse.json({ reply });

@@ -78,11 +78,9 @@ export default function SettingsDrawer({ open, onClose, onStartTour }) {
   const [passStatus,      setPassStatus]      = useState("");
 
   // ── AI connection state ───────────────────────────────────
-  const [selectedProvider, setSelectedProvider] = useState("groq");
   const [key,              setKey]              = useState("");
   const [keyWarning,       setKeyWarning]       = useState("");
   const [hasGroqKey,       setHasGroqKey]       = useState(false);
-  const [hasGeminiKey,     setHasGeminiKey]     = useState(false);
   const [aiStatus,         setAiStatus]         = useState("");
   const [testing,          setTesting]          = useState(false);
 
@@ -151,8 +149,6 @@ export default function SettingsDrawer({ open, onClose, onStartTour }) {
         .then((r) => r.json())
         .then((d) => {
           setHasGroqKey(!!d.hasGroqKey);
-          setHasGeminiKey(!!d.hasGeminiKey);
-          setSelectedProvider(d.provider || "groq");
         })
         .catch(() => {});
 
@@ -200,19 +196,18 @@ export default function SettingsDrawer({ open, onClose, onStartTour }) {
 
   async function saveKey() {
     const clean = key.replace(/[^\x20-\x7E]/g, "").trim();
-    if (!clean) { setAiStatus(`Paste a ${selectedProvider === "gemini" ? "Gemini" : "Groq"} API key first.`); return; }
+    if (!clean) { setAiStatus("Paste a Groq API key first."); return; }
     setAiStatus("Saving...");
     try {
       const res  = await fetch("/api/ai/settings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider: selectedProvider, key: clean }),
+        body: JSON.stringify({ provider: "groq", key: clean }),
       });
       const data = await res.json();
       if (res.ok) {
         setAiStatus("Saved.");
-        if (selectedProvider === "groq")   setHasGroqKey(true);
-        if (selectedProvider === "gemini") setHasGeminiKey(true);
+        setHasGroqKey(true);
         setKey("");
       } else {
         setAiStatus(data.error || "Save failed.");
@@ -462,7 +457,6 @@ export default function SettingsDrawer({ open, onClose, onStartTour }) {
     outline:    "none",
   };
   const labelStyle = { color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", fontSize: 12 };
-  const isAiConnected = hasGroqKey || hasGeminiKey;
 
   return (
     <>
@@ -574,87 +568,47 @@ export default function SettingsDrawer({ open, onClose, onStartTour }) {
 
           <Divider />
 
-          {/* ── AI Connection (collapsible) ──────────── */}
+          {/* ── AI Connection (collapsible) — Groq, the only provider this
+              UI lets a user set up. Claude still works as a provider on the
+              backend if it's already set on an account, but there's no UI
+              here to switch to it — this app runs on Groq. ── */}
           <CollapsibleSection
-            title={`Provider Setup${isAiConnected ? " · Connected" : " · Not set up"}`}
+            title={`Groq Setup${hasGroqKey ? " · Connected" : " · Not set up"}`}
             color="var(--blue-accent)"
             defaultOpen={false}
           >
-            {/* Provider toggle */}
-            <div className="flex rounded-lg overflow-hidden" style={{ border: "1px solid var(--rule)", background: "var(--ink-3)" }}>
-              {[
-                { id: "groq",   label: "Groq",   hasKey: hasGroqKey },
-                { id: "gemini", label: "Gemini", hasKey: hasGeminiKey },
-              ].map(({ id, label, hasKey }) => (
-                <button
-                  key={id}
-                  onClick={() => { setSelectedProvider(id); setKey(""); setAiStatus(""); setKeyWarning(""); }}
-                  className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold transition-all"
-                  style={{
-                    background:  selectedProvider === id ? "var(--ink-2)" : "transparent",
-                    color:       selectedProvider === id ? "var(--ink-text)" : "var(--ink-text-dim)",
-                    fontFamily:  "var(--font-sans)",
-                    borderRight: id === "groq" ? "1px solid var(--rule)" : "none",
-                  }}
-                >
-                  {label}
-                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: hasKey ? "var(--green)" : "var(--ink-text-dim)", opacity: hasKey ? 1 : 0.4, display: "inline-block" }} />
-                </button>
-              ))}
-            </div>
-
             <div className="px-3 py-3 rounded-xl flex flex-col gap-2" style={{ background: "rgba(91,143,168,0.08)", border: "1px solid rgba(91,143,168,0.2)" }}>
-              {selectedProvider === "groq" ? (
-                <>
-                  <p className="text-xs font-semibold" style={{ color: "var(--blue-accent)", fontFamily: "var(--font-sans)" }}>Get a free Groq key</p>
-                  <ol className="text-xs leading-relaxed flex flex-col gap-1" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", paddingLeft: 14, margin: 0 }}>
-                    <li>Go to <a href="https://console.groq.com" target="_blank" rel="noopener noreferrer" style={{ color: "var(--gold)", textDecoration: "underline" }}>console.groq.com</a> and sign up</li>
-                    <li>Click <strong style={{ color: "var(--ink-text)" }}>API Keys</strong> in the left sidebar</li>
-                    <li>Click <strong style={{ color: "var(--ink-text)" }}>Create API Key</strong> and copy it</li>
-                  </ol>
-                  <p className="text-xs" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-mono)" }}>Key starts with <span style={{ color: "var(--gold)" }}>gsk_</span></p>
-                </>
-              ) : (
-                <>
-                  <p className="text-xs font-semibold" style={{ color: "var(--blue-accent)", fontFamily: "var(--font-sans)" }}>Get a free Gemini key (AI Studio, not Google Cloud)</p>
-                  <ol className="text-xs leading-relaxed flex flex-col gap-1" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", paddingLeft: 14, margin: 0 }}>
-                    <li>Go to <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" style={{ color: "var(--gold)", textDecoration: "underline" }}>aistudio.google.com/apikey</a> and sign in with Google</li>
-                    <li>Click <strong style={{ color: "var(--ink-text)" }}>Create API key</strong></li>
-                    <li>Select any project (or &ldquo;Create in new project&rdquo;)</li>
-                    <li>Copy the key and paste it below</li>
-                  </ol>
-                  <p className="text-xs" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>Copy the full key exactly as shown in AI Studio</p>
-                  <div className="mt-1 px-2 py-1.5 rounded-lg" style={{ background: "rgba(184,57,43,0.1)", border: "1px solid rgba(184,57,43,0.2)" }}>
-                    <p className="text-xs leading-relaxed" style={{ color: "var(--red)", fontFamily: "var(--font-sans)" }}>
-                      <strong>Important:</strong> Use AI Studio only — do <em>not</em> use Google Cloud Console. Cloud Console keys require billing enabled and won&apos;t work here.
-                    </p>
-                  </div>
-                </>
-              )}
+              <p className="text-xs font-semibold" style={{ color: "var(--blue-accent)", fontFamily: "var(--font-sans)" }}>Get a free Groq key</p>
+              <ol className="text-xs leading-relaxed flex flex-col gap-1" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", paddingLeft: 14, margin: 0 }}>
+                <li>Go to <a href="https://console.groq.com" target="_blank" rel="noopener noreferrer" style={{ color: "var(--gold)", textDecoration: "underline" }}>console.groq.com</a> and sign up</li>
+                <li>Click <strong style={{ color: "var(--ink-text)" }}>API Keys</strong> in the left sidebar</li>
+                <li>Click <strong style={{ color: "var(--ink-text)" }}>Create API Key</strong> and copy it</li>
+              </ol>
+              <p className="text-xs" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-mono)" }}>Key starts with <span style={{ color: "var(--gold)" }}>gsk_</span></p>
             </div>
 
             <div className="flex items-center justify-between">
               <span className="text-xs" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>
-                {selectedProvider === "groq" ? "Groq" : "Gemini"} key
+                Groq key
               </span>
               <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{
-                background: (selectedProvider === "groq" ? hasGroqKey : hasGeminiKey) ? "rgba(47,122,86,0.2)" : "rgba(184,57,43,0.15)",
-                color: (selectedProvider === "groq" ? hasGroqKey : hasGeminiKey) ? "var(--green)" : "var(--red)",
+                background: hasGroqKey ? "rgba(47,122,86,0.2)" : "rgba(184,57,43,0.15)",
+                color: hasGroqKey ? "var(--green)" : "var(--red)",
                 fontFamily: "var(--font-sans)",
               }}>
-                {(selectedProvider === "groq" ? hasGroqKey : hasGeminiKey) ? "Connected" : "Not connected"}
+                {hasGroqKey ? "Connected" : "Not connected"}
               </span>
             </div>
 
             <div className="flex flex-col gap-1.5">
               <label style={labelStyle}>
-                {(selectedProvider === "groq" ? hasGroqKey : hasGeminiKey) ? "Update API key" : `Paste your ${selectedProvider === "gemini" ? "Gemini" : "Groq"} API key`}
+                {hasGroqKey ? "Update API key" : "Paste your Groq API key"}
               </label>
               <input
                 type="password"
                 value={key}
                 onChange={(e) => handleKeyInput(e.target.value)}
-                placeholder={(selectedProvider === "groq" ? hasGroqKey : hasGeminiKey) ? "Paste to replace..." : selectedProvider === "groq" ? "gsk_..." : "Paste Gemini key from AI Studio…"}
+                placeholder={hasGroqKey ? "Paste to replace..." : "gsk_..."}
                 className="w-full px-3 py-2.5 rounded-lg text-sm"
                 style={{ ...inputStyle, fontFamily: "var(--font-mono)" }}
               />
@@ -670,13 +624,13 @@ export default function SettingsDrawer({ open, onClose, onStartTour }) {
               <button onClick={saveKey} disabled={!key.trim()} className="flex-1 py-2.5 rounded-lg text-sm font-semibold" style={{ background: "linear-gradient(135deg, var(--gold-deep), var(--gold))", color: "#fff", fontFamily: "var(--font-sans)", opacity: !key.trim() ? 0.45 : 1 }}>
                 Save Key
               </button>
-              <button onClick={testConnection} disabled={testing || !isAiConnected} className="flex-1 py-2.5 rounded-lg text-sm font-medium" style={{ background: "var(--ink-3)", border: "1px solid var(--rule)", color: "var(--blue-accent)", fontFamily: "var(--font-sans)", opacity: (testing || !isAiConnected) ? 0.45 : 1 }}>
+              <button onClick={testConnection} disabled={testing || !hasGroqKey} className="flex-1 py-2.5 rounded-lg text-sm font-medium" style={{ background: "var(--ink-3)", border: "1px solid var(--rule)", color: "var(--blue-accent)", fontFamily: "var(--font-sans)", opacity: (testing || !hasGroqKey) ? 0.45 : 1 }}>
                 {testing ? "Testing..." : "Test"}
               </button>
             </div>
 
             {aiStatus && (
-              <p className="text-xs" style={{ color: aiStatus.includes("Saved") || aiStatus.includes("OK") || aiStatus.includes("ok") || aiStatus.includes("Groq:") || aiStatus.includes("Gemini:") ? "var(--green)" : "var(--ink-text-dim)", fontFamily: "var(--font-mono)" }}>
+              <p className="text-xs" style={{ color: aiStatus.includes("Saved") || aiStatus.includes("OK") || aiStatus.includes("ok") || aiStatus.includes("Groq:") ? "var(--green)" : "var(--ink-text-dim)", fontFamily: "var(--font-mono)" }}>
                 {aiStatus}
               </p>
             )}
@@ -1138,7 +1092,7 @@ CREATE POLICY "own_backups" ON entry_backups
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-xs" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>Built with</span>
-                <span className="text-xs" style={{ color: "var(--ink-text)", fontFamily: "var(--font-sans)" }}>Next.js · Supabase · Gemini</span>
+                <span className="text-xs" style={{ color: "var(--ink-text)", fontFamily: "var(--font-sans)" }}>Next.js · Supabase · Groq</span>
               </div>
             </div>
           </Section>

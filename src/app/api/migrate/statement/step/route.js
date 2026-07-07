@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { callGemini } from "@/lib/gemini";
 import {
-  textExtractPrompt, chunkText, filterRows, parseAIResponse,
-  isQuotaOrRateLimitMessage, parseGroqRetrySeconds, parseGroqDuration,
+  textExtractPrompt, filterRows, parseAIResponse,
+  parseGroqRetrySeconds, parseGroqDuration,
   GROQ_CHUNK_SIZE, GROQ_MAX_TOKENS,
 } from "@/lib/statementExtract";
 
@@ -46,8 +45,8 @@ async function callGroqChunk(chunk, key) {
 // client calls this repeatedly (with server-directed backoff on rate
 // limits) until the job reports status "done" or "error". Keeping each
 // request to a single chunk is what lets large statements finish without
-// ever exceeding Groq's 12k-tokens/min or Gemini's 5-requests/min free-tier
-// caps within a single serverless function's time limit.
+// ever exceeding Groq's 12k-tokens/min free-tier cap within a single
+// serverless function's time limit.
 export async function POST(request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -85,28 +84,16 @@ export async function POST(request) {
 
   const { data: settings } = await supabase
     .from("user_ai_settings")
-    .select("gemini_key_encrypted, groq_key_encrypted")
+    .select("groq_key_encrypted")
     .eq("user_id", user.id)
     .maybeSingle();
 
   const chunk = job.chunks[job.chunk_index];
 
   try {
-    let rawText, waitMs = 0;
-    if (job.provider === "groq") {
-      const key = settings?.groq_key_encrypted;
-      if (!key) throw new Error("No Groq key configured.");
-      const result = await callGroqChunk(chunk, key);
-      rawText = result.text;
-      waitMs  = result.waitMs;
-    } else {
-      const key = settings?.gemini_key_encrypted;
-      if (!key) throw new Error("No Gemini key configured.");
-      rawText = await callGemini(key, {
-        contents: [{ parts: [{ text: textExtractPrompt(chunk) }] }],
-        generationConfig: { temperature: 0.1, maxOutputTokens: 65536 },
-      });
-    }
+    const key = settings?.groq_key_encrypted;
+    if (!key) throw new Error("No Groq key configured.");
+    const { text: rawText, waitMs } = await callGroqChunk(chunk, key);
 
     const newRows    = parseAIResponse(rawText);
     const mergedRows = [...job.rows, ...newRows];
@@ -131,35 +118,10 @@ export async function POST(request) {
   } catch (err) {
     // Groq TPM/RPM rate limit — retry the same chunk after the server's
     // suggested delay instead of burning through further requests.
-    if (job.provider === "groq" && err.groqStatus === 429) {
+    if (err.groqStatus === 429) {
       const waitMs = err.waitMs || (parseGroqRetrySeconds(err.message) * 1000 + 1000);
       return NextResponse.json({
         status: "processing", chunkIndex: job.chunk_index, totalChunks: job.chunks.length, waitMs,
-      });
-    }
-
-    // Gemini quota hit — fall back to Groq for the remaining chunks if the
-    // user has a Groq key configured. Re-chunk the remaining text at Groq's
-    // (much smaller) chunk size and switch the job's active provider.
-    if (job.provider === "gemini" && isQuotaOrRateLimitMessage(err.message) && settings?.groq_key_encrypted && !job.fell_back) {
-      const remainingText  = job.chunks.slice(job.chunk_index).join("\n");
-      const newChunks      = chunkText(remainingText, GROQ_CHUNK_SIZE);
-      const processedCount = job.chunk_index;
-
-      await supabase.from("statement_jobs").update({
-        provider:    "groq",
-        chunks:      newChunks,
-        chunk_index: 0,
-        fell_back:   true,
-        updated_at:  new Date().toISOString(),
-      }).eq("id", jobId);
-
-      return NextResponse.json({
-        status: "processing",
-        chunkIndex: processedCount,
-        totalChunks: processedCount + newChunks.length,
-        waitMs: 0,
-        fellBackTo: "groq",
       });
     }
 

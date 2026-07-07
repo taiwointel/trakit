@@ -17,7 +17,7 @@ const STEPS = [
     target: "settings-btn",
     label:  "Settings",
     title:  "Step 1: Connect your AI provider",
-    body:   "Tap the gear icon to open Settings, then expand 'Provider Setup.' Paste your Groq or Gemini key — both have free tiers with no credit card required. This powers AI categorization, Coach RBC, bank statement reading, and spend narration across the whole app.",
+    body:   "Tap the gear icon to open Settings, then expand 'Groq Setup.' Paste your free Groq key — no credit card required. This powers AI categorization, Coach RBC, bank statement reading, and spend narration across the whole app.",
   },
   {
     route:  "/entries",

@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { callGemini } from "@/lib/gemini";
 import {
   EXTRACT_PROMPT, chunkText, filterRows, parseAIResponse,
-  GROQ_CHUNK_SIZE, GEMINI_CHUNK_SIZE,
+  GROQ_CHUNK_SIZE,
 } from "@/lib/statementExtract";
 import { parseOpayStatementDebug } from "@/lib/parsers/opay";
 import { parsePalmpayStatementDebug } from "@/lib/parsers/palmpay";
@@ -21,7 +20,7 @@ export async function POST(request) {
 
   const { data: settings } = await supabase
     .from("user_ai_settings")
-    .select("provider, gemini_key_encrypted, groq_key_encrypted")
+    .select("groq_key_encrypted")
     .eq("user_id", user.id)
     .maybeSingle();
 
@@ -38,31 +37,35 @@ export async function POST(request) {
     return NextResponse.json({ error: "Unsupported file type. Use PDF or an image (JPG, PNG)." }, { status: 400 });
   }
 
-  // Statement extraction prefers Gemini over Groq regardless of the
-  // account's general chat-provider setting: Gemini's 5-requests/minute cap
-  // lets each request carry far more text, so a large statement becomes a
-  // handful of requests instead of Groq's 12k-tokens/minute cap forcing
-  // dozens of small, slow, rate-limited chunks. Groq is only used when no
-  // Gemini key exists, or as the mid-job fallback if Gemini's quota runs out.
-  const hasGemini = !!settings?.gemini_key_encrypted;
-  const hasGroq   = !!settings?.groq_key_encrypted;
-  const provider  = hasGemini ? "gemini" : (hasGroq ? "groq" : null);
-
   // Images: a single vision call is fast enough to run synchronously — no
-  // job/chunking needed, and Groq has no vision model to fall back to.
+  // job/chunking needed. Groq's qwen/qwen3.6-27b reads images directly via
+  // an OpenAI-compatible image_url data URI, same endpoint as every other
+  // Groq call in this app.
   if (isImage) {
-    const key = settings?.gemini_key_encrypted;
-    if (!key) return NextResponse.json({ error: "Image statements need a Gemini key (Groq can't read images). Add one in Settings." }, { status: 400 });
+    const key = settings?.groq_key_encrypted;
+    if (!key) return NextResponse.json({ error: "Add a Groq key in Settings to read image statements." }, { status: 400 });
 
     try {
-      const base64  = buffer.toString("base64");
-      const rawText = await callGemini(key, {
-        contents: [{ parts: [
-          { inline_data: { mime_type: mimeType, data: base64 } },
-          { text: EXTRACT_PROMPT },
-        ]}],
-        generationConfig: { temperature: 0.1, maxOutputTokens: 65536 },
+      const base64 = buffer.toString("base64");
+      const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+        body: JSON.stringify({
+          model: "qwen/qwen3.6-27b",
+          messages: [{
+            role: "user",
+            content: [
+              { type: "text", text: EXTRACT_PROMPT },
+              { type: "image_url", image_url: { url: `data:${mimeType};base64,${base64}` } },
+            ],
+          }],
+          max_completion_tokens: 8000,
+          temperature: 0.1,
+        }),
       });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error?.message || "Groq vision error");
+      const rawText = data.choices?.[0]?.message?.content || "";
       // Images have no separate raw statement text to scan (only the AI's
       // structured JSON reply), so account-holder detection isn't possible
       // here — the client falls back to the Settings profile name.
@@ -73,12 +76,12 @@ export async function POST(request) {
     }
   }
 
-  // PDFs: extract text first. Recognized statement formats (OPay, PalmPay)
-  // get parsed deterministically via regex below — no AI call needed at
-  // all. For anything else, chunk the text and create a job the client
-  // steps through: a single 60s request can't fit a large statement within
-  // free-tier rate limits (Groq: 12k tokens/min, Gemini: 5 requests/min),
-  // so processing is spread across many short requests instead.
+  // PDFs: extract text first. Recognized statement formats (OPay, PalmPay,
+  // Access) get parsed deterministically via regex below — no AI call
+  // needed at all. For anything else, chunk the text and create a job the
+  // client steps through: a single 60s request can't fit a large statement
+  // within Groq's 12k-tokens/minute free-tier cap, so processing is spread
+  // across many short requests instead.
   let text;
   try {
     const mod      = await import("pdf-parse/lib/pdf-parse.js");
@@ -127,19 +130,18 @@ export async function POST(request) {
     return NextResponse.json({ status: "done", rows: filterRows(accessDebug.rows), accountHolderName });
   }
 
-  if (!provider) {
-    return NextResponse.json({ error: "No AI key configured. Add a Gemini or Groq key in Settings." }, { status: 400 });
+  if (!settings?.groq_key_encrypted) {
+    return NextResponse.json({ error: "No AI key configured. Add a Groq key in Settings." }, { status: 400 });
   }
 
-  const chunkSize = provider === "groq" ? GROQ_CHUNK_SIZE : GEMINI_CHUNK_SIZE;
-  const chunks    = chunkText(text, chunkSize);
+  const chunks = chunkText(text, GROQ_CHUNK_SIZE);
 
   const { data: job, error: insertErr } = await supabase
     .from("statement_jobs")
     .insert({
       user_id:  user.id,
       status:   "processing",
-      provider,
+      provider: "groq",
       chunks,
       chunk_index: 0,
       rows: [],

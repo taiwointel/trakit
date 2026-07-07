@@ -114,10 +114,6 @@ export function chunkText(text, chunkSize) {
   return chunks;
 }
 
-export function isQuotaOrRateLimitMessage(message) {
-  return /free-tier limit|quota|rate.?limit|resource.?exhausted/i.test(message || "");
-}
-
 // Groq's error messages include "...Please try again in 33.055s." — parse
 // that so we can wait exactly as long as the server asked instead of
 // guessing.
@@ -144,8 +140,3 @@ export function parseGroqDuration(str) {
 // requests) with a realistic output reservation, still safely under the cap.
 export const GROQ_CHUNK_SIZE = 24000;
 export const GROQ_MAX_TOKENS = 2000;
-
-// Gemini's context window is huge (1M+ tokens) — the binding constraint is
-// its 5 requests/minute free-tier cap, not token size, so use a much larger
-// chunk to minimize the number of requests needed.
-export const GEMINI_CHUNK_SIZE = 150000;

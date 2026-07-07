@@ -8,18 +8,18 @@ export async function GET() {
 
   const { data } = await supabase
     .from("user_ai_settings")
-    .select("provider, groq_key_encrypted, gemini_key_encrypted")
+    .select("provider, groq_key_encrypted, claude_key_encrypted")
     .eq("user_id", user.id)
     .maybeSingle();
 
   const hasGroqKey   = !!(data?.groq_key_encrypted);
-  const hasGeminiKey = !!(data?.gemini_key_encrypted);
+  const hasClaudeKey = !!(data?.claude_key_encrypted);
 
   return NextResponse.json({
     provider:      data?.provider || "groq",
-    hasKey:        hasGroqKey || hasGeminiKey,
+    hasKey:        hasGroqKey || hasClaudeKey,
     hasGroqKey,
-    hasGeminiKey,
+    hasClaudeKey,
   });
 }
 
@@ -29,7 +29,7 @@ export async function POST(request) {
   if (authError || !user) return NextResponse.json({ error: "Not authenticated." }, { status: 401 });
 
   const { provider, key } = await request.json();
-  if (!["gemini", "groq", "claude"].includes(provider)) {
+  if (!["groq", "claude"].includes(provider)) {
     return NextResponse.json({ error: "Invalid provider." }, { status: 400 });
   }
 
