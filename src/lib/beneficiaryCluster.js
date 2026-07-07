@@ -41,11 +41,27 @@ function clusterGroups(groups) {
   });
 }
 
-/** Groups `entries` by their `beneficiary` field, clustering name variants of the same person, sorted by total descending. */
+// Card/merchant debits (e.g. a betting app top-up, a POS payment) often
+// carry no "Transfer to X" narration, so `beneficiary` is never populated —
+// silently dropping those left a category's breakdown badly undercounting
+// against its own total (e.g. 68 real transactions, only 2 shown). Fall
+// back to whatever name-like text the description actually has: the
+// merchant segment of a card-payment narration ("OPay Card Payment |
+// BET9JA" → "BET9JA"), otherwise the description's own purpose text.
+function fallbackKey(entry) {
+  const desc = entry.desc || "";
+  const cardMatch = desc.match(/card payment\s*\|\s*([^|]+)/i);
+  if (cardMatch) return cardMatch[1].trim();
+  const sep = desc.indexOf(" — ");
+  const short = (sep !== -1 ? desc.slice(0, sep) : desc).trim();
+  return short || "Uncategorized";
+}
+
+/** Groups `entries` by their `beneficiary` field (falling back to a merchant name parsed from the description when absent), clustering name variants of the same person, sorted by total descending. */
 export function clusterByBeneficiary(entries) {
   const map = {};
   for (const e of entries) {
-    const key = (e.beneficiary || "").trim();
+    const key = (e.beneficiary || "").trim() || fallbackKey(e);
     if (!key) continue;
     if (!map[key]) map[key] = { name: key, total: 0, count: 0, entries: [] };
     map[key].total += Number(e.amount);
