@@ -27,6 +27,7 @@ import MonthComparisonPanel from "@/components/summary/MonthComparisonPanel";
 import WorthASecondLook  from "@/components/summary/WorthASecondLook";
 import YearToDatePanel   from "@/components/summary/YearToDatePanel";
 import BeneficiaryRankings from "@/components/summary/BeneficiaryRankings";
+import SpendConcentration from "@/components/summary/SpendConcentration";
 import ReportCard        from "@/components/summary/ReportCard";
 
 const GREETINGS = {
@@ -810,6 +811,7 @@ export default function SummaryPage() {
         </div>
 
         <BeneficiaryRankings entries={entries} />
+        <SpendConcentration entries={entries} />
 
         <NetWorthCard
           cashBalance={currentBalance}
