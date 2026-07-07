@@ -56,6 +56,47 @@ function SourceTag({ source }) {
   );
 }
 
+// Click-to-reveal full description — the Purpose column truncates with an
+// ellipsis, and imported bank narrations are often long/multi-part (a
+// beneficiary, their bank, an account number, a transfer type). A native
+// `title` hover tooltip doesn't work on touch devices, so this gives every
+// row an explicit, tappable way to see the raw text exactly as it landed
+// from the statement.
+function InfoIcon({ text }) {
+  const [open, setOpen] = useState(false);
+  if (!text) return null;
+  return (
+    <span style={{ position: "relative", display: "inline-flex", flexShrink: 0 }}>
+      <button
+        onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}
+        title="Show full description"
+        style={{
+          width: 14, height: 14, borderRadius: "50%", border: "1px solid var(--rule-paper)",
+          background: "var(--paper-2)", color: "var(--paper-text-dim)", fontSize: 9, fontWeight: 700,
+          fontFamily: "var(--font-serif)", lineHeight: "12px", cursor: "pointer",
+          display: "inline-flex", alignItems: "center", justifyContent: "center", padding: 0,
+        }}
+      >
+        i
+      </button>
+      {open && (
+        <>
+          <div onClick={() => setOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 40 }} />
+          <div style={{
+            position: "absolute", top: "130%", left: 0, zIndex: 41,
+            background: "var(--ink-2)", color: "var(--ink-text)", border: "1px solid var(--rule)",
+            borderRadius: 8, padding: "8px 10px", fontSize: 11, fontFamily: "var(--font-sans)",
+            width: 280, maxWidth: "80vw", boxShadow: "0 8px 24px rgba(0,0,0,0.4)", lineHeight: 1.5,
+            whiteSpace: "normal",
+          }}>
+            {text}
+          </div>
+        </>
+      )}
+    </span>
+  );
+}
+
 function ConfidenceDot({ status, confidence }) {
   if (status === "pending") return <span style={{ color: "var(--ink-text-dim)", fontSize: 11 }}>…</span>;
   if (status === "fallback") return (
@@ -297,8 +338,11 @@ function MobileCard({ entry, onEdit, onDelete, onUpdate }) {
 
         {/* Center: purpose + detail */}
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600, color: "var(--paper-text)", lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {purpose || "—"}
+          <div style={{ display: "flex", alignItems: "center", gap: 4, minWidth: 0 }}>
+            <span style={{ fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600, color: "var(--paper-text)", lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
+              {purpose || "—"}
+            </span>
+            <InfoIcon text={entry.desc} />
           </div>
           {detail && (
             <div style={{ fontFamily: "var(--font-sans)", fontSize: 11, color: "var(--paper-text-dim)", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -376,8 +420,11 @@ function DesktopRow({ entry, index, total, onEdit, onDelete, onUpdate }) {
         <div style={{ display: "flex", alignItems: "flex-start", gap: 6 }}>
           <ConfidenceDot status={entry.status} confidence={entry.confidence} />
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontFamily: "var(--font-sans)", fontSize: 12, fontWeight: 600, color: "var(--paper-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-              {purpose || "—"}
+            <div style={{ display: "flex", alignItems: "center", gap: 4, minWidth: 0 }}>
+              <span style={{ fontFamily: "var(--font-sans)", fontSize: 12, fontWeight: 600, color: "var(--paper-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
+                {purpose || "—"}
+              </span>
+              <InfoIcon text={entry.desc} />
             </div>
             {(entry.subcategory || entry.source) && (
               <div style={{ fontFamily: "var(--font-sans)", fontSize: 10, color: "var(--paper-text-dim)", marginTop: 1, display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>

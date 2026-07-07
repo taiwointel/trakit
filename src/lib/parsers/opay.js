@@ -105,14 +105,51 @@ export function parseOpayStatementDebug(text) {
   // out of the match below), so they're safe to drop outright.
   const REFERENCE_FRAGMENT = /^\d+$/;
 
+  // Some rows have their description printed *before* their own date/time
+  // line reappears, with a page footer (the same Credit Count/Total
+  // Credit/.../Savings Account summary box used as the section boundary
+  // above) sitting in between — e.g. "Transfer from MELEKI JOSIAH
+  // OLAMILEKAN | Guaranty Trust Bank | ... | NIP Transfer to TAIWO" appears,
+  // then the footer text, then "04 Jul 2026 13:19:03...OLAGOKE OGUNFILE."
+  // reappears as what looks like a *new*, unrelated record. Naively
+  // stitching by "append until the next RECORD_START" glues that orphaned
+  // description onto the END of the *previous* (unrelated) row instead —
+  // which, when that previous row happens to be an internal OWealth sweep,
+  // silently discards the real description, beneficiary, and (crucially)
+  // wrongly leaves only a fragment of the account holder's own name behind
+  // for the row that actually reappears, which self-transfer detection can
+  // then mistake for a match. A real narration only ever starts with
+  // "Transfer to/from" as its very first word; if that shows up on a line
+  // with no date prefix while the block being built already has an amount/
+  // channel appended (i.e. it's already "finished"), it's this orphan
+  // pattern — buffer it separately and splice it into the *next* record's
+  // description instead of losing it.
+  const ORPHAN_DESC_START = /^Transfer\s*(?:to|from)\b/i;
+  const HAS_AMOUNT_CHANNEL = /(Mobile|POS|WEB)/;
+
   const blocks = [];
   let current = null;
+  let pendingOrphanDesc = "";
+  let inOrphan = false;
   for (const line of lines) {
     if (RECORD_START.test(line)) {
       if (current) blocks.push(current);
-      current = line;
+      if (pendingOrphanDesc) {
+        const m = line.match(RECORD_START);
+        current = m[0] + pendingOrphanDesc + line.slice(m[0].length);
+        pendingOrphanDesc = "";
+      } else {
+        current = line;
+      }
+      inOrphan = false;
     } else if (REFERENCE_FRAGMENT.test(line.trim())) {
+      inOrphan = false; // a reference number always ends an orphaned description
       continue;
+    } else if (!inOrphan && ORPHAN_DESC_START.test(line.trim()) && current && HAS_AMOUNT_CHANNEL.test(current)) {
+      pendingOrphanDesc += line;
+      inOrphan = true;
+    } else if (inOrphan) {
+      pendingOrphanDesc += line;
     } else if (current) {
       current += line;
     }
