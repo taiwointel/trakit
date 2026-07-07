@@ -393,6 +393,7 @@ function parseAccessFormat2(text) {
             flow: isOut ? "out" : "in",
             beneficiary: extractBeneficiary(desc),
             balanceAfter: chosen.balance,
+            accountRef: `access:${section.accountNo}`,
           });
         }
         runningBalance = fallback.finalBalance;
@@ -417,6 +418,7 @@ function parseAccessFormat2(text) {
           flow: isOut ? "out" : "in",
           beneficiary: extractBeneficiary(desc),
           balanceAfter: chosen.balance,
+            accountRef: `access:${section.accountNo}`,
         });
       }
     }
@@ -542,6 +544,7 @@ export function parseAccessStatementDebug(text) {
             flow: isOut ? "out" : "in",
             beneficiary: extractBeneficiary(desc),
             balanceAfter: chosen.balance,
+            accountRef: `access:${section.accountNo}`,
           });
         }
         runningBalance = fallback.finalBalance;
@@ -565,6 +568,7 @@ export function parseAccessStatementDebug(text) {
           flow: isOut ? "out" : "in",
           beneficiary: extractBeneficiary(desc),
           balanceAfter: chosen.balance,
+            accountRef: `access:${section.accountNo}`,
         });
       }
     }

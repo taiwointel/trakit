@@ -125,6 +125,25 @@ export function parseOpayStatementDebug(text) {
     return { ok: false, reason: "no-wallet-account-heading", sample: text.slice(0, 500) };
   }
 
+  // Groups this statement's entries against any other account the user has
+  // imported (see lib/cashBalance.js) — critical once more than one bank is
+  // in play, since one account's own balance_after only ever tells you
+  // that account's own total, never the user's combined cash.
+  const acctMatch = text.match(/account\s*number\s*\n?\s*(\d{6,})/i);
+  const accountRef = acctMatch ? `opay:${acctMatch[1]}` : null;
+
+  // The Wallet's own declared Opening/Closing Balance (the summary box
+  // right above "Wallet Account") is a reconciliation cross-check: does
+  // our own computed running balance for the section actually land where
+  // the bank says it should? Confirmed against a real statement; not used
+  // to reject the import (unlike Access, this format hasn't shown drift
+  // yet), just surfaced so a genuine parsing regression is loud instead of
+  // silent.
+  const declaredOpeningMatch = text.match(/opening\s*balance\s*\n?\s*₦?([\d,]+\.\d{2})/i);
+  const declaredClosingMatch = text.match(/closing\s*balance\s*\n?\s*₦?([\d,]+\.\d{2})/i);
+  const declaredOpening = declaredOpeningMatch ? Number(declaredOpeningMatch[1].replace(/,/g, "")) : null;
+  const declaredClosing = declaredClosingMatch ? Number(declaredClosingMatch[1].replace(/,/g, "")) : null;
+
   // Only the Wallet Account section holds real external transactions —
   // Savings Account (OWealth) is a separate table of internal sub-balance
   // movements and interest accruals. The literal "Savings Account" text is
@@ -230,6 +249,7 @@ export function parseOpayStatementDebug(text) {
   // internal), independent of what gets kept, so it can be attached to
   // whichever kept transaction is last for that day.
   const dailyClosing = {};
+  let lastWalletBalance = null; // the very last balance seen, in block order — the Wallet's true final balance, for reconciliation
   for (const raw of blocks) {
     const block = raw.trim().replace(ACCOUNT_TOKEN, "$1");
     const m = block.match(LINE_RE);
@@ -247,7 +267,10 @@ export function parseOpayStatementDebug(text) {
     const balanceAfter = balanceAfterStr && balanceAfterStr !== "--"
       ? Number(balanceAfterStr.replace(/,/g, ""))
       : null;
-    if (balanceAfter !== null) dailyClosing[date] = balanceAfter;
+    if (balanceAfter !== null) {
+      dailyClosing[date] = balanceAfter;
+      lastWalletBalance = balanceAfter;
+    }
 
     if (INTERNAL.test(desc)) continue;
 
@@ -262,6 +285,7 @@ export function parseOpayStatementDebug(text) {
       flow: isOut ? "out" : "in",
       beneficiary: extractBeneficiary(desc),
       balanceAfter: null, // filled in below, only on the day's last kept row
+      accountRef,
     });
   }
 
@@ -289,7 +313,17 @@ export function parseOpayStatementDebug(text) {
     };
   }
 
-  return { ok: true, rows };
+  // Reconciliation: does our own computed final Wallet balance land where
+  // the bank's own declared Closing Balance says it should? A drift here
+  // means something in this statement's layout broke an assumption the
+  // regex above depends on — surfaced for visibility, not used to reject
+  // the import outright (unlike Access, this format hasn't shown genuine
+  // drift in practice, only exact matches).
+  const reconciliation = (declaredClosing !== null && lastWalletBalance !== null)
+    ? { declaredClosing, computedClosing: lastWalletBalance, drift: Math.abs(declaredClosing - lastWalletBalance) }
+    : null;
+
+  return { ok: true, rows, accountRef, reconciliation, declaredOpening, declaredClosing };
 }
 
 export function parseOpayStatement(text) {

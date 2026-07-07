@@ -110,6 +110,12 @@ export async function POST(request) {
 
   const opayDebug = parseOpayStatementDebug(text);
   if (opayDebug.ok) {
+    // Loud, not silent: if the Wallet's computed closing balance ever
+    // drifts from what the bank itself declared, something about this
+    // statement's layout broke an assumption the regex depends on.
+    if (opayDebug.reconciliation && opayDebug.reconciliation.drift > 1) {
+      console.warn("OPay statement reconciliation drift:", opayDebug.reconciliation, "account:", opayDebug.accountRef);
+    }
     return NextResponse.json({ status: "done", rows: filterRows(opayDebug.rows), accountHolderName });
   }
   const palmpayDebug = parsePalmpayStatementDebug(text);
