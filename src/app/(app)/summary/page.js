@@ -811,19 +811,11 @@ export default function SummaryPage() {
 
         <BeneficiaryRankings entries={entries} />
 
-        <div className="grid-2">
-          <NetWorthCard
-            cashBalance={currentBalance}
-            investments={investments}
-            transactions={transactions}
-          />
-          <LiquidityPanel
-            balance={currentBalance}
-            avgMonthlyEssential={avgEssential}
-            months={months}
-            sparkRows={sparkRows}
-          />
-        </div>
+        <NetWorthCard
+          cashBalance={currentBalance}
+          investments={investments}
+          transactions={transactions}
+        />
       </div>
 
       {/* ── HOW THIS COMPARES ─────────────────────────────────────────────
@@ -985,6 +977,28 @@ export default function SummaryPage() {
       <div className="section-body">
         <RecurringPanel entries={entries} />
         <SpendHeatmap entries={entries} />
+      </div>
+
+      {/* ── LIQUIDITY & RUNWAY ────────────────────────────────────────────
+          Moved down here per feedback — useful to have, but not something
+          that needs to compete for attention at the top of the page.
+      ── */}
+      <div className="section-divider">
+        <div className="section-divider-bar" style={{ background: "var(--blue-accent)" }} />
+        <span className="section-divider-label" style={{ color: "var(--blue-accent)" }}>Liquidity &amp; Runway</span>
+        <div className="section-divider-rule" />
+      </div>
+      <p className="section-desc">
+        How many months your current cash balance would cover essential spending if income stopped today, benchmarked against the standard 3-6 month safety range.
+      </p>
+
+      <div className="section-body">
+        <LiquidityPanel
+          balance={currentBalance}
+          avgMonthlyEssential={avgEssential}
+          months={months}
+          sparkRows={sparkRows}
+        />
       </div>
 
       {/* ── WORTH A SECOND LOOK ────────────────────────────────────────────
