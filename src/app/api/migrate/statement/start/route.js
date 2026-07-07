@@ -61,11 +61,16 @@ export async function POST(request) {
           }],
           max_completion_tokens: 8000,
           temperature: 0.1,
+          // qwen3.6-27b is a "thinking" model — without this it emits its
+          // chain-of-thought as visible <think>...</think> text ahead of
+          // the actual JSONL output, which parseAIResponse can't read.
+          reasoning_effort: "none",
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error?.message || "Groq vision error");
-      const rawText = data.choices?.[0]?.message?.content || "";
+      // Defensive strip in case a <think> block still slips through.
+      const rawText = (data.choices?.[0]?.message?.content || "").replace(/<think>[\s\S]*?<\/think>\s*/gi, "").trim();
       // Images have no separate raw statement text to scan (only the AI's
       // structured JSON reply), so account-holder detection isn't possible
       // here — the client falls back to the Settings profile name.

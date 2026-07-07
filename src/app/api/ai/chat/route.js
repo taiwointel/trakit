@@ -102,11 +102,17 @@ export async function POST(request) {
             messages: [{ role: "system", content: groqSystem }, ...groqMessages],
             max_completion_tokens: 1200,
             temperature: 0.7,
+            // qwen3.6-27b is a "thinking" model — without this it emits its
+            // chain-of-thought as visible <think>...</think> text ahead of
+            // the actual reply. "none" gives a plain answer, same as every
+            // other model in this app.
+            reasoning_effort: "none",
           }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error?.message || "Groq vision error");
-        reply = data.choices?.[0]?.message?.content || "";
+        // Defensive strip in case a <think> block still slips through.
+        reply = (data.choices?.[0]?.message?.content || "").replace(/<think>[\s\S]*?<\/think>\s*/gi, "").trim();
 
       } else {
         const groqSystem = systemPrompt + (webSearch

@@ -74,7 +74,7 @@ export default function CashSetup({ anchor, onSave, entries = [] }) {
           style={{ background: "rgba(169,133,79,0.08)", border: "1px solid rgba(169,133,79,0.25)" }}
         >
           <p className="text-xs" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", lineHeight: 1.6, flex: 1, minWidth: 200 }}>
-            Don&apos;t know (or don&apos;t trust) a real starting figure? Anchor to ₦0 on {earliestDate} — your first logged entry — and let every day since be computed purely from what you&apos;ve actually logged.
+            Not sure what your real balance was? This assumes you had <strong style={{ color: "var(--ink-text)" }}>₦0</strong> right before your first logged entry ({earliestDate}) and tracks every naira in or out from there — quick, but only accurate if that ₦0 assumption is actually true. If you had real savings before you started logging, use the form below with today&apos;s real balance instead.
           </p>
           <button
             type="button"
