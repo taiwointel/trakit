@@ -162,6 +162,28 @@ export function useEntries() {
     }
   }, [userId, supabase]);
 
+  // Applies the same patch (e.g. a category correction) to many rows in one
+  // action — built for retagging every historical transaction from a given
+  // beneficiary at once instead of one month's ledger at a time. Chunked
+  // for the same reason as deleteEntries: .in("id", ids) is a query-string
+  // filter that can silently fail past a URL length limit for a large
+  // multi-month batch.
+  const updateEntries = useCallback(async (ids, patch) => {
+    if (!ids?.length) return;
+    const idSet = new Set(ids);
+    setEntries((prev) => prev.map((e) => (idSet.has(e.id) ? { ...e, ...patch } : e)));
+    if (!userId || !supabase) return;
+
+    const CHUNK_SIZE = 200;
+    let anyFailed = false;
+    for (let i = 0; i < ids.length; i += CHUNK_SIZE) {
+      const chunk = ids.slice(i, i + CHUNK_SIZE);
+      const { error } = await supabase.from("entries").update(patch).in("id", chunk).eq("user_id", userId);
+      if (error) anyFailed = true;
+    }
+    if (anyFailed) await load();
+  }, [userId, supabase, load]);
+
   const deleteEntries = useCallback(async (ids) => {
     if (!ids?.length) return;
     const idSet = new Set(ids);
@@ -193,5 +215,5 @@ export function useEntries() {
     }
   }, [userId, supabase]);
 
-  return { entries, budgets, loading, addEntry, updateEntry, deleteEntry, deleteEntries, saveBudget, clearAllEntries, refetch: load };
+  return { entries, budgets, loading, addEntry, updateEntry, updateEntries, deleteEntry, deleteEntries, saveBudget, clearAllEntries, refetch: load };
 }

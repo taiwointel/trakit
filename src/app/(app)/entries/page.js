@@ -67,8 +67,12 @@ export default function EntriesPage() {
   const [toolsOpen,     setToolsOpen]     = useState(false);
   const [selfFilter,    setSelfFilter]    = useState("all"); // "all" | "hide" | "only"
   const [importFilter,  setImportFilter]  = useState("all"); // "all" | a specific import_batch value
+  // Widens the ledger below from "this month" to every month at once — built
+  // for retagging every historical transaction from one beneficiary in a
+  // single action instead of hunting them down month by month.
+  const [allMonths,     setAllMonths]     = useState(false);
 
-  const { entries, budgets, loading, addEntry, updateEntry, deleteEntry, deleteEntries, saveBudget, clearAllEntries, refetch } = useEntries();
+  const { entries, budgets, loading, addEntry, updateEntry, updateEntries, deleteEntry, deleteEntries, saveBudget, clearAllEntries, refetch } = useEntries();
   const { goals } = useGoals();
   const salary = goals.salary || null;
 
@@ -80,21 +84,28 @@ export default function EntriesPage() {
     [entries, monthStr],
   );
 
+  const allEntriesSorted = useMemo(() =>
+    [...entries].sort((a, b) => b.date.localeCompare(a.date) || b.created_at?.localeCompare(a.created_at || "") || 0),
+    [entries],
+  );
+
   const displayEntries = useMemo(() => {
+    if (allMonths) return allEntriesSorted;
     if (!selectedDay) return monthEntries;
     const dayStr = `${monthStr}-${String(selectedDay).padStart(2, "0")}`;
     return monthEntries.filter((e) => e.date === dayStr);
-  }, [monthEntries, selectedDay, monthStr]);
+  }, [monthEntries, selectedDay, monthStr, allMonths, allEntriesSorted]);
 
-  // Distinct import files present in this month's view, so a bad statement
-  // import can be isolated and cleared without touching entries typed in by
-  // hand or added from elsewhere — scoped to the month like the rest of the
-  // ledger, since that's the unit a user thinks in when undoing an import.
+  // Distinct import files present in view, so a bad statement import can be
+  // isolated and cleared without touching entries typed in by hand or added
+  // from elsewhere — scoped to the month like the rest of the ledger
+  // normally, but widens to every month while "All months" is on.
   const importBatches = useMemo(() => {
+    const source = allMonths ? entries : monthEntries;
     const set = new Set();
-    monthEntries.forEach((e) => { if (e.import_batch) set.add(e.import_batch); });
+    source.forEach((e) => { if (e.import_batch) set.add(e.import_batch); });
     return [...set].sort();
-  }, [monthEntries]);
+  }, [monthEntries, entries, allMonths]);
 
   // Reset a stale selection when the month changes (or that import no
   // longer has any entries left in view) so it never silently filters to
@@ -329,6 +340,19 @@ export default function EntriesPage() {
               </div>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <button
+                onClick={() => setAllMonths((v) => !v)}
+                title="Search and retag across every month at once, not just this one"
+                style={{
+                  background: allMonths ? "var(--gold)" : "var(--ink-2)",
+                  border: `1px solid ${allMonths ? "var(--gold)" : "var(--rule)"}`,
+                  color: allMonths ? "#fff" : "var(--ink-text-dim)",
+                  fontFamily: "var(--font-sans)", fontSize: 11, fontWeight: 600,
+                  borderRadius: 6, padding: "5px 10px", cursor: "pointer", whiteSpace: "nowrap",
+                }}
+              >
+                {allMonths ? "✓ All months" : "All months"}
+              </button>
               {importBatches.length > 0 && (
                 <select
                   value={importFilter}
@@ -399,13 +423,21 @@ export default function EntriesPage() {
             className="section-toggle"
           >
             <span className="section-toggle-label">
-              Entries ({filteredEntries.length})
+              Entries ({filteredEntries.length}){allMonths ? " · all months" : ""}
             </span>
             <span className="section-toggle-arrow">
               {ledgerOpen ? "▲ Collapse" : "▼ Show"}
             </span>
           </button>
-          {ledgerOpen && <LedgerTable entries={filteredEntries} onUpdate={updateEntry} onDelete={deleteEntry} onClearAll={handleClearVisible} />}
+          {ledgerOpen && (
+            <LedgerTable
+              entries={filteredEntries}
+              onUpdate={updateEntry}
+              onDelete={deleteEntry}
+              onClearAll={handleClearVisible}
+              onBulkUpdate={allMonths ? updateEntries : null}
+            />
+          )}
         </div>
       </div>
 

@@ -518,7 +518,7 @@ function DesktopRow({ entry, index, total, onEdit, onDelete, onUpdate }) {
 }
 
 // ── Main export ───────────────────────────────────────────────────────────────
-export default function LedgerTable({ entries, onUpdate, onDelete, onClearAll }) {
+export default function LedgerTable({ entries, onUpdate, onDelete, onClearAll, onBulkUpdate }) {
   const [editingId,       setEditingId]       = useState(null);
   const [recatProgress,   setRecatProgress]   = useState(null);
   const [recatNotice,     setRecatNotice]     = useState(null);
@@ -526,6 +526,9 @@ export default function LedgerTable({ entries, onUpdate, onDelete, onClearAll })
   const [sortBy,          setSortBy]          = useState("date");
   const [sortDir,         setSortDir]         = useState("desc");
   const [query,           setQuery]           = useState("");
+  const [bulkCategory,    setBulkCategory]    = useState("");
+  const [bulkApplying,    setBulkApplying]    = useState(false);
+  const [bulkNotice,      setBulkNotice]      = useState(null);
 
   function toggleSort(field) {
     if (sortBy === field) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -569,6 +572,18 @@ export default function LedgerTable({ entries, onUpdate, onDelete, onClearAll })
       return false;
     });
   }, [sortedEntries, query]);
+
+  async function handleBulkCategoryApply() {
+    if (!bulkCategory || !visibleEntries.length) return;
+    if (!confirm(`Set category to "${bulkCategory}" for all ${visibleEntries.length} matching entries?`)) return;
+    setBulkApplying(true);
+    setBulkNotice(null);
+    const patch = { category: bulkCategory, ...categoryDefaults(bulkCategory) };
+    await onBulkUpdate(visibleEntries.map((e) => e.id), patch);
+    setBulkApplying(false);
+    setBulkNotice(`Retagged ${visibleEntries.length} entries as "${bulkCategory}".`);
+    setBulkCategory("");
+  }
 
   async function handleRecategorizeAll() {
     // Re-categorize every "money out" entry in view, not just the ones still
@@ -674,6 +689,52 @@ export default function LedgerTable({ entries, onUpdate, onDelete, onClearAll })
           </button>
         )}
       </div>
+
+      {/* ── Bulk retag bar — only offered when the parent has widened this
+          table to span every month (onBulkUpdate is passed) and a search
+          is actually narrowing things down, so it's never available against
+          an unfiltered wall of transactions by accident. ── */}
+      {onBulkUpdate && query.trim() && visibleEntries.length > 0 && (
+        <div style={{
+          display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap",
+          padding: "8px 14px", borderBottom: "1px solid var(--rule-paper)",
+          background: "rgba(169,133,79,0.1)",
+        }}>
+          <span style={{ fontFamily: "var(--font-sans)", fontSize: 12, color: "var(--paper-text)", fontWeight: 600 }}>
+            {visibleEntries.length} match{visibleEntries.length !== 1 ? "es" : ""} —
+          </span>
+          <select
+            value={bulkCategory}
+            onChange={(e) => setBulkCategory(e.target.value)}
+            className="paper-select"
+            style={{
+              background: "var(--paper)", border: "1px solid var(--rule-paper)", color: "var(--paper-text)",
+              fontFamily: "var(--font-sans)", fontSize: 12, borderRadius: 6, padding: "4px 22px 4px 8px", outline: "none",
+            }}
+          >
+            <option value="">Set category to…</option>
+            {CATEGORY_NAMES.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+          <button
+            onClick={handleBulkCategoryApply}
+            disabled={!bulkCategory || bulkApplying}
+            style={{
+              background: "var(--gold)", color: "#fff", border: "none",
+              fontFamily: "var(--font-sans)", fontSize: 12, fontWeight: 600,
+              borderRadius: 6, padding: "5px 12px",
+              cursor: (!bulkCategory || bulkApplying) ? "not-allowed" : "pointer",
+              opacity: (!bulkCategory || bulkApplying) ? 0.6 : 1,
+            }}
+          >
+            {bulkApplying ? "Applying…" : `Apply to all ${visibleEntries.length}`}
+          </button>
+          {bulkNotice && (
+            <span style={{ fontFamily: "var(--font-sans)", fontSize: 11.5, color: "var(--green)" }}>
+              {bulkNotice}
+            </span>
+          )}
+        </div>
+      )}
 
       {/* ── Mobile: card list (hidden on md+) ── */}
       <div className="ledger-mobile">
