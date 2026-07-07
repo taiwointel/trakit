@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { fallbackCategorize } from "@/lib/categories";
-import { saveMerchantRule } from "@/lib/merchantRules";
+import { saveMerchantRule, normalizeMerchantKey } from "@/lib/merchantRules";
 
 export function useEntries() {
   const [entries,  setEntries]  = useState([]);
@@ -171,6 +171,32 @@ export function useEntries() {
   const updateEntries = useCallback(async (ids, patch) => {
     if (!ids?.length) return;
     const idSet = new Set(ids);
+
+    // Same training signal as updateEntry's single-row correction — a bulk
+    // retag (e.g. "Retag all 40 transactions with this beneficiary") is
+    // just as strong a signal as fixing one row, and previously wasn't
+    // teaching anything: only individually-edited rows ever taught a
+    // merchant rule, so a future import of a *new* transaction from the
+    // same beneficiary would need the same manual fix all over again. Key
+    // off each distinct beneficiary/narration among the affected rows
+    // (not just one) since a bulk retag from a broad search can span more
+    // than one merchant.
+    if (patch.category && userId && supabase) {
+      const taught = new Set();
+      for (const entry of entries) {
+        if (!idSet.has(entry.id) || entry.flow !== "out") continue;
+        const key = normalizeMerchantKey(entry.desc, entry.beneficiary);
+        if (!key || taught.has(key)) continue;
+        taught.add(key);
+        saveMerchantRule(supabase, userId, entry.desc, entry.beneficiary, {
+          category:     patch.category,
+          subcategory:  entry.subcategory,
+          essentiality: patch.essentiality ?? entry.essentiality,
+          nature:       patch.nature ?? entry.nature,
+        });
+      }
+    }
+
     setEntries((prev) => prev.map((e) => (idSet.has(e.id) ? { ...e, ...patch } : e)));
     if (!userId || !supabase) return;
 
@@ -182,7 +208,7 @@ export function useEntries() {
       if (error) anyFailed = true;
     }
     if (anyFailed) await load();
-  }, [userId, supabase, load]);
+  }, [userId, supabase, load, entries]);
 
   const deleteEntries = useCallback(async (ids) => {
     if (!ids?.length) return;
