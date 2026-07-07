@@ -10,14 +10,30 @@ function relevant(entries, flow) {
   return entries.filter((e) => e.flow === flow && e.category !== "Self" && e.beneficiary);
 }
 
+// Mirrors LedgerTable's splitDesc, kept local since only the "purpose" half
+// (not the beneficiary detail, which we already know here) is needed for a
+// short per-transaction line in the drill-through list.
+function shortDesc(entry) {
+  const desc = entry.desc || "";
+  const sep  = desc.indexOf(" — ");
+  return sep !== -1 ? desc.slice(0, sep).trim() : desc;
+}
+
+function fmtDate(iso) {
+  if (!iso) return "";
+  const d = new Date(iso + "T00:00:00");
+  return d.toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" });
+}
+
 // Different banks (or even different transactions on the same bank) print
 // the same person's name in different forms — "KEHINDE OLAYINKA OGUNFILE"
 // on one statement, just "KEHINDE OGUNFILE" on another. Left as exact
 // string groups, those show up as two separate, smaller-looking entries
 // instead of one real relationship. Cluster exact-string groups whose
 // names are a same-person match (order-independent, one contained in the
-// other) via union-find, then merge each cluster's totals under whichever
-// variant has the most name words (the fullest form seen).
+// other) via union-find, then merge each cluster's totals (and underlying
+// transactions, for drill-through) under whichever variant has the most
+// name words (the fullest form seen).
 function clusterBeneficiaries(groups) {
   const n = groups.length;
   const parent = Array.from({ length: n }, (_, i) => i);
@@ -39,12 +55,13 @@ function clusterBeneficiaries(groups) {
   return Object.values(clusters).map((members) => {
     const total = members.reduce((s, m) => s + m.total, 0);
     const count = members.reduce((s, m) => s + m.count, 0);
+    const txns  = members.flatMap((m) => m.entries).sort((a, b) => b.date.localeCompare(a.date));
     const canonical = [...members].sort((a, b) => {
       const wordsA = a.name.trim().split(/\s+/).length;
       const wordsB = b.name.trim().split(/\s+/).length;
       return wordsB !== wordsA ? wordsB - wordsA : b.total - a.total;
     })[0].name;
-    return { name: canonical, total, count };
+    return { name: canonical, total, count, entries: txns };
   });
 }
 
@@ -53,15 +70,91 @@ function rankBeneficiaries(entries) {
   for (const e of entries) {
     const key = e.beneficiary.trim();
     if (!key) continue;
-    if (!map[key]) map[key] = { name: key, total: 0, count: 0 };
+    if (!map[key]) map[key] = { name: key, total: 0, count: 0, entries: [] };
     map[key].total += Number(e.amount);
     map[key].count += 1;
+    map[key].entries.push(e);
   }
   // Exhaustive, not top-N — the scroll container in RankTable handles length.
   return clusterBeneficiaries(Object.values(map)).sort((a, b) => b.total - a.total);
 }
 
+// Full-screen drill-through — every transaction behind one ranked row, in
+// date order, with a short description and the running total confirmed
+// against the row's own figure so the two can never silently disagree.
+function DrillThroughModal({ row, accent, onClose }) {
+  return (
+    <div
+      style={{
+        position: "fixed", inset: 0, zIndex: 9999,
+        background: "rgba(0,0,0,0.75)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        padding: "1rem",
+      }}
+      onClick={onClose}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background:   "var(--ink-2)",
+          border:       `1px solid ${accent}`,
+          borderRadius: 16,
+          width:        "100%",
+          maxWidth:     480,
+          maxHeight:    "80vh",
+          padding:      "20px 22px 18px",
+          display:      "flex",
+          flexDirection:"column",
+          gap:          12,
+        }}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p style={{ color: "var(--ink-text)", fontFamily: "var(--font-serif)", fontSize: 18, fontWeight: 700, margin: 0 }}>
+              {row.name}
+            </p>
+            <p style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", fontSize: 11.5, marginTop: 2 }}>
+              {row.count} transaction{row.count !== 1 ? "s" : ""} · <span style={{ color: accent, fontWeight: 700, fontFamily: "var(--font-mono)" }}>{formatNaira(row.total)}</span> total
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            style={{ background: "none", border: "none", color: "var(--ink-text-dim)", fontSize: 18, cursor: "pointer", lineHeight: 1 }}
+          >
+            ×
+          </button>
+        </div>
+
+        <div style={{ overflowY: "auto", display: "flex", flexDirection: "column", gap: 8, paddingRight: 2 }}>
+          {row.entries.map((e) => (
+            <div
+              key={e.id}
+              style={{
+                display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10,
+                padding: "8px 10px", background: "var(--ink-3)", borderRadius: 8,
+              }}
+            >
+              <div style={{ minWidth: 0 }}>
+                <p style={{ color: "var(--ink-text)", fontFamily: "var(--font-sans)", fontSize: 12.5, fontWeight: 600, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {shortDesc(e) || "—"}
+                </p>
+                <p style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-mono)", fontSize: 10.5, margin: "2px 0 0" }}>
+                  {fmtDate(e.date)}
+                </p>
+              </div>
+              <span style={{ color: accent, fontFamily: "var(--font-mono)", fontSize: 12.5, fontWeight: 700, flexShrink: 0, whiteSpace: "nowrap" }}>
+                {formatNaira(e.amount)}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function RankTable({ title, accent, icon, rows, emptyMsg }) {
+  const [drillRow, setDrillRow] = useState(null);
   const max = rows.length ? rows[0].total : 0;
   return (
     <div className="rounded-xl overflow-hidden" style={{ background: "var(--ink-2)", border: "1px solid var(--rule)", borderTop: `3px solid ${accent}` }}>
@@ -83,6 +176,18 @@ function RankTable({ title, accent, icon, rows, emptyMsg }) {
               <span className="flex-1 text-xs truncate" style={{ color: "var(--ink-text)", fontFamily: "var(--font-sans)" }} title={r.name}>
                 {r.name}
               </span>
+              <button
+                onClick={() => setDrillRow(r)}
+                title={`See every transaction with ${r.name}`}
+                style={{
+                  width: 15, height: 15, borderRadius: "50%", border: `1px solid ${accent}`,
+                  background: "none", color: accent, fontSize: 9, fontWeight: 700,
+                  fontFamily: "var(--font-serif)", lineHeight: "13px", cursor: "pointer",
+                  display: "inline-flex", alignItems: "center", justifyContent: "center", padding: 0, flexShrink: 0,
+                }}
+              >
+                i
+              </button>
               <span className="text-xs font-semibold shrink-0" style={{ color: accent, fontFamily: "var(--font-mono)" }}>
                 {formatNaira(r.total, { compact: true })}
               </span>
@@ -98,6 +203,10 @@ function RankTable({ title, accent, icon, rows, emptyMsg }) {
           </div>
         ))}
       </div>
+
+      {drillRow && (
+        <DrillThroughModal row={drillRow} accent={accent} onClose={() => setDrillRow(null)} />
+      )}
     </div>
   );
 }
