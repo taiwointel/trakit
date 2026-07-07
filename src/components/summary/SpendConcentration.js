@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { formatNaira } from "@/lib/format";
+import { clusterByBeneficiary } from "@/lib/beneficiaryCluster";
 
 function relevant(entries) {
   return entries.filter((e) => e.flow === "out" && e.category && e.category !== "Self");
@@ -28,16 +29,13 @@ function rankCategories(entries) {
     map[key].count += 1;
     map[key].entries.push(e);
   }
-  for (const cat of Object.values(map)) {
-    cat.entries.sort((a, b) => b.date.localeCompare(a.date));
-  }
   return Object.values(map).sort((a, b) => b.total - a.total);
 }
 
-// Full-screen drill-through, mirroring the Major Beneficiaries one — every
-// expense behind one category's total, in date order, with a short
+// Full-screen drill-through for one beneficiary's spend *within a single
+// category* — every underlying transaction, in date order, with a short
 // description and the running total confirmed against the row's own figure.
-function DrillThroughModal({ row, accent, onClose }) {
+function BeneficiaryDrillModal({ row, accent, onClose }) {
   return (
     <div
       style={{
@@ -92,9 +90,6 @@ function DrillThroughModal({ row, accent, onClose }) {
               <div style={{ minWidth: 0 }}>
                 <p style={{ color: "var(--ink-text)", fontFamily: "var(--font-sans)", fontSize: 12.5, fontWeight: 600, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {shortDesc(e) || "—"}
-                  {e.beneficiary && (
-                    <span style={{ color: "var(--ink-text-dim)", fontWeight: 400 }}> · {e.flow === "out" ? "to" : "from"} {e.beneficiary}</span>
-                  )}
                 </p>
                 <p style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-mono)", fontSize: 10.5, margin: "2px 0 0" }}>
                   {fmtDate(e.date)}
@@ -111,13 +106,88 @@ function DrillThroughModal({ row, accent, onClose }) {
   );
 }
 
+// One category's accordion row — collapsed shows the category total; expanded
+// reveals every beneficiary spent on within that category, summed and
+// clustered the same way Major Beneficiaries does, ranked highest first,
+// each with its own (i) drill-through into the individual transactions.
+function CategoryRow({ cat, index, accent, isOpen, onToggle }) {
+  const beneficiaries = useMemo(() => clusterByBeneficiary(cat.entries), [cat.entries]);
+  const [drillRow, setDrillRow] = useState(null);
+  const maxBene = beneficiaries.length ? beneficiaries[0].total : 0;
+
+  return (
+    <div style={{ borderBottom: "1px solid var(--rule)" }}>
+      <button
+        onClick={onToggle}
+        className="w-full flex items-center gap-2 px-4 py-3 text-left"
+        style={{ background: isOpen ? "var(--ink-2)" : "transparent", cursor: "pointer" }}
+      >
+        <span className="text-[10px] shrink-0" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-mono)", width: 16 }}>
+          {index + 1}
+        </span>
+        <span className="flex-1 text-sm font-semibold" style={{ color: "var(--ink-text)", fontFamily: "var(--font-sans)" }}>
+          {cat.name}
+        </span>
+        <span className="text-xs" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-mono)" }}>
+          {cat.count} txn{cat.count !== 1 ? "s" : ""}
+        </span>
+        <span className="text-sm font-bold" style={{ color: accent, fontFamily: "var(--font-mono)", whiteSpace: "nowrap" }}>
+          {formatNaira(cat.total)}
+        </span>
+        <span style={{ color: "var(--ink-text-dim)", fontSize: 11 }}>{isOpen ? "▲" : "▼"}</span>
+      </button>
+
+      {isOpen && (
+        <div style={{ background: "var(--ink)", padding: "4px 14px 14px 42px", display: "flex", flexDirection: "column", gap: 8 }}>
+          {beneficiaries.map((b) => (
+            <div key={b.name} className="flex flex-col gap-1">
+              <div className="flex items-center gap-2">
+                <span className="flex-1 text-xs truncate" style={{ color: "var(--ink-text)", fontFamily: "var(--font-sans)" }} title={b.name}>
+                  {b.name}
+                </span>
+                <button
+                  onClick={() => setDrillRow(b)}
+                  title={`See every ${cat.name} transaction with ${b.name}`}
+                  style={{
+                    width: 15, height: 15, borderRadius: "50%", border: `1px solid ${accent}`,
+                    background: "none", color: accent, fontSize: 9, fontWeight: 700,
+                    fontFamily: "var(--font-serif)", lineHeight: "13px", cursor: "pointer",
+                    display: "inline-flex", alignItems: "center", justifyContent: "center", padding: 0, flexShrink: 0,
+                  }}
+                >
+                  i
+                </button>
+                <span className="text-xs font-semibold shrink-0" style={{ color: "var(--ink-text)", fontFamily: "var(--font-mono)" }}>
+                  {formatNaira(b.total)}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div style={{ flex: 1, height: 3, borderRadius: 2, background: "var(--rule)", overflow: "hidden" }}>
+                  <div style={{ width: `${maxBene > 0 ? (b.total / maxBene) * 100 : 0}%`, height: "100%", background: accent, borderRadius: 2 }} />
+                </div>
+                <span className="text-[10px] shrink-0" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-mono)" }}>
+                  {b.count} txn{b.count !== 1 ? "s" : ""}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {drillRow && (
+        <BeneficiaryDrillModal row={drillRow} accent={accent} onClose={() => setDrillRow(null)} />
+      )}
+    </div>
+  );
+}
+
 export default function SpendConcentration({ entries }) {
   const [scope, setScope] = useState("ytd"); // "month" | "ytd"
   const today = new Date();
   const [monthOffset, setMonthOffset] = useState(0);
   const [yearOffset,  setYearOffset]  = useState(0);
   const [query,       setQuery]       = useState("");
-  const [drillRow,    setDrillRow]    = useState(null);
+  const [openCats,    setOpenCats]    = useState(() => new Set());
 
   const monthDate  = new Date(today.getFullYear(), today.getMonth() + monthOffset, 1);
   const monthStr   = `${monthDate.getFullYear()}-${String(monthDate.getMonth() + 1).padStart(2, "0")}`;
@@ -137,11 +207,19 @@ export default function SpendConcentration({ entries }) {
     return rows.filter((r) => r.name.toLowerCase().includes(q));
   }, [rows, query]);
 
-  const max = filteredRows.length ? filteredRows[0].total : 0;
   const accent = "var(--red)";
 
   const hasEarlierMonth = entries.some((e) => e.date && e.date < monthStr);
   const hasEarlierYear  = entries.some((e) => e.date && e.date < `${year}-01-01`);
+
+  function toggleCat(name) {
+    setOpenCats((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+  }
 
   return (
     <div className="rounded-xl p-5 flex flex-col gap-4" style={{ background: "var(--ink-2)", border: "1px solid var(--rule)" }}>
@@ -221,7 +299,7 @@ export default function SpendConcentration({ entries }) {
         <div className="px-4 py-3 border-b flex items-center gap-2 flex-wrap" style={{ borderColor: "var(--rule)" }}>
           <span style={{ fontSize: 13 }}>💸</span>
           <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: accent, fontFamily: "var(--font-sans)", flex: 1 }}>
-            Where expenses concentrate, by category
+            Categories — click to see who the money went to
           </p>
           <input
             type="text"
@@ -235,52 +313,23 @@ export default function SpendConcentration({ entries }) {
             }}
           />
         </div>
-        <div className="px-4 py-3 flex flex-col gap-2.5" style={{ maxHeight: 420, overflowY: "auto" }}>
+        <div style={{ maxHeight: 480, overflowY: "auto" }}>
           {filteredRows.length === 0 ? (
-            <p className="text-xs" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>
+            <p className="text-xs px-4 py-3" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>
               {rows.length === 0 ? "No categorized expenses in this period." : "No categories match that search."}
             </p>
-          ) : filteredRows.map((r, i) => (
-            <div key={r.name} className="flex flex-col gap-1">
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] shrink-0" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-mono)", width: 16 }}>
-                  {i + 1}
-                </span>
-                <span className="flex-1 text-xs truncate" style={{ color: "var(--ink-text)", fontFamily: "var(--font-sans)" }} title={r.name}>
-                  {r.name}
-                </span>
-                <button
-                  onClick={() => setDrillRow(r)}
-                  title={`See every expense in ${r.name}`}
-                  style={{
-                    width: 15, height: 15, borderRadius: "50%", border: `1px solid ${accent}`,
-                    background: "none", color: accent, fontSize: 9, fontWeight: 700,
-                    fontFamily: "var(--font-serif)", lineHeight: "13px", cursor: "pointer",
-                    display: "inline-flex", alignItems: "center", justifyContent: "center", padding: 0, flexShrink: 0,
-                  }}
-                >
-                  i
-                </button>
-                <span className="text-xs font-semibold shrink-0" style={{ color: accent, fontFamily: "var(--font-mono)" }}>
-                  {formatNaira(r.total, { compact: true })}
-                </span>
-              </div>
-              <div className="flex items-center gap-2 pl-6">
-                <div style={{ flex: 1, height: 4, borderRadius: 2, background: "var(--rule)", overflow: "hidden" }}>
-                  <div style={{ width: `${max > 0 ? (r.total / max) * 100 : 0}%`, height: "100%", background: accent, borderRadius: 2 }} />
-                </div>
-                <span className="text-[10px] shrink-0" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-mono)" }}>
-                  {r.count} txn{r.count !== 1 ? "s" : ""}
-                </span>
-              </div>
-            </div>
+          ) : filteredRows.map((cat, i) => (
+            <CategoryRow
+              key={cat.name}
+              cat={cat}
+              index={i}
+              accent={accent}
+              isOpen={openCats.has(cat.name)}
+              onToggle={() => toggleCat(cat.name)}
+            />
           ))}
         </div>
       </div>
-
-      {drillRow && (
-        <DrillThroughModal row={drillRow} accent={accent} onClose={() => setDrillRow(null)} />
-      )}
     </div>
   );
 }
