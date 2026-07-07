@@ -550,7 +550,7 @@ export default function SettingsDrawer({ open, onClose, onStartTour }) {
               )}
             </div>
 
-            {authProvider === "email" ? (
+            {authProvider === "email" && (
               <div className="flex flex-col gap-1.5">
                 <label style={labelStyle}>New password</label>
                 <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="At least 8 characters" className="w-full px-3 py-2.5 rounded-lg text-sm" style={inputStyle} />
@@ -569,10 +569,6 @@ export default function SettingsDrawer({ open, onClose, onStartTour }) {
                   </p>
                 )}
               </div>
-            ) : (
-              <p className="text-xs" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>
-                You signed in with {providerMeta(authProvider).label} — manage your password there, not here.
-              </p>
             )}
           </Section>
 
