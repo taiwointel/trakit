@@ -4,7 +4,7 @@ import { useState } from "react";
 import { formatNaira, formatAmountInput, parseAmount, todayISO } from "@/lib/format";
 import InfoTooltip from "@/components/InfoTooltip";
 
-export default function CashSetup({ anchor, onSave }) {
+export default function CashSetup({ anchor, onSave, entries = [] }) {
   const hasAnchor = !!anchor.anchor_date;
 
   const [date,   setDate]   = useState(anchor.anchor_date || todayISO());
@@ -12,6 +12,12 @@ export default function CashSetup({ anchor, onSave }) {
     anchor.anchor_amount ? Number(anchor.anchor_amount).toLocaleString("en-NG", { maximumFractionDigits: 2 }) : "",
   );
   const [saving, setSaving] = useState(false);
+  const [autoCalculating, setAutoCalculating] = useState(false);
+
+  const earliestDate = entries.reduce(
+    (min, e) => (e.date && (!min || e.date < min) ? e.date : min),
+    null,
+  );
 
   async function handleSave(e) {
     e.preventDefault();
@@ -20,6 +26,19 @@ export default function CashSetup({ anchor, onSave }) {
     setSaving(true);
     await onSave(date, parsed);
     setSaving(false);
+  }
+
+  // No number to remember or guess at: anchor to your very first logged
+  // entry's date at ₦0 (opening balance for that day, before its own
+  // entries land), and every day from there — including that first day
+  // itself — is 100% computed from what you've actually logged.
+  async function handleAutoCalculate() {
+    if (!earliestDate) return;
+    setAutoCalculating(true);
+    setDate(earliestDate);
+    setAmount("0.00");
+    await onSave(earliestDate, 0);
+    setAutoCalculating(false);
   }
 
   return (
@@ -46,6 +65,32 @@ export default function CashSetup({ anchor, onSave }) {
           <span className="text-xs" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>
             anchor as of {anchor.anchor_date}
           </span>
+        </div>
+      )}
+
+      {earliestDate && (
+        <div
+          className="rounded-lg p-3 flex items-center justify-between gap-3 flex-wrap"
+          style={{ background: "rgba(169,133,79,0.08)", border: "1px solid rgba(169,133,79,0.25)" }}
+        >
+          <p className="text-xs" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", lineHeight: 1.6, flex: 1, minWidth: 200 }}>
+            Don&apos;t know (or don&apos;t trust) a real starting figure? Anchor to ₦0 on {earliestDate} — your first logged entry — and let every day since be computed purely from what you&apos;ve actually logged.
+          </p>
+          <button
+            type="button"
+            onClick={handleAutoCalculate}
+            disabled={autoCalculating}
+            className="px-4 py-2 rounded text-sm font-semibold whitespace-nowrap"
+            style={{
+              background: "var(--ink-3)",
+              border:     "1px solid var(--gold)",
+              color:      "var(--gold)",
+              opacity:    autoCalculating ? 0.6 : 1,
+              fontFamily: "var(--font-sans)",
+            }}
+          >
+            {autoCalculating ? "Calculating…" : "⚡ Auto-calculate"}
+          </button>
         </div>
       )}
 

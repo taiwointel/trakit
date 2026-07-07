@@ -68,7 +68,7 @@ export default function CashPage() {
       {!hasAnchor ? (
         /* ── First-time setup ── */
         <div className="section-body">
-          <CashSetup anchor={anchor} onSave={saveAnchor} />
+          <CashSetup anchor={anchor} onSave={saveAnchor} entries={entries} />
           <DailyNavigator entries={entries} anchor={anchor} />
         </div>
       ) : (
@@ -104,7 +104,7 @@ export default function CashPage() {
             </button>
             {anchorEditOpen && (
               <div style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 14 }}>
-                <CashSetup anchor={anchor} onSave={saveAnchor} />
+                <CashSetup anchor={anchor} onSave={saveAnchor} entries={entries} />
                 <div style={{ borderTop: "1px solid var(--rule)", paddingTop: 14, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
                   <p style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", fontSize: 12, lineHeight: 1.6, margin: 0, flex: 1, minWidth: 200 }}>
                     Anchor looking wrong (e.g. saved with the wrong amount) and re-entering it above hasn&apos;t fixed it? Clear it entirely and set it up fresh.
