@@ -45,7 +45,12 @@ export default function CashPage() {
     );
   }
 
-  const hasAnchor = !!anchor.anchor_date;
+  // An OPay/Access Bank import already carries the bank's own real running
+  // balance on some entries (see lib/cashBalance.js) — that's enough to
+  // compute a real daily balance on its own, without ever requiring the
+  // user to type in a manual anchor first.
+  const hasBankBalance = entries.some((e) => e.balance_after !== null && e.balance_after !== undefined);
+  const hasAnchor = !!anchor.anchor_date || hasBankBalance;
 
   return (
     <div className="page-root">
@@ -62,7 +67,10 @@ export default function CashPage() {
         <div className="section-divider-rule" />
       </div>
       <p className="section-desc">
-        Tell it what you actually had in your account on one date, and it does the arithmetic for every day after that automatically — using the entries you log, not a second number you'd have to keep updating by hand. That single fact is also what powers your balance across the app: the liquidity/runway gauge and net worth both need a real cash figure to work from. Get a fresh reading out of sync with reality (found cash, a missed bank fee)? Re-anchor with today's date and true balance — it moves the starting point forward without touching any past entries.
+        {hasBankBalance
+          ? "Your OPay/Access Bank imports already carry the bank's own real running balance, so this is computed automatically — no manual figure required. You can still set or override an anchor below (e.g. for a PalmPay-only history, or a date the statement doesn't cover)."
+          : "Tell it what you actually had in your account on one date, and it does the arithmetic for every day after that automatically — using the entries you log, not a second number you'd have to keep updating by hand."}
+        {" "}That single fact is also what powers your balance across the app: the liquidity/runway gauge and net worth both need a real cash figure to work from. Get a fresh reading out of sync with reality (found cash, a missed bank fee)? Re-anchor with today's date and true balance — it moves the starting point forward without touching any past entries.
       </p>
 
       {!hasAnchor ? (

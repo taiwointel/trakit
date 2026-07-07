@@ -10,41 +10,70 @@ export function netFlowForDate(entries, date) {
     .reduce((s, e) => s + (e.flow === "in" ? Number(e.amount) : -Number(e.amount)), 0);
 }
 
+// Every entry a bank-statement parser could read a real running balance
+// off of carries a `balance_after` — the bank's own reported figure, not a
+// guess. Treat each one as a known reference point in time, exactly like
+// the user's manual anchor, and always compute off whichever reference
+// point is closest to (and on/before) the requested date. This is what
+// lets an OPay/Access import mean the app never needs the manual anchor to
+// be right for a day that already has a bank-confirmed balance nearby.
+//
+// The two point types mean slightly different things: the manual anchor
+// represents the *opening* balance for its date (that day's own entries
+// still need to be added), while balance_after represents the *closing*
+// balance for its date (that day's entries are already included — the
+// parser only keeps it on the last entry of each day for exactly this
+// reason). On the rare case both exist for the same date, the bank-
+// reported figure wins over the manually-typed one.
+function collectReferencePoints(entries, anchorDate, anchorAmount) {
+  const points = [];
+  if (anchorDate) points.push({ date: anchorDate, balance: Number(anchorAmount), type: "anchor" });
+  for (const e of entries) {
+    if (e.balance_after !== null && e.balance_after !== undefined) {
+      points.push({ date: e.date, balance: Number(e.balance_after), type: "balance_after" });
+    }
+  }
+  points.sort((a, b) => {
+    if (a.date !== b.date) return a.date < b.date ? -1 : 1;
+    if (a.type === b.type) return 0;
+    return a.type === "anchor" ? -1 : 1;
+  });
+  return points;
+}
+
 /**
  * Closing balance for a given date.
  * anchor_date and date are ISO strings (YYYY-MM-DD).
  */
 export function closingBalance(entries, anchorDate, anchorAmount, date) {
-  if (!anchorDate) return null;
+  const points = collectReferencePoints(entries, anchorDate, anchorAmount);
+  if (points.length === 0) return null;
 
-  // For a date on/after the anchor, walk forward from the anchor amount —
-  // unchanged from before (the anchor amount is treated as the opening
-  // balance for anchorDate itself, so that day's own entries are included).
-  if (date >= anchorDate) {
-    return (
-      Number(anchorAmount) +
-      entries
-        .filter((e) => e.date >= anchorDate && e.date <= date)
-        .reduce((s, e) => s + (e.flow === "in" ? Number(e.amount) : -Number(e.amount)), 0)
-    );
+  // Latest reference point on/before the target date (points are sorted
+  // ascending, so the last one matched as we scan forward is the closest).
+  let ref = null;
+  for (const p of points) {
+    if (p.date <= date) ref = p;
+    else break;
   }
 
-  // For a date *before* the anchor, `e.date >= anchorDate && e.date <= date`
-  // is an impossible range and always filters to empty — that silently
-  // returned the bare anchor amount for every single earlier day, no
-  // matter what actually happened on the ledger between that day and the
-  // anchor. Project backwards instead: the anchor amount is the *opening*
-  // balance for anchorDate (the forward branch above adds anchorDate's own
-  // entries on top of it), so undo every entry strictly between the day
-  // after `date` and the day before the anchor — anchorDate's own entries
-  // are excluded here since they're already accounted for as the anchor's
-  // opening balance, not part of what happened before it.
-  return (
-    Number(anchorAmount) -
-    entries
-      .filter((e) => e.date > date && e.date < anchorDate)
-      .reduce((s, e) => s + (e.flow === "in" ? Number(e.amount) : -Number(e.amount)), 0)
-  );
+  if (ref) {
+    const flows = entries
+      .filter((e) => (ref.type === "balance_after" ? e.date > ref.date : e.date >= ref.date) && e.date <= date)
+      .reduce((s, e) => s + (e.flow === "in" ? Number(e.amount) : -Number(e.amount)), 0);
+    return Number(ref.balance) + flows;
+  }
+
+  // The target date is before every known reference point — project
+  // backward from the earliest one, undoing entries between the target
+  // date and that point (exclusive of the point's own date for an anchor,
+  // since that represents its date's *opening* balance; inclusive for a
+  // balance_after point, since that already covers its whole date).
+  const earliest = points[0];
+  const flows = entries
+    .filter((e) => e.date > date && (earliest.type === "balance_after" ? e.date <= earliest.date : e.date < earliest.date))
+    .reduce((s, e) => s + (e.flow === "in" ? Number(e.amount) : -Number(e.amount)), 0);
+  return Number(earliest.balance) - flows;
 }
 
 export function openingBalance(entries, anchorDate, anchorAmount, date) {

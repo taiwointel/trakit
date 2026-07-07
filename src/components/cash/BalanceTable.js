@@ -18,7 +18,10 @@ export default function BalanceTable({ entries, anchor }) {
     [entries, anchor],
   );
 
-  if (!anchor.anchor_date) return null;
+  // The parent only renders this once cash/page.js already knows there's a
+  // reference point (a manual anchor or a bank-reported balance_after), so
+  // no separate early-return is needed here — last14Days() resolves fine
+  // from balance_after entries alone even with anchor.anchor_date unset.
 
   return (
     <div style={{ border: "1px solid var(--rule-paper)", background: "var(--paper)", borderRadius: 12, overflow: "hidden" }}>

@@ -225,6 +225,18 @@ function buildInternalRegex(holderName) {
   return new RegExp(`^trf\\s*\\/\\/\\s*frm\\s+${escaped}\\s+to\\s+${escaped}$`, "i");
 }
 
+// Every kept row already carries its own real balance_after, but only the
+// last row of a given date represents that day's true closing balance —
+// keep it there and null the rest, so the calculation layer never mistakes
+// an earlier same-day balance for the day's closing figure.
+function keepLastBalancePerDate(rows) {
+  const lastIndexForDate = {};
+  rows.forEach((r, i) => { lastIndexForDate[r.date] = i; });
+  rows.forEach((r, i) => {
+    if (i !== lastIndexForDate[r.date]) r.balanceAfter = null;
+  });
+}
+
 function extractBeneficiary(desc) {
   let m = desc.match(/^transfer\s+from\s+(.+?)(?:\d{6,}.*)?$/i);
   if (m) return m[1].replace(/\s+/g, " ").trim();
@@ -380,6 +392,7 @@ function parseAccessFormat2(text) {
             amount,
             flow: isOut ? "out" : "in",
             beneficiary: extractBeneficiary(desc),
+            balanceAfter: chosen.balance,
           });
         }
         runningBalance = fallback.finalBalance;
@@ -403,6 +416,7 @@ function parseAccessFormat2(text) {
           amount,
           flow: isOut ? "out" : "in",
           beneficiary: extractBeneficiary(desc),
+          balanceAfter: chosen.balance,
         });
       }
     }
@@ -434,6 +448,7 @@ function parseAccessFormat2(text) {
     };
   }
 
+  keepLastBalancePerDate(rows);
   return { ok: true, rows };
 }
 
@@ -526,6 +541,7 @@ export function parseAccessStatementDebug(text) {
             amount,
             flow: isOut ? "out" : "in",
             beneficiary: extractBeneficiary(desc),
+            balanceAfter: chosen.balance,
           });
         }
         runningBalance = fallback.finalBalance;
@@ -548,6 +564,7 @@ export function parseAccessStatementDebug(text) {
           amount,
           flow: isOut ? "out" : "in",
           beneficiary: extractBeneficiary(desc),
+          balanceAfter: chosen.balance,
         });
       }
     }
@@ -588,6 +605,7 @@ export function parseAccessStatementDebug(text) {
     };
   }
 
+  keepLastBalancePerDate(rows);
   return { ok: true, rows };
 }
 

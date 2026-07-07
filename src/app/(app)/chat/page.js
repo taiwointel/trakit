@@ -76,7 +76,9 @@ function buildSnapshot({ goals, entries, anchor, investments, transactions, efBa
   const actualIncome = thisMoE.filter((e) => e.flow === "in").reduce((s, e) => s + Number(e.amount), 0);
 
   const efTarget  = Number(goals.emergency_fund_target_override || 0) || actualNeeds * 6;
-  const cashNow   = anchor.anchor_date ? closingBalance(entries, anchor.anchor_date, anchor.anchor_amount, todayStr) : null;
+  // closingBalance() works from bank-reported balance_after entries alone
+  // even with no manual anchor set — no need to gate the call behind one.
+  const cashNow   = closingBalance(entries, anchor.anchor_date, anchor.anchor_amount, todayStr);
   const liquidityMonths = cashNow !== null ? liquidityCoverage(entries, cashNow) : null;
 
   const portfolioByType = {};

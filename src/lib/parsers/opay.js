@@ -58,6 +58,58 @@ const LINE_RE = new RegExp(
 // the amount regex ever runs.
 const ACCOUNT_TOKEN = /(\|\s*)(\d{10}|\d{3}\*{4}\d{3})(?=--|[\d,])/g;
 
+// The Wallet auto-sweeps to OWealth after nearly every transaction, so the
+// Wallet's own balance alone is a misleading "cash balance" — it sits near
+// ₦0 almost every day while the real money quietly parks in OWealth. Pull
+// OWealth's own running balance the exact same way, from the Savings
+// Account section, purely to read its balance progression (not to create
+// ledger rows — none of these are ever real external transactions).
+function parseOwealthBalancePoints(owealthSection) {
+  const lines = owealthSection.split(/\r?\n/);
+  const blocks = [];
+  let current = null;
+  for (const line of lines) {
+    if (RECORD_START.test(line)) {
+      if (current) blocks.push(current);
+      current = line;
+    } else if (/^\d+$/.test(line.trim())) {
+      continue;
+    } else if (current) {
+      current += line;
+    }
+  }
+  if (current) blocks.push(current);
+
+  const perDate = {};
+  const dateOrder = [];
+  for (const raw of blocks) {
+    const m = raw.trim().match(LINE_RE);
+    if (!m) continue;
+    const [, dateStr, , , , balanceAfterStr] = m;
+    const date = toIsoDate(dateStr);
+    if (!date) continue;
+    const balanceAfter = balanceAfterStr && balanceAfterStr !== "--"
+      ? Number(balanceAfterStr.replace(/,/g, ""))
+      : null;
+    if (balanceAfter === null) continue;
+    if (!(date in perDate)) dateOrder.push(date);
+    perDate[date] = balanceAfter; // overwritten on every later block for the same date, so this ends up as that date's last-seen balance
+  }
+  return dateOrder.map((date) => ({ date, balance: perDate[date] }));
+}
+
+// Most recent known OWealth balance on or before `date` — OWealth doesn't
+// necessarily move every day, so this carries the last known figure
+// forward rather than requiring same-day OWealth activity to exist.
+function owealthBalanceAsOf(points, date) {
+  let result = null;
+  for (const p of points) {
+    if (p.date <= date) result = p.balance;
+    else break;
+  }
+  return result;
+}
+
 // Debug variant used while we're validating the parser against real
 // statements: instead of a bare null on failure, it reports exactly which
 // stage rejected the text and why, so we don't have to guess blind again.
@@ -88,6 +140,10 @@ export function parseOpayStatementDebug(text) {
   const walletStart = headerPositions[0] ?? text.search(/wallet account/i);
   const savingsStart = headerPositions.length > 1 ? headerPositions[1] : text.search(/savings account/i);
   const section = text.slice(walletStart, savingsStart > walletStart ? savingsStart : undefined);
+
+  // Everything after the wallet section is OWealth's own table, used only
+  // to read its balance progression (see parseOwealthBalancePoints above).
+  const owealthPoints = savingsStart > walletStart ? parseOwealthBalancePoints(text.slice(savingsStart)) : [];
 
   const lines = section.split(/\r?\n/);
 
@@ -167,6 +223,13 @@ export function parseOpayStatementDebug(text) {
   let unmatched = 0;
   const unmatchedSamples = [];
   const rows = [];
+  // The wallet auto-sweeps to OWealth after nearly every real transaction,
+  // so the *true* end-of-day wallet balance often comes from an internal
+  // sweep row — one we deliberately never keep as a ledger entry. Track
+  // each date's true closing balance from every block (external or
+  // internal), independent of what gets kept, so it can be attached to
+  // whichever kept transaction is last for that day.
+  const dailyClosing = {};
   for (const raw of blocks) {
     const block = raw.trim().replace(ACCOUNT_TOKEN, "$1");
     const m = block.match(LINE_RE);
@@ -175,12 +238,18 @@ export function parseOpayStatementDebug(text) {
       if (unmatchedSamples.length < 8) unmatchedSamples.push(block.slice(0, 200));
       continue;
     }
-    const [, dateStr, descRaw, debit, credit] = m;
+    const [, dateStr, descRaw, debit, credit, balanceAfterStr] = m;
     const desc = descRaw.replace(/\s+/g, " ").trim();
-    if (INTERNAL.test(desc)) continue;
 
     const date = toIsoDate(dateStr);
     if (!date) { unmatched++; continue; }
+
+    const balanceAfter = balanceAfterStr && balanceAfterStr !== "--"
+      ? Number(balanceAfterStr.replace(/,/g, ""))
+      : null;
+    if (balanceAfter !== null) dailyClosing[date] = balanceAfter;
+
+    if (INTERNAL.test(desc)) continue;
 
     const isOut = debit !== "--";
     const amount = Number((isOut ? debit : credit).replace(/,/g, ""));
@@ -192,8 +261,22 @@ export function parseOpayStatementDebug(text) {
       amount,
       flow: isOut ? "out" : "in",
       beneficiary: extractBeneficiary(desc),
+      balanceAfter: null, // filled in below, only on the day's last kept row
     });
   }
+
+  const lastIndexForDate = {};
+  rows.forEach((r, i) => { lastIndexForDate[r.date] = i; });
+  rows.forEach((r, i) => {
+    if (i === lastIndexForDate[r.date] && dailyClosing[r.date] !== undefined) {
+      // "Cash balance" means total spendable money, not just the Wallet's
+      // own sub-balance — combine it with OWealth's most recent known
+      // balance as of this date so the figure actually matches what the
+      // user thinks of as their OPay balance.
+      const owealth = owealthBalanceAsOf(owealthPoints, r.date) ?? 0;
+      r.balanceAfter = dailyClosing[r.date] + owealth;
+    }
+  });
 
   if (unmatched > blocks.length * 0.5) {
     return {

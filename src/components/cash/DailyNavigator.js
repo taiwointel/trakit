@@ -25,7 +25,11 @@ export default function DailyNavigator({ entries, anchor }) {
     [entries, date],
   );
 
-  const noAnchor = !anchorDate;
+  // closingBalance()/openingBalance() can resolve from bank-reported
+  // balance_after entries alone, with no manual anchor set at all — only
+  // treat this as "nothing to show" when there's truly no reference point
+  // of any kind (both come back null).
+  const noAnchor = opening === null && closing === null;
 
   function goDay(delta) {
     const [y, m, d] = date.split("-").map(Number);

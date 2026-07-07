@@ -43,6 +43,7 @@ export async function POST(request) {
         user_id: user.id, date: row.date, desc: row.desc || "", amount: Number(row.amount) || 0,
         flow: row.flow || "out", beneficiary: row.beneficiary || null, source: "import",
         import_batch: row.importBatch || null,
+        balance_after: row.balanceAfter ?? null,
         ...internalTransferFields(),
         status: "done",
       };
@@ -52,6 +53,7 @@ export async function POST(request) {
         user_id: user.id, date: row.date, desc: row.desc || "", amount: Number(row.amount) || 0,
         flow: row.flow || "out", beneficiary: row.beneficiary || null, source: "import",
         import_batch: row.importBatch || null,
+        balance_after: row.balanceAfter ?? null,
         category: "Income", essentiality: "—", nature: "—", confidence: 1, subcategory: "", note: "Income",
         status: "done",
       };
@@ -70,6 +72,7 @@ export async function POST(request) {
       beneficiary:  row.beneficiary || null,
       source:       "import",
       import_batch: row.importBatch || null,
+      balance_after: row.balanceAfter ?? null,
       category:     cats.category,
       essentiality: cats.essentiality,
       nature:       cats.nature,
@@ -88,10 +91,10 @@ export async function POST(request) {
 
   let { data, error } = await supabase.from("entries").insert(toInsert).select("id, desc, amount, flow, beneficiary, status");
 
-  // If source and/or import_batch columns don't exist yet (migration
+  // If source/import_batch/balance_after columns don't exist yet (migration
   // pending), retry without them rather than failing the whole import.
   if (error?.code === "42703") {
-    const stripped = toInsert.map(({ source: _s, import_batch: _b, ...r }) => r);
+    const stripped = toInsert.map(({ source: _s, import_batch: _b, balance_after: _ba, ...r }) => r);
     ({ data, error } = await supabase.from("entries").insert(stripped).select("id, desc, amount, flow, beneficiary, status"));
   }
 
