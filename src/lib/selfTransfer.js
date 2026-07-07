@@ -18,7 +18,7 @@ export function internalTransferFields() {
   };
 }
 
-function normalizeNameWords(name) {
+export function normalizeNameWords(name) {
   return (name || "")
     .split("|")[0] // strip any trailing " | BANK" segment
     .toUpperCase()
@@ -64,18 +64,28 @@ export function extractAccountHolderName(text) {
   return null;
 }
 
-// True if `beneficiary` and `fullName` name the same person, regardless of
-// word order. Requires at least 2 shared name words (so a single shared
+// True if two names likely belong to the same person, regardless of word
+// order. Requires at least 2 shared name words (so a single shared
 // surname/first name doesn't false-positive against an unrelated person),
-// and requires the smaller name to be fully contained in the larger one
-// (so a bank's shortened name still matches the account holder's full name).
+// and requires the smaller name to be fully contained in the larger one —
+// this is what lets "KEHINDE OGUNFILE" match "KEHINDE OLAYINKA OGUNFILE",
+// or "FERANMI OLUSESIN" match "FERANMI OLUSESIN ADEYEMI", since one bank's
+// statement (or one transaction) may print a shorter form of a name that
+// another prints in full.
+export function namesLikelySamePerson(a, b) {
+  const wordsA = normalizeNameWords(a);
+  const wordsB = normalizeNameWords(b);
+  if (wordsA.length < 2 || wordsB.length < 2) return false;
+  const setB   = new Set(wordsB);
+  const shared = wordsA.filter((w) => setB.has(w)).length;
+  return shared >= 2 && shared >= Math.min(wordsA.length, wordsB.length);
+}
+
+// True if `beneficiary` and `fullName` name the same person — kept as a
+// distinctly-named wrapper since call sites read better as "is this a
+// self transfer" than "do these names match."
 export function isSelfTransfer(beneficiary, fullName) {
-  const benWords  = normalizeNameWords(beneficiary);
-  const selfWords = normalizeNameWords(fullName);
-  if (benWords.length < 2 || selfWords.length < 2) return false;
-  const selfSet = new Set(selfWords);
-  const shared  = benWords.filter((w) => selfSet.has(w)).length;
-  return shared >= 2 && shared >= Math.min(benWords.length, selfWords.length);
+  return namesLikelySamePerson(beneficiary, fullName);
 }
 
 // Bank fee/levy narrations (VAT on a transfer, EMTL, USSD charge, etc.) often

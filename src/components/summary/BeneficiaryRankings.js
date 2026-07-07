@@ -2,11 +2,50 @@
 
 import { useMemo, useState } from "react";
 import { formatNaira } from "@/lib/format";
+import { namesLikelySamePerson } from "@/lib/selfTransfer";
 
 // Same self-transfer exclusion as every other summary panel — money moving
 // between the user's own accounts isn't a real beneficiary relationship.
 function relevant(entries, flow) {
   return entries.filter((e) => e.flow === flow && e.category !== "Self" && e.beneficiary);
+}
+
+// Different banks (or even different transactions on the same bank) print
+// the same person's name in different forms — "KEHINDE OLAYINKA OGUNFILE"
+// on one statement, just "KEHINDE OGUNFILE" on another. Left as exact
+// string groups, those show up as two separate, smaller-looking entries
+// instead of one real relationship. Cluster exact-string groups whose
+// names are a same-person match (order-independent, one contained in the
+// other) via union-find, then merge each cluster's totals under whichever
+// variant has the most name words (the fullest form seen).
+function clusterBeneficiaries(groups) {
+  const n = groups.length;
+  const parent = Array.from({ length: n }, (_, i) => i);
+  function find(x) { while (parent[x] !== x) { parent[x] = parent[parent[x]]; x = parent[x]; } return x; }
+  function union(a, b) { const ra = find(a), rb = find(b); if (ra !== rb) parent[ra] = rb; }
+
+  for (let i = 0; i < n; i++) {
+    for (let j = i + 1; j < n; j++) {
+      if (namesLikelySamePerson(groups[i].name, groups[j].name)) union(i, j);
+    }
+  }
+
+  const clusters = {};
+  for (let i = 0; i < n; i++) {
+    const root = find(i);
+    (clusters[root] ||= []).push(groups[i]);
+  }
+
+  return Object.values(clusters).map((members) => {
+    const total = members.reduce((s, m) => s + m.total, 0);
+    const count = members.reduce((s, m) => s + m.count, 0);
+    const canonical = [...members].sort((a, b) => {
+      const wordsA = a.name.trim().split(/\s+/).length;
+      const wordsB = b.name.trim().split(/\s+/).length;
+      return wordsB !== wordsA ? wordsB - wordsA : b.total - a.total;
+    })[0].name;
+    return { name: canonical, total, count };
+  });
 }
 
 function rankBeneficiaries(entries) {
@@ -18,7 +57,7 @@ function rankBeneficiaries(entries) {
     map[key].total += Number(e.amount);
     map[key].count += 1;
   }
-  return Object.values(map).sort((a, b) => b.total - a.total).slice(0, 10);
+  return clusterBeneficiaries(Object.values(map)).sort((a, b) => b.total - a.total).slice(0, 10);
 }
 
 function RankTable({ title, accent, icon, rows, emptyMsg }) {
