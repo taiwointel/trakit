@@ -9,12 +9,6 @@ function relevant(entries) {
   return entries.filter((e) => e.flow === "out" && e.category && e.category !== "Self");
 }
 
-function shortDesc(entry) {
-  const desc = entry.desc || "";
-  const sep  = desc.indexOf(" — ");
-  return sep !== -1 ? desc.slice(0, sep).trim() : desc;
-}
-
 function fmtDate(iso) {
   if (!iso) return "";
   const d = new Date(iso + "T00:00:00");
@@ -48,6 +42,14 @@ function BeneficiaryDrillModal({ row, accent, onClose, onUpdate, onBulkUpdate })
   const [bulkCategory, setBulkCategory] = useState("");
   const [bulkApplying, setBulkApplying] = useState(false);
   const [bulkNotice,   setBulkNotice]   = useState(null);
+  // `row.entries` is a snapshot from whenever the modal was opened — the
+  // parent's own state updates fine after a retag, but this modal keeps
+  // rendering the same captured object, so a per-row change looked like it
+  // silently did nothing even though it saved. Track overrides locally so
+  // the select (and a "Saved" confirmation) reflect the change immediately.
+  const [localCategory, setLocalCategory] = useState({}); // id -> category
+  const [savingId,      setSavingId]      = useState(null);
+  const [savedId,       setSavedId]       = useState(null);
 
   async function applyBulk() {
     if (!bulkCategory || !onBulkUpdate) return;
@@ -58,6 +60,15 @@ function BeneficiaryDrillModal({ row, accent, onClose, onUpdate, onBulkUpdate })
     setBulkApplying(false);
     setBulkNotice(`Retagged ${row.entries.length} transactions as "${bulkCategory}".`);
     setBulkCategory("");
+  }
+
+  async function applyRowRetag(entry, category) {
+    setLocalCategory((prev) => ({ ...prev, [entry.id]: category }));
+    setSavingId(entry.id);
+    setSavedId(null);
+    await onUpdate(entry.id, { category, ...categoryDefaults(category) });
+    setSavingId(null);
+    setSavedId(entry.id);
   }
 
   return (
@@ -140,21 +151,30 @@ function BeneficiaryDrillModal({ row, accent, onClose, onUpdate, onBulkUpdate })
               }}
             >
               <div style={{ minWidth: 0, flex: 1 }}>
-                <p style={{ color: "var(--ink-text)", fontFamily: "var(--font-sans)", fontSize: 12.5, fontWeight: 600, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {shortDesc(e) || "—"}
+                <p style={{ color: "var(--ink-text)", fontFamily: "var(--font-sans)", fontSize: 12.5, fontWeight: 600, margin: 0, lineHeight: 1.4, wordBreak: "break-word" }}>
+                  {e.desc || "—"}
                 </p>
                 <div className="flex items-center gap-2 flex-wrap" style={{ marginTop: 4 }}>
                   <p style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-mono)", fontSize: 10.5, margin: 0 }}>
                     {fmtDate(e.date)}
                   </p>
                   {onUpdate && (
-                    <select
-                      value={e.category || ""}
-                      onChange={(ev) => onUpdate(e.id, { category: ev.target.value, ...categoryDefaults(ev.target.value) })}
-                      style={{ ...selectStyle, fontSize: 10, padding: "2px 18px 2px 6px" }}
-                    >
-                      {CATEGORY_NAMES.map((c) => <option key={c} value={c}>{c}</option>)}
-                    </select>
+                    <>
+                      <select
+                        value={localCategory[e.id] ?? e.category ?? ""}
+                        onChange={(ev) => applyRowRetag(e, ev.target.value)}
+                        disabled={savingId === e.id}
+                        style={{ ...selectStyle, fontSize: 10, padding: "2px 18px 2px 6px", opacity: savingId === e.id ? 0.6 : 1 }}
+                      >
+                        {CATEGORY_NAMES.map((c) => <option key={c} value={c}>{c}</option>)}
+                      </select>
+                      {savingId === e.id && (
+                        <span style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", fontSize: 10 }}>Saving…</span>
+                      )}
+                      {savedId === e.id && (
+                        <span style={{ color: "var(--green)", fontFamily: "var(--font-sans)", fontSize: 10, fontWeight: 600 }}>✓ Saved</span>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
