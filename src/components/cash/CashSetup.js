@@ -37,25 +37,25 @@ export default function CashSetup({ anchor, onSave, entries = [] }) {
   }
 
   async function handleAutoCalculate() {
+    // Only offered when there's real bank-reported data to compute from
+    // (see the button's own guard below) — sums every account's own
+    // latest known balance as of today and anchors there. This is the
+    // exact same math the app already uses live; auto-calculate just
+    // saves it as the anchor so it's confirmed as the current baseline.
+    //
+    // There used to be a second path here for statements with no bank
+    // balance data at all (PalmPay, generic CSV): assume ₦0 right before
+    // the first logged entry. That's a guess, not a calculation, and it
+    // produces a confidently wrong number the moment the real starting
+    // balance wasn't actually zero. Removed. If there's no real number to
+    // read, the user has to type their real one below. No auto path.
+    if (!hasBankBalance) return;
     setAutoCalculating(true);
-    if (hasBankBalance) {
-      // Real bank-reported balances exist — sum every account's own
-      // latest known figure as of today and anchor there. This is the
-      // exact same math the app already uses live; auto-calculate just
-      // saves it as the anchor so it's confirmed as the current baseline.
-      const today = todayISO();
-      const computed = closingBalance(entries, null, 0, today) ?? 0;
-      setDate(today);
-      setAmount(computed.toLocaleString("en-NG", { maximumFractionDigits: 2 }));
-      await onSave(today, computed);
-    } else if (earliestDate) {
-      // No bank data at all: no number to remember or guess at beyond
-      // assuming ₦0 right before your very first logged entry, and
-      // tracking every naira from there.
-      setDate(earliestDate);
-      setAmount("0.00");
-      await onSave(earliestDate, 0);
-    }
+    const today = todayISO();
+    const computed = closingBalance(entries, null, 0, today) ?? 0;
+    setDate(today);
+    setAmount(computed.toLocaleString("en-NG", { maximumFractionDigits: 2 }));
+    await onSave(today, computed);
     setAutoCalculating(false);
   }
 
@@ -69,7 +69,7 @@ export default function CashSetup({ anchor, onSave, entries = [] }) {
         style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}
       >
         Cash balance
-        <InfoTooltip text="This is your one real-world data point: what you actually had, on a specific date. From there the app adds/subtracts every entry you log to work out your balance on any day — live, automatically, with nothing to keep re-typing. Re-anchoring just moves that starting point forward; it never changes past entries." />
+        <InfoTooltip text="This is your one real-world data point: what you actually had, on a specific date. From there the app adds and subtracts every entry you log to work out your balance on any day, live and automatically, with nothing to keep re-typing. Re-anchoring just moves that starting point forward; it never changes past entries." />
       </p>
 
       {hasAnchor && (
@@ -86,14 +86,12 @@ export default function CashSetup({ anchor, onSave, entries = [] }) {
         </div>
       )}
 
-      {earliestDate && (
+      {hasBankBalance && earliestDate && (
         <button
           type="button"
           onClick={handleAutoCalculate}
           disabled={autoCalculating}
-          title={hasBankBalance
-            ? "Sum every account's own latest bank-reported balance and anchor today to it."
-            : `Assume ₦0 right before your first logged entry (${earliestDate}) and track every naira from there.`}
+          title="Sum every account's own latest bank-reported balance and anchor today to it."
           className="self-start px-4 py-2 rounded text-sm font-semibold whitespace-nowrap"
           style={{
             background: "var(--ink-3)",
@@ -103,8 +101,14 @@ export default function CashSetup({ anchor, onSave, entries = [] }) {
             fontFamily: "var(--font-sans)",
           }}
         >
-          {autoCalculating ? "Calculating…" : hasBankBalance ? "⚡ Auto-calculate from statements" : "⚡ Auto-calculate"}
+          {autoCalculating ? "Calculating…" : "⚡ Auto-calculate from statements"}
         </button>
+      )}
+
+      {!hasBankBalance && earliestDate && (
+        <p className="text-xs" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>
+          No bank-reported balance found in your imports, so there is nothing to calculate automatically. Enter what you actually had below.
+        </p>
       )}
 
       <form onSubmit={handleSave} className="flex flex-wrap gap-3 items-end">

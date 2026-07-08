@@ -69,8 +69,8 @@ export default function CashPage() {
       <p className="section-desc">
         {hasBankBalance
           ? "Your OPay/Access Bank import already carries the bank's real balance, so this is filled in automatically. Set an anchor below only if you want to override it."
-          : "Set what you actually had on one date — every day after is computed automatically from your entries. OPay and Access Bank imports skip this step entirely; other banks need it set once."}
-        {" "}To refresh later, re-anchor with today's date and balance — past entries are untouched.
+          : "Set what you actually had on one date, and every day after is computed automatically from your entries. OPay and Access Bank imports skip this step entirely; other banks need it set once."}
+        {" "}To refresh later, re-anchor with today's date and balance. Past entries are untouched.
       </p>
 
       {!hasAnchor ? (
@@ -119,7 +119,7 @@ export default function CashPage() {
                   </p>
                   <button
                     onClick={() => {
-                      if (!confirm("Clear the cash balance anchor? You'll be asked to set a fresh starting date and amount — no ledger entries are affected.")) return;
+                      if (!confirm("Clear the cash balance anchor? You'll be asked to set a fresh starting date and amount. No ledger entries are affected.")) return;
                       clearAnchor();
                       setAnchorEditOpen(false);
                     }}
