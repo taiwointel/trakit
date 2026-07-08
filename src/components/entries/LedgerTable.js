@@ -10,6 +10,25 @@ import { categoryPatch, INTERNAL_TRANSFER_CATEGORY } from "@/lib/selfTransfer";
 // import time needs to be manually fixable here, not just auto-detected.
 const CATEGORY_OPTIONS = [...CATEGORY_NAMES, INTERNAL_TRANSFER_CATEGORY];
 
+// A single inline category edit only ever touched the one row — fixing a
+// beneficiary once still left every other transaction with them wrong,
+// requiring a separate trip to search+bulk-retag. This runs right after a
+// single-row retag: if the same beneficiary appears elsewhere in the full
+// ledger (any month) still on a different category, offer to apply the
+// same fix to all of them in one confirm.
+async function retagSameBeneficiary(entry, newCategory, allEntries, onBulkUpdateSameBeneficiary) {
+  if (!onBulkUpdateSameBeneficiary || !entry.beneficiary?.trim()) return;
+  const key = entry.beneficiary.trim().toLowerCase();
+  const others = allEntries.filter(
+    (e) => e.id !== entry.id && e.beneficiary?.trim().toLowerCase() === key && e.category !== newCategory,
+  );
+  if (!others.length) return;
+  const ok = confirm(
+    `${entry.beneficiary} appears ${others.length} more time${others.length !== 1 ? "s" : ""} in your ledger. Apply "${newCategory}" to all of them too?`,
+  );
+  if (ok) await onBulkUpdateSameBeneficiary(others.map((e) => e.id), categoryPatch(newCategory));
+}
+
 function fmtDate(iso) {
   if (!iso) return "";
   const d = new Date(iso + "T00:00:00");
@@ -323,7 +342,7 @@ function MobileEditForm({ entry, onSave, onCancel }) {
 }
 
 // ── Mobile card view ──────────────────────────────────────────────────────────
-function MobileCard({ entry, onEdit, onDelete, onUpdate }) {
+function MobileCard({ entry, onEdit, onDelete, onUpdate, allEntries, onBulkUpdateSameBeneficiary }) {
   const { purpose, detail } = splitDesc(entry);
   const isIncome = entry.flow === "in";
 
@@ -358,7 +377,11 @@ function MobileCard({ entry, onEdit, onDelete, onUpdate }) {
           <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 4, flexWrap: "wrap" }}>
             <select
               value={entry.category || ""}
-              onChange={(e) => { onUpdate(entry.id, categoryPatch(e.target.value)); }}
+              onChange={(e) => {
+                const v = e.target.value;
+                onUpdate(entry.id, categoryPatch(v));
+                retagSameBeneficiary(entry, v, allEntries, onBulkUpdateSameBeneficiary);
+              }}
               className="paper-select"
               style={{
                 background: "var(--paper-3)", border: "1px solid var(--rule-paper)",
@@ -369,7 +392,6 @@ function MobileCard({ entry, onEdit, onDelete, onUpdate }) {
               <option value="">—</option>
               {CATEGORY_OPTIONS.map((c) => <option key={c} value={c}>{c}</option>)}
               <option value="Income">Income</option>
-              <option value="Self">Self</option>
             </select>
             {!isIncome && (
               <select
@@ -409,7 +431,7 @@ function MobileCard({ entry, onEdit, onDelete, onUpdate }) {
 }
 
 // ── Desktop table row ─────────────────────────────────────────────────────────
-function DesktopRow({ entry, index, total, onEdit, onDelete, onUpdate }) {
+function DesktopRow({ entry, index, total, onEdit, onDelete, onUpdate, allEntries, onBulkUpdateSameBeneficiary }) {
   const { purpose, detail } = splitDesc(entry);
   const isIncome = entry.flow === "in";
   const isLast   = index === total - 1;
@@ -459,7 +481,11 @@ function DesktopRow({ entry, index, total, onEdit, onDelete, onUpdate }) {
       <td className="px-2 py-2">
         <select
           value={entry.category || ""}
-          onChange={(e) => { onUpdate(entry.id, categoryPatch(e.target.value)); }}
+          onChange={(e) => {
+            const v = e.target.value;
+            onUpdate(entry.id, categoryPatch(v));
+            retagSameBeneficiary(entry, v, allEntries, onBulkUpdateSameBeneficiary);
+          }}
           className="paper-select"
           style={{
             background: "var(--paper-2)", border: "1px solid var(--rule-paper)",
@@ -470,7 +496,6 @@ function DesktopRow({ entry, index, total, onEdit, onDelete, onUpdate }) {
           <option value="">—</option>
           {CATEGORY_OPTIONS.map((c) => <option key={c} value={c}>{c}</option>)}
           <option value="Income">Income</option>
-          <option value="Self">Self</option>
         </select>
       </td>
 
@@ -524,7 +549,11 @@ function DesktopRow({ entry, index, total, onEdit, onDelete, onUpdate }) {
 }
 
 // ── Main export ───────────────────────────────────────────────────────────────
-export default function LedgerTable({ entries, onUpdate, onDelete, onClearAll, onBulkUpdate }) {
+export default function LedgerTable({ entries, allEntries, onUpdate, onDelete, onClearAll, onBulkUpdate, onBulkUpdateSameBeneficiary }) {
+  // Falls back to the visible list if the caller never passes the full,
+  // unfiltered ledger — the "same beneficiary elsewhere" search just comes
+  // up empty rather than crashing.
+  const fullEntries = allEntries || entries;
   const [editingId,       setEditingId]       = useState(null);
   const [recatProgress,   setRecatProgress]   = useState(null);
   const [recatNotice,     setRecatNotice]     = useState(null);
@@ -763,6 +792,8 @@ export default function LedgerTable({ entries, onUpdate, onDelete, onClearAll, o
               onEdit={setEditingId}
               onDelete={onDelete}
               onUpdate={onUpdate}
+              allEntries={fullEntries}
+              onBulkUpdateSameBeneficiary={onBulkUpdateSameBeneficiary}
             />
           );
         })}
@@ -822,6 +853,8 @@ export default function LedgerTable({ entries, onUpdate, onDelete, onClearAll, o
                   onEdit={setEditingId}
                   onDelete={onDelete}
                   onUpdate={onUpdate}
+                  allEntries={fullEntries}
+                  onBulkUpdateSameBeneficiary={onBulkUpdateSameBeneficiary}
                 />
               );
             })}

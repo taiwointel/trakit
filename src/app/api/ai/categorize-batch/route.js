@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { fallbackCategorize } from "@/lib/categories";
+import { fallbackCategorize, looksLikeBankCharge } from "@/lib/categories";
 import { lookupMerchantRules, saveMerchantRule, normalizeMerchantKey } from "@/lib/merchantRules";
 
 const SYSTEM_PROMPT = `You are an expense categorizer for a Nigerian personal finance app called Trakit7.
@@ -27,7 +27,7 @@ DECISION RULES:
 - Nigerian bank charges (Stamp Duty, EMTL, USSD Charge, SMS alert fee, maintenance fee, COT, VAT on charges) → Charges, subcategory MUST be "Bank charges"
 - Transfers to a named person with no other context → Family & Dependents (most personal transfers in Nigeria are support payments)
 - When torn between Food & Groceries and Dining & Lifestyle: if eaten out or delivered → Dining; if cooked at home → Groceries
-- When genuinely unsure, pick the closest specific category — Charges is NOT a catch-all
+- When genuinely unsure, pick the closest specific category — Charges is NOT a catch-all for uncertainty. A transfer to a friend, a business, or anyone else with an ordinary human name and no fee-related keyword is NEVER Charges, even if you don't know why the money was sent — use Family & Dependents or Dining & Lifestyle instead. Charges requires an actual bank-fee term (stamp duty, EMTL, USSD charge, SMS alert, maintenance fee, COT, commission, VAT-on-charges) to literally appear in the text.
 
 Return ONLY a raw JSON array of exactly N objects in the same order as the input. No markdown, no explanation, no extra text — just the array:
 [{"category":"...","subcategory":"...","essentiality":"Essential|Discretionary","nature":"Fixed|Variable","confidence":0.9,"note":"..."},...]`;
@@ -126,6 +126,14 @@ export async function POST(request) {
 
     if (!Array.isArray(parsed)) throw new Error("Response is not an array");
 
+    // A model can ignore "Charges is not a catch-all" under real conditions
+    // even when it never did in testing — don't just trust it. A result
+    // claiming Charges with no actual fee keyword in the description is
+    // treated as invalid, same as a missing/malformed result.
+    const isValid = (r, desc) =>
+      r && r.category && r.essentiality && r.nature &&
+      !(r.category === "Charges" && !looksLikeBankCharge(desc));
+
     // Map results back into the sparse `results` array (learned entries were
     // already filled in above); fill gaps with keyword fallback, and teach
     // the merchant_rules table so the same beneficiary/narration never needs
@@ -133,7 +141,7 @@ export async function POST(request) {
     if (user) {
       await Promise.all(pending.map(({ entry: e, originalIndex: i }) => {
         const r = parsed[i];
-        if (r && r.category && r.essentiality && r.nature) {
+        if (isValid(r, e.description)) {
           results[i] = { ...r, status: "done" };
           return saveMerchantRule(supabase, user.id, e.description, e.beneficiary, r);
         }
@@ -143,7 +151,7 @@ export async function POST(request) {
     } else {
       pending.forEach(({ entry: e, originalIndex: i }) => {
         const r = parsed[i];
-        results[i] = (r && r.category && r.essentiality && r.nature)
+        results[i] = isValid(r, e.description)
           ? { ...r, status: "done" }
           : { ...fallbackCategorize(e.description), status: "fallback" };
       });

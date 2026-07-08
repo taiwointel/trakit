@@ -432,10 +432,12 @@ export default function EntriesPage() {
           {ledgerOpen && (
             <LedgerTable
               entries={filteredEntries}
+              allEntries={entries}
               onUpdate={updateEntry}
               onDelete={deleteEntry}
               onClearAll={handleClearVisible}
               onBulkUpdate={allMonths ? updateEntries : null}
+              onBulkUpdateSameBeneficiary={updateEntries}
             />
           )}
         </div>

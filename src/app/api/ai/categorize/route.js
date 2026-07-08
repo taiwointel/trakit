@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { CATEGORY_NAMES, fallbackCategorize } from "@/lib/categories";
+import { CATEGORY_NAMES, fallbackCategorize, looksLikeBankCharge } from "@/lib/categories";
 import { lookupMerchantRule, saveMerchantRule } from "@/lib/merchantRules";
 import { isSelfTransfer, internalTransferFields } from "@/lib/selfTransfer";
 
@@ -28,7 +28,7 @@ DECISION RULES:
 - Nigerian bank charges (Stamp Duty, EMTL, USSD Charge, SMS alert fee, maintenance fee, COT, VAT on charges) → Charges, subcategory MUST be "Bank charges"
 - Transfers to a named person with no other context → Family & Dependents (most personal transfers in Nigeria are support payments)
 - When torn between Food & Groceries and Dining & Lifestyle: if eaten out or delivered → Dining; if cooked at home → Groceries
-- When genuinely unsure, pick the closest specific category above — Charges is NOT a catch-all
+- When genuinely unsure, pick the closest specific category above — Charges is NOT a catch-all for uncertainty. A transfer to a friend, a business, or anyone else with an ordinary human name and no fee-related keyword is NEVER Charges, even if you don't know why the money was sent — use Family & Dependents or Dining & Lifestyle instead. Charges requires an actual bank-fee term (stamp duty, EMTL, USSD charge, SMS alert, maintenance fee, COT, commission, VAT-on-charges) to literally appear in the text.
 
 Return ONLY raw JSON (no markdown fences) in this exact shape:
 {
@@ -117,7 +117,15 @@ export async function POST(request) {
     }
 
     const cleaned = text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/, "");
-    const result = JSON.parse(cleaned);
+    let result = JSON.parse(cleaned);
+    // Safety net: a model can ignore the prompt's "Charges is not a
+    // catch-all" instruction under real conditions even when it never did
+    // in testing — don't just trust it. If it says Charges but the text
+    // has no actual fee keyword, fall back to keyword categorization
+    // instead of letting a personal transfer get mislabeled as a bank fee.
+    if (result.category === "Charges" && !looksLikeBankCharge(description)) {
+      result = fallbackCategorize(description);
+    }
     if (user) await saveMerchantRule(supabase, user.id, description, beneficiary, result);
     return NextResponse.json({ ...result, status: "done" });
 
