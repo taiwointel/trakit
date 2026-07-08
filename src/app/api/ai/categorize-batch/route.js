@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { fallbackCategorize, looksLikeBankCharge } from "@/lib/categories";
+import { fallbackCategorize, looksLikeBankCharge, looksLikeFalseSubscription } from "@/lib/categories";
 import { lookupMerchantRules, saveMerchantRule, normalizeMerchantKey } from "@/lib/merchantRules";
 import { getGroqKey } from "@/lib/groqKey";
 
@@ -133,7 +133,8 @@ export async function POST(request) {
     // treated as invalid, same as a missing/malformed result.
     const isValid = (r, desc) =>
       r && r.category && r.essentiality && r.nature &&
-      !(r.category === "Charges" && !looksLikeBankCharge(desc));
+      !(r.category === "Charges" && !looksLikeBankCharge(desc)) &&
+      !looksLikeFalseSubscription(r.subcategory, desc);
 
     // Map results back into the sparse `results` array (learned entries were
     // already filled in above); fill gaps with keyword fallback, and teach

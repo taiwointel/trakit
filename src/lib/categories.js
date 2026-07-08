@@ -34,6 +34,22 @@ export function looksLikeBankCharge(description) {
   return BANK_CHARGE_PATTERN.test((description || "").toLowerCase());
 }
 
+// Same failure mode as Charges above, but for telco/subscription
+// sub-categories: a model can confidently label a plain "Transfer to
+// [NAME]" as "Data subscription", "Airtime", etc. with no such word
+// anywhere in the actual narration (confirmed happening on a first-ever
+// import, so not a stale learned rule — a genuine live miscall). If the
+// AI's own subcategory text claims one of these but the source
+// description contains none of the real trigger words, the result is
+// rejected in favor of keyword fallback instead of trusted blindly.
+const SUBSCRIPTION_CLAIM_PATTERN  = /data|airtime|recharge|bundle|subscription|dstv|gotv|startimes|netflix|spotify|showmax|prime video|apple music/i;
+const SUBSCRIPTION_KEYWORD_IN_DESC = /\bdata\b|airtime|recharge|\bbundle\b|\bmtn\b|\bairtel\b|\bglo\b|9mobile|dstv|gotv|startimes|netflix|spotify|showmax|prime video|apple music|subscription/i;
+
+export function looksLikeFalseSubscription(subcategory, description) {
+  if (!SUBSCRIPTION_CLAIM_PATTERN.test(subcategory || "")) return false;
+  return !SUBSCRIPTION_KEYWORD_IN_DESC.test((description || "").toLowerCase());
+}
+
 const FALLBACK_RULES = [
   { pattern: BANK_CHARGE_PATTERN, category: "Charges", subcategory: "Bank charges" },
   { pattern: /rent|mortgage|electric|nepa|phcn|water bill|generator|diesel|estate due|dstv|gotv|startimes|internet|wifi|\bdata\b|data subscription|airtime|recharge|netflix|showmax|spotify|apple music|amazon prime|youtube premium|disney\+|hbo|deezer|audiomack/i, category: "Housing & Utilities" },

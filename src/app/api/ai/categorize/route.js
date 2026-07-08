@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { CATEGORY_NAMES, fallbackCategorize, looksLikeBankCharge } from "@/lib/categories";
+import { CATEGORY_NAMES, fallbackCategorize, looksLikeBankCharge, looksLikeFalseSubscription } from "@/lib/categories";
 import { lookupMerchantRule, saveMerchantRule } from "@/lib/merchantRules";
 import { isSelfTransfer, internalTransferFields } from "@/lib/selfTransfer";
 import { getGroqKey } from "@/lib/groqKey";
@@ -125,6 +125,9 @@ export async function POST(request) {
     // has no actual fee keyword, fall back to keyword categorization
     // instead of letting a personal transfer get mislabeled as a bank fee.
     if (result.category === "Charges" && !looksLikeBankCharge(description)) {
+      result = fallbackCategorize(description);
+    }
+    if (looksLikeFalseSubscription(result.subcategory, description)) {
       result = fallbackCategorize(description);
     }
     if (user) await saveMerchantRule(supabase, user.id, description, beneficiary, result);
