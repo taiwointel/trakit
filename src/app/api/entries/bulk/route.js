@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { fallbackCategorize } from "@/lib/categories";
 import { lookupMerchantRules, normalizeMerchantKey } from "@/lib/merchantRules";
-import { isSelfTransfer, isSelfTransferInText, internalTransferFields } from "@/lib/selfTransfer";
+import { isSelfTransfer, isSelfTransferInText, isGenericSelfFundingNarration, internalTransferFields } from "@/lib/selfTransfer";
 import { NextResponse } from "next/server";
 
 export const maxDuration = 30;
@@ -37,7 +37,8 @@ export async function POST(request) {
     if (
       row.forceInternalTransfer ||
       (fullName && isSelfTransfer(row.beneficiary, fullName)) ||
-      (fullName && !row.beneficiary && isSelfTransferInText(row.desc, fullName))
+      (fullName && !row.beneficiary && isSelfTransferInText(row.desc, fullName)) ||
+      isGenericSelfFundingNarration(row.beneficiary, row.desc)
     ) {
       return {
         user_id: user.id, date: row.date, desc: row.desc || "", amount: Number(row.amount) || 0,

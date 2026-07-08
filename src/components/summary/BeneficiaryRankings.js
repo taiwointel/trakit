@@ -3,7 +3,12 @@
 import { useMemo, useState } from "react";
 import { formatNaira } from "@/lib/format";
 import { clusterByBeneficiary } from "@/lib/beneficiaryCluster";
-import { CATEGORY_NAMES, categoryDefaults } from "@/lib/categories";
+import { CATEGORY_NAMES } from "@/lib/categories";
+import { categoryPatch, INTERNAL_TRANSFER_CATEGORY } from "@/lib/selfTransfer";
+
+// Every category <select> here also offers "Self" for manually fixing a
+// transfer between the user's own accounts that was missed at import time.
+const CATEGORY_OPTIONS = [...CATEGORY_NAMES, INTERNAL_TRANSFER_CATEGORY];
 
 // Same self-transfer exclusion as every other summary panel — money moving
 // between the user's own accounts isn't a real beneficiary relationship.
@@ -49,7 +54,7 @@ function DrillThroughModal({ row, accent, onClose, onUpdate, onBulkUpdate }) {
     if (!confirm(`Set category to "${bulkCategory}" for all ${row.entries.length} transactions with ${row.name}?`)) return;
     setBulkApplying(true);
     setBulkNotice(null);
-    await onBulkUpdate(row.entries.map((e) => e.id), { category: bulkCategory, ...categoryDefaults(bulkCategory) });
+    await onBulkUpdate(row.entries.map((e) => e.id), categoryPatch(bulkCategory));
     setBulkApplying(false);
     setBulkNotice(`Retagged ${row.entries.length} transactions as "${bulkCategory}".`);
     setBulkCategory("");
@@ -59,7 +64,7 @@ function DrillThroughModal({ row, accent, onClose, onUpdate, onBulkUpdate }) {
     setLocalCategory((prev) => ({ ...prev, [entry.id]: category }));
     setSavingId(entry.id);
     setSavedId(null);
-    await onUpdate(entry.id, { category, ...categoryDefaults(category) });
+    await onUpdate(entry.id, categoryPatch(category));
     setSavingId(null);
     setSavedId(entry.id);
   }
@@ -113,7 +118,7 @@ function DrillThroughModal({ row, accent, onClose, onUpdate, onBulkUpdate }) {
             </span>
             <select value={bulkCategory} onChange={(e) => setBulkCategory(e.target.value)} style={selectStyle}>
               <option value="">Choose category…</option>
-              {CATEGORY_NAMES.map((c) => <option key={c} value={c}>{c}</option>)}
+              {CATEGORY_OPTIONS.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
             <button
               onClick={applyBulk}
@@ -159,7 +164,7 @@ function DrillThroughModal({ row, accent, onClose, onUpdate, onBulkUpdate }) {
                         disabled={savingId === e.id}
                         style={{ ...selectStyle, fontSize: 10, padding: "2px 18px 2px 6px", opacity: savingId === e.id ? 0.6 : 1 }}
                       >
-                        {CATEGORY_NAMES.map((c) => <option key={c} value={c}>{c}</option>)}
+                        {CATEGORY_OPTIONS.map((c) => <option key={c} value={c}>{c}</option>)}
                       </select>
                       {savingId === e.id && (
                         <span style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", fontSize: 10 }}>Saving…</span>

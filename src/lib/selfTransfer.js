@@ -5,6 +5,8 @@
 // matching is done as an order-independent set of name words rather than an
 // exact string comparison.
 
+import { categoryDefaults } from "@/lib/categories";
+
 export const INTERNAL_TRANSFER_CATEGORY = "Self";
 
 export function internalTransferFields() {
@@ -16,6 +18,17 @@ export function internalTransferFields() {
     confidence:   1,
     note:         "Cash movement between own accounts",
   };
+}
+
+// Every manual category-select dropdown (ledger inline edit, bulk retag
+// bars) needs this: picking "Self" has to produce internalTransferFields()
+// instead of a normal essentiality/nature lookup, since Self is a distinct
+// concept (excluded from budgets, cash flow math, everything) rather than
+// just another spending category. Centralized here so no call site can
+// pick one path and forget the other.
+export function categoryPatch(category) {
+  if (category === INTERNAL_TRANSFER_CATEGORY) return internalTransferFields();
+  return { category, ...categoryDefaults(category) };
 }
 
 export function normalizeNameWords(name) {
@@ -109,4 +122,19 @@ export function isSelfTransferInText(desc, fullName) {
   if (selfWords.length < 2) return false;
   const descWords = new Set(normalizeNameWords(desc));
   return selfWords.every((w) => descWords.has(w));
+}
+
+// Some narrations name no counterparty at all — "Interbank transfer" is
+// OPay's generic label for a NIP inflow auto-funding the wallet from the
+// user's own linked external bank account, with no sender name attached
+// anywhere in the row for name-matching to work against. It's still money
+// moving between the user's own accounts, not real income, so it's
+// recognized directly by narration text rather than by name. Matched
+// against beneficiary or desc, trimmed and case-insensitive, since the
+// parser sometimes extracts this generic phrase itself as if it were a
+// person's name.
+const GENERIC_SELF_FUNDING = /^interbank transfer$/i;
+
+export function isGenericSelfFundingNarration(beneficiary, desc) {
+  return GENERIC_SELF_FUNDING.test((beneficiary || "").trim()) || GENERIC_SELF_FUNDING.test((desc || "").trim());
 }

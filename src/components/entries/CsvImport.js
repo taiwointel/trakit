@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { isSelfTransfer, extractAccountHolderName } from "@/lib/selfTransfer";
+import { isSelfTransfer, isGenericSelfFundingNarration, extractAccountHolderName } from "@/lib/selfTransfer";
 import { formatDateLong } from "@/lib/format";
 
 // ── CSV parsing ───────────────────────────────────────────────────────────────
@@ -1115,7 +1115,7 @@ export default function CsvImport({ onImported, onJumpToMonth }) {
     const rowsWithBene = extractedRows.map((r) => {
       const beneficiary = r.beneficiary || extractBeneficiary(r.desc) || "";
       const base = fileLabel ? { ...r, importBatch: fileLabel } : r;
-      if (fullName && isSelfTransfer(beneficiary, fullName)) {
+      if ((fullName && isSelfTransfer(beneficiary, fullName)) || isGenericSelfFundingNarration(beneficiary, r.desc)) {
         return { ...base, beneficiary, desc: `Internal transfer — ${r.desc}` };
       }
       if (isLoanRelated(r.desc)) {

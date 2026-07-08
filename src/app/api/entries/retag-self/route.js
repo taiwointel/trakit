@@ -1,23 +1,20 @@
 import { createClient } from "@/lib/supabase/server";
-import { isSelfTransfer, isSelfTransferInText, internalTransferFields } from "@/lib/selfTransfer";
+import { isSelfTransfer, isSelfTransferInText, isGenericSelfFundingNarration, internalTransferFields } from "@/lib/selfTransfer";
 import { NextResponse } from "next/server";
 
 // One-time (repeatable) sweep over already-imported entries: catches
 // self-transfers that slipped through at import time because the display
 // name hadn't been set yet, or the statement being imported didn't carry a
 // recognizable "Account Name:" line for extractAccountHolderName to use.
+// The generic-narration check (e.g. "Interbank transfer") needs no name at
+// all, so it still runs even without a display name set — only the two
+// name-matching passes require one.
 export async function POST() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const fullName = user.user_metadata?.full_name;
-  if (!fullName) {
-    return NextResponse.json(
-      { error: "Set your display name in Settings first — matching needs it to compare against beneficiaries." },
-      { status: 400 },
-    );
-  }
 
   const { data: entries, error } = await supabase
     .from("entries")
@@ -26,13 +23,15 @@ export async function POST() {
     .neq("category", "Self");
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  // Two passes: rows where beneficiary was populated but didn't match yet
-  // (e.g. display name set after import), and rows where beneficiary was
-  // never extracted at all (a parser gap) — those are caught by scanning
-  // the raw description text directly instead.
+  // Three passes: rows where beneficiary was populated but didn't match yet
+  // (e.g. display name set after import), rows where beneficiary was never
+  // extracted at all (a parser gap) — caught by scanning the raw
+  // description text — and rows with no counterparty name at all, just a
+  // generic system narration for the user's own wallet funding.
   const toUpdate = (entries || []).filter(
-    (e) => isSelfTransfer(e.beneficiary, fullName) ||
-      (!e.beneficiary && isSelfTransferInText(e.desc, fullName)),
+    (e) => (fullName && isSelfTransfer(e.beneficiary, fullName)) ||
+      (fullName && !e.beneficiary && isSelfTransferInText(e.desc, fullName)) ||
+      isGenericSelfFundingNarration(e.beneficiary, e.desc),
   );
   if (!toUpdate.length) return NextResponse.json({ retagged: 0 });
 

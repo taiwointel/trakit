@@ -1,8 +1,14 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { CATEGORY_NAMES, categoryDefaults } from "@/lib/categories";
+import { CATEGORY_NAMES } from "@/lib/categories";
 import { formatNaira, formatAmountInput, parseAmount } from "@/lib/format";
+import { categoryPatch, INTERNAL_TRANSFER_CATEGORY } from "@/lib/selfTransfer";
+
+// Every category <select> in this file also offers "Self" — a transfer
+// between the user's own accounts that was missed (or wrongly tagged) at
+// import time needs to be manually fixable here, not just auto-detected.
+const CATEGORY_OPTIONS = [...CATEGORY_NAMES, INTERNAL_TRANSFER_CATEGORY];
 
 function fmtDate(iso) {
   if (!iso) return "";
@@ -352,7 +358,7 @@ function MobileCard({ entry, onEdit, onDelete, onUpdate }) {
           <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 4, flexWrap: "wrap" }}>
             <select
               value={entry.category || ""}
-              onChange={(e) => { onUpdate(entry.id, { category: e.target.value, ...categoryDefaults(e.target.value) }); }}
+              onChange={(e) => { onUpdate(entry.id, categoryPatch(e.target.value)); }}
               className="paper-select"
               style={{
                 background: "var(--paper-3)", border: "1px solid var(--rule-paper)",
@@ -361,7 +367,7 @@ function MobileCard({ entry, onEdit, onDelete, onUpdate }) {
               }}
             >
               <option value="">—</option>
-              {CATEGORY_NAMES.map((c) => <option key={c} value={c}>{c}</option>)}
+              {CATEGORY_OPTIONS.map((c) => <option key={c} value={c}>{c}</option>)}
               <option value="Income">Income</option>
               <option value="Self">Self</option>
             </select>
@@ -453,7 +459,7 @@ function DesktopRow({ entry, index, total, onEdit, onDelete, onUpdate }) {
       <td className="px-2 py-2">
         <select
           value={entry.category || ""}
-          onChange={(e) => { const d = categoryDefaults(e.target.value); onUpdate(entry.id, { category: e.target.value, ...d }); }}
+          onChange={(e) => { onUpdate(entry.id, categoryPatch(e.target.value)); }}
           className="paper-select"
           style={{
             background: "var(--paper-2)", border: "1px solid var(--rule-paper)",
@@ -462,7 +468,7 @@ function DesktopRow({ entry, index, total, onEdit, onDelete, onUpdate }) {
           }}
         >
           <option value="">—</option>
-          {CATEGORY_NAMES.map((c) => <option key={c} value={c}>{c}</option>)}
+          {CATEGORY_OPTIONS.map((c) => <option key={c} value={c}>{c}</option>)}
           <option value="Income">Income</option>
           <option value="Self">Self</option>
         </select>
@@ -578,7 +584,7 @@ export default function LedgerTable({ entries, onUpdate, onDelete, onClearAll, o
     if (!confirm(`Set category to "${bulkCategory}" for all ${visibleEntries.length} matching entries?`)) return;
     setBulkApplying(true);
     setBulkNotice(null);
-    const patch = { category: bulkCategory, ...categoryDefaults(bulkCategory) };
+    const patch = categoryPatch(bulkCategory);
     await onBulkUpdate(visibleEntries.map((e) => e.id), patch);
     setBulkApplying(false);
     setBulkNotice(`Retagged ${visibleEntries.length} entries as "${bulkCategory}".`);
@@ -713,7 +719,7 @@ export default function LedgerTable({ entries, onUpdate, onDelete, onClearAll, o
             }}
           >
             <option value="">Set category to…</option>
-            {CATEGORY_NAMES.map((c) => <option key={c} value={c}>{c}</option>)}
+            {CATEGORY_OPTIONS.map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
           <button
             onClick={handleBulkCategoryApply}
