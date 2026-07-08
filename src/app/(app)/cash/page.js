@@ -68,8 +68,8 @@ export default function CashPage() {
       </div>
       <p className="section-desc">
         {hasBankBalance
-          ? "Your OPay/Access Bank import already carries the bank's real balance, so this is filled in automatically. Set an anchor below only if you want to override it."
-          : "Set what you actually had on one date, and every day after is computed automatically from your entries. OPay and Access Bank imports skip this step entirely; other banks need it set once."}
+          ? "Your statement import already carries the bank's real balance, so this is filled in automatically. Set an anchor below only if you want to override it."
+          : "Set what you actually had on one date, and every day after is computed automatically from your entries. Some banks' statements carry a real balance and skip this step entirely; others need it set once."}
         {" "}To refresh later, re-anchor with today's date and balance. Past entries are untouched.
       </p>
 
