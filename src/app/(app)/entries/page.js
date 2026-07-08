@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { useEntries }  from "@/hooks/useEntries";
-import { useGoals }    from "@/hooks/useGoals";
+import { useEntries }     from "@/hooks/useEntries";
+import { useGoals }       from "@/hooks/useGoals";
+import { useCashBalance } from "@/hooks/useCashBalance";
 import MonthNav        from "@/components/entries/MonthNav";
 import StatsStrip      from "@/components/entries/StatsStrip";
 import DayStrip        from "@/components/entries/DayStrip";
@@ -74,6 +75,7 @@ export default function EntriesPage() {
 
   const { entries, budgets, loading, addEntry, updateEntry, updateEntries, deleteEntry, deleteEntries, saveBudget, clearAllEntries, refetch } = useEntries();
   const { goals } = useGoals();
+  const { anchor, saveAnchor } = useCashBalance();
   const salary = goals.salary || null;
 
   const monthStr = `${year}-${String(month).padStart(2, "0")}`;
@@ -282,6 +284,8 @@ export default function EntriesPage() {
           <CsvImport
             onImported={refetch}
             onJumpToMonth={(y, m) => { setYear(y); setMonth(m); setSelectedDay(null); }}
+            anchor={anchor}
+            onSaveAnchor={saveAnchor}
           />
         </FeatureCard>
         </div>

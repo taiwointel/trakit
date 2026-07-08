@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { isSelfTransfer, isGenericSelfFundingNarration, extractAccountHolderName } from "@/lib/selfTransfer";
-import { formatDateLong } from "@/lib/format";
+import { formatDateLong, formatAmountInput, parseAmount, todayISO } from "@/lib/format";
 
 // ── CSV parsing ───────────────────────────────────────────────────────────────
 
@@ -793,7 +793,81 @@ function monthLabelLong(ym) {
   return new Date(y, m - 1, 1).toLocaleDateString("en-US", { month: "long", year: "numeric" });
 }
 
-function ImportSummaryModal({ summary, firstName, onJumpToMonth, onClose }) {
+function InlineAnchorPrompt({ earliestImportedDate, onSaveAnchor, onDone }) {
+  const [date,   setDate]   = useState(earliestImportedDate || todayISO());
+  const [amount, setAmount] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  async function submit() {
+    const parsed = parseAmount(amount);
+    if (!date || isNaN(parsed)) return;
+    setSaving(true);
+    await onSaveAnchor(date, parsed);
+    setSaving(false);
+    onDone();
+  }
+
+  return (
+    <div style={{
+      background: "rgba(169,133,79,0.08)", border: "1px solid rgba(169,133,79,0.3)",
+      borderRadius: 12, padding: "14px 16px", display: "flex", flexDirection: "column", gap: 10,
+    }}>
+      <div>
+        <p style={{ color: "var(--gold)", fontFamily: "var(--font-sans)", fontSize: 12.5, fontWeight: 700, margin: "0 0 4px" }}>
+          One more thing: your cash balance
+        </p>
+        <p style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", fontSize: 12, lineHeight: 1.6, margin: 0 }}>
+          This statement didn&apos;t carry a running balance, so Trakit7 needs one real number from you: what you actually had on a date you&apos;re sure about. Every day after is computed automatically from here. Skip this and set it later from the Cash tab if you&apos;d rather.
+        </p>
+      </div>
+      <div className="flex gap-2 flex-wrap items-end">
+        <div className="flex flex-col gap-1">
+          <label style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", fontSize: 11 }}>Date</label>
+          <input
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            style={{ ...inputBase, background: "var(--ink-3)", color: "var(--ink-text)", padding: "8px 10px", fontSize: 13, borderRadius: 8 }}
+          />
+        </div>
+        <div className="flex flex-col gap-1">
+          <label style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", fontSize: 11 }}>What you had (₦)</label>
+          <input
+            type="text"
+            inputMode="decimal"
+            value={amount}
+            onChange={(e) => setAmount(formatAmountInput(e.target.value))}
+            placeholder="0.00"
+            style={{ ...inputBase, background: "var(--ink-3)", color: "var(--ink-text)", padding: "8px 10px", fontSize: 13, borderRadius: 8, width: 130 }}
+          />
+        </div>
+        <button
+          onClick={submit}
+          disabled={saving || !amount.trim()}
+          className="rounded-lg px-3 py-2 text-xs font-semibold"
+          style={{
+            background: "var(--gold)", color: "#fff", fontFamily: "var(--font-sans)",
+            opacity: (saving || !amount.trim()) ? 0.5 : 1, cursor: (saving || !amount.trim()) ? "not-allowed" : "pointer",
+          }}
+        >
+          {saving ? "Saving…" : "Set balance"}
+        </button>
+        <button
+          onClick={onDone}
+          className="rounded-lg px-3 py-2 text-xs"
+          style={{ background: "none", color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", cursor: "pointer" }}
+        >
+          Skip
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ImportSummaryModal({ summary, firstName, hasAnchor, onSaveAnchor, onJumpToMonth, onClose }) {
+  const [anchorPromptDone, setAnchorPromptDone] = useState(false);
+  const showAnchorPrompt = !hasAnchor && !summary.hasBankBalance && !anchorPromptDone && onSaveAnchor;
+
   return (
     <div
       style={{
@@ -876,6 +950,14 @@ function ImportSummaryModal({ summary, firstName, onJumpToMonth, onClose }) {
             ))}
           </div>
         </div>
+
+        {showAnchorPrompt && (
+          <InlineAnchorPrompt
+            earliestImportedDate={summary.earliestImportedDate}
+            onSaveAnchor={onSaveAnchor}
+            onDone={() => setAnchorPromptDone(true)}
+          />
+        )}
 
         <p style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", fontSize: 12, lineHeight: 1.6, margin: 0 }}>
           {summary.months.length > 1
@@ -1109,7 +1191,7 @@ function CategorizingOverlay({ progress }) {
   );
 }
 
-export default function CsvImport({ onImported, onJumpToMonth }) {
+export default function CsvImport({ onImported, onJumpToMonth, anchor, onSaveAnchor }) {
   const [rows,         setRows]         = useState([]);
   const [wizardGroups, setWizardGroups] = useState(null);
   const [dragging,     setDragging]     = useState(false);
@@ -1573,8 +1655,24 @@ export default function CsvImport({ onImported, onJumpToMonth }) {
       }
       const months = [...monthMap.values()].sort((a, b) => (a.ym < b.ym ? -1 : 1));
 
+      // Only OPay/Access carry a real bank-reported balance per row. When
+      // this import didn't (PalmPay, generic CSV, AI-extracted statements),
+      // and there's still no anchor set at all, offer to set one right
+      // here instead of making the user find their own way to the Cash
+      // tab afterward — that hop is exactly the friction that leads to
+      // someone re-uploading the same statement repeatedly hoping the
+      // balance will "just appear."
+      const hasBankBalance = valid.some((r) => r.balanceAfter !== null && r.balanceAfter !== undefined);
+      const earliestImportedDate = valid.reduce(
+        (min, r) => (r.date && (!min || r.date < min) ? r.date : min),
+        null,
+      );
+
       setStatus(null);
-      setImportSummary({ inserted: data.inserted, learnedCount, categorized, catError, months });
+      setImportSummary({
+        inserted: data.inserted, learnedCount, categorized, catError, months,
+        hasBankBalance, earliestImportedDate,
+      });
       setRows([]);
       if (onImported) onImported();
     } catch {
@@ -1872,6 +1970,8 @@ export default function CsvImport({ onImported, onJumpToMonth }) {
         <ImportSummaryModal
           summary={importSummary}
           firstName={accountHolderName ? accountHolderName.trim().split(/\s+/)[0] : null}
+          hasAnchor={!!anchor?.anchor_date}
+          onSaveAnchor={onSaveAnchor}
           onJumpToMonth={(ym) => {
             if (onJumpToMonth) {
               const [y, m] = ym.split("-").map(Number);
