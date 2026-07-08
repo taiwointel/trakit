@@ -145,9 +145,14 @@ export default function AppLayout({ children }) {
   // the OAuth redirect — that flag was a race: it never survived a cached
   // page, an already-open session, or any path that didn't pass through
   // that exact button click.
+  //
+  // The "seen" flag is keyed per user.id, not global — localStorage is
+  // scoped to the browser, so a global key would mean testing (or using)
+  // more than one account in the same browser silently suppresses the tour
+  // for every account after the first one that saw or skipped it.
   useEffect(() => {
-    if (!user?.created_at) return;
-    const seen        = localStorage.getItem("trakit7:tourSeen");
+    if (!user?.id || !user?.created_at) return;
+    const seen        = localStorage.getItem(`trakit7:tourSeen:${user.id}`);
     const accountAgeMs = Date.now() - new Date(user.created_at).getTime();
     if (!seen && accountAgeMs < 5 * 60 * 1000) {
       setTimeout(() => setTourOpen(true), 600);
@@ -320,7 +325,7 @@ export default function AppLayout({ children }) {
         open={tourOpen}
         onClose={() => {
           setTourOpen(false);
-          localStorage.setItem("trakit7:tourSeen", "1");
+          if (user?.id) localStorage.setItem(`trakit7:tourSeen:${user.id}`, "1");
         }}
       />
     </div>
