@@ -118,26 +118,37 @@ export default function DailyNavigator({ entries, anchor }) {
               <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>
                 {dayEntries.length} transaction{dayEntries.length !== 1 ? "s" : ""} this day
               </p>
-              {dayEntries.map((e) => (
-                <div
-                  key={e.id}
-                  className="flex items-center gap-3 py-1.5 border-t text-sm"
-                  style={{ borderColor: "var(--rule)" }}
-                >
-                  <span className="flex-1" style={{ color: "var(--ink-text)", fontFamily: "var(--font-sans)" }}>
-                    {e.desc}
-                    {e.beneficiary && (
-                      <span style={{ color: "var(--ink-text-dim)" }}> · {e.flow === "out" ? "to" : "from"} {e.beneficiary}</span>
-                    )}
-                  </span>
-                  <span
-                    className="font-semibold"
-                    style={{ color: e.flow === "in" ? "var(--green)" : "var(--red)", fontFamily: "var(--font-mono)" }}
+              {dayEntries.map((e) => {
+                const isSelf = e.category === "Self";
+                return (
+                  <div
+                    key={e.id}
+                    className="flex items-center gap-3 py-1.5 border-t text-sm"
+                    style={{ borderColor: "var(--rule)", opacity: isSelf ? 0.55 : 1 }}
                   >
-                    {e.flow === "in" ? "+" : "−"}{formatNaira(e.amount)}
-                  </span>
-                </div>
-              ))}
+                    <span className="flex-1" style={{ color: "var(--ink-text)", fontFamily: "var(--font-sans)" }}>
+                      {e.desc}
+                      {e.beneficiary && (
+                        <span style={{ color: "var(--ink-text-dim)" }}> · {e.flow === "out" ? "to" : "from"} {e.beneficiary}</span>
+                      )}
+                      {isSelf && (
+                        <span
+                          className="ml-1.5 text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-full"
+                          style={{ background: "rgba(91,143,168,0.18)", color: "var(--blue-accent)", fontFamily: "var(--font-sans)" }}
+                        >
+                          Self · excluded
+                        </span>
+                      )}
+                    </span>
+                    <span
+                      className="font-semibold"
+                      style={{ color: isSelf ? "var(--ink-text-dim)" : e.flow === "in" ? "var(--green)" : "var(--red)", fontFamily: "var(--font-mono)" }}
+                    >
+                      {e.flow === "in" ? "+" : "−"}{formatNaira(e.amount)}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           ) : (
             <p className="text-xs" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>

@@ -3,10 +3,26 @@
  * is derived from the anchor + ledger entries. (spec §5.2, §5.3)
  */
 
+// Self-transfers (money moving between the user's own accounts) are
+// excluded from every flow sum in this file. A bank-reported balance_after
+// already has self-transfers baked in as of its own date — real money did
+// leave/enter that specific account — so they're still valid as reference
+// points. But re-adding them as flows on top of that is only correct if
+// *both* legs of the transfer are in the ledger (the outflow from one
+// account and the matching inflow to the other); if only one side was ever
+// imported (e.g. the receiving account's statement hasn't been re-uploaded
+// since this fix shipped), the unmatched leg corrupts the combined total
+// by the transfer amount. Every fresh statement import re-establishes a
+// bank-reported balance_after checkpoint anyway, which naturally
+// self-corrects any drift this causes between imports.
+function isSelf(e) {
+  return e.category === "Self";
+}
+
 /** Net flow for a single date from a sorted entry list */
 export function netFlowForDate(entries, date) {
   return entries
-    .filter((e) => e.date === date)
+    .filter((e) => e.date === date && !isSelf(e))
     .reduce((s, e) => s + (e.flow === "in" ? Number(e.amount) : -Number(e.amount)), 0);
 }
 
@@ -73,14 +89,14 @@ function closingBalanceForGroup(groupEntries, points, date) {
 
   if (ref) {
     const flows = groupEntries
-      .filter((e) => (ref.type === "balance_after" ? e.date > ref.date : e.date >= ref.date) && e.date <= date)
+      .filter((e) => !isSelf(e) && (ref.type === "balance_after" ? e.date > ref.date : e.date >= ref.date) && e.date <= date)
       .reduce((s, e) => s + (e.flow === "in" ? Number(e.amount) : -Number(e.amount)), 0);
     return Number(ref.balance) + flows;
   }
 
   const earliest = points[0];
   const flows = groupEntries
-    .filter((e) => e.date > date && (earliest.type === "balance_after" ? e.date <= earliest.date : e.date < earliest.date))
+    .filter((e) => !isSelf(e) && e.date > date && (earliest.type === "balance_after" ? e.date <= earliest.date : e.date < earliest.date))
     .reduce((s, e) => s + (e.flow === "in" ? Number(e.amount) : -Number(e.amount)), 0);
   return Number(earliest.balance) - flows;
 }
