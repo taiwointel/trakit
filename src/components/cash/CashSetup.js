@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { formatNaira, formatAmountInput, parseAmount, todayISO } from "@/lib/format";
+import { closingBalance } from "@/lib/cashBalance";
 import InfoTooltip from "@/components/InfoTooltip";
 
 export default function CashSetup({ anchor, onSave, entries = [] }) {
@@ -19,6 +20,13 @@ export default function CashSetup({ anchor, onSave, entries = [] }) {
     null,
   );
 
+  // If any entry carries a bank-reported balance_after (an OPay/Access
+  // import — see lib/cashBalance.js), there's real ground truth to compute
+  // from instead of guessing ₦0. closingBalance() already knows how to sum
+  // every account's own latest known balance, so auto-calculate should
+  // just read that off directly rather than reinventing a weaker version.
+  const hasBankBalance = entries.some((e) => e.balance_after !== null && e.balance_after !== undefined);
+
   async function handleSave(e) {
     e.preventDefault();
     const parsed = parseAmount(amount);
@@ -28,16 +36,26 @@ export default function CashSetup({ anchor, onSave, entries = [] }) {
     setSaving(false);
   }
 
-  // No number to remember or guess at: anchor to your very first logged
-  // entry's date at ₦0 (opening balance for that day, before its own
-  // entries land), and every day from there — including that first day
-  // itself — is 100% computed from what you've actually logged.
   async function handleAutoCalculate() {
-    if (!earliestDate) return;
     setAutoCalculating(true);
-    setDate(earliestDate);
-    setAmount("0.00");
-    await onSave(earliestDate, 0);
+    if (hasBankBalance) {
+      // Real bank-reported balances exist — sum every account's own
+      // latest known figure as of today and anchor there. This is the
+      // exact same math the app already uses live; auto-calculate just
+      // saves it as the anchor so it's confirmed as the current baseline.
+      const today = todayISO();
+      const computed = closingBalance(entries, null, 0, today) ?? 0;
+      setDate(today);
+      setAmount(computed.toLocaleString("en-NG", { maximumFractionDigits: 2 }));
+      await onSave(today, computed);
+    } else if (earliestDate) {
+      // No bank data at all: no number to remember or guess at beyond
+      // assuming ₦0 right before your very first logged entry, and
+      // tracking every naira from there.
+      setDate(earliestDate);
+      setAmount("0.00");
+      await onSave(earliestDate, 0);
+    }
     setAutoCalculating(false);
   }
 
@@ -69,29 +87,24 @@ export default function CashSetup({ anchor, onSave, entries = [] }) {
       )}
 
       {earliestDate && (
-        <div
-          className="rounded-lg p-3 flex items-center justify-between gap-3 flex-wrap"
-          style={{ background: "rgba(169,133,79,0.08)", border: "1px solid rgba(169,133,79,0.25)" }}
+        <button
+          type="button"
+          onClick={handleAutoCalculate}
+          disabled={autoCalculating}
+          title={hasBankBalance
+            ? "Sum every account's own latest bank-reported balance and anchor today to it."
+            : `Assume ₦0 right before your first logged entry (${earliestDate}) and track every naira from there.`}
+          className="self-start px-4 py-2 rounded text-sm font-semibold whitespace-nowrap"
+          style={{
+            background: "var(--ink-3)",
+            border:     "1px solid var(--gold)",
+            color:      "var(--gold)",
+            opacity:    autoCalculating ? 0.6 : 1,
+            fontFamily: "var(--font-sans)",
+          }}
         >
-          <p className="text-xs" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", lineHeight: 1.6, flex: 1, minWidth: 200 }}>
-            Not sure what your real balance was? This assumes you had <strong style={{ color: "var(--ink-text)" }}>₦0</strong> right before your first logged entry ({earliestDate}) and tracks every naira in or out from there — quick, but only accurate if that ₦0 assumption is actually true. If you had real savings before you started logging, use the form below with today&apos;s real balance instead.
-          </p>
-          <button
-            type="button"
-            onClick={handleAutoCalculate}
-            disabled={autoCalculating}
-            className="px-4 py-2 rounded text-sm font-semibold whitespace-nowrap"
-            style={{
-              background: "var(--ink-3)",
-              border:     "1px solid var(--gold)",
-              color:      "var(--gold)",
-              opacity:    autoCalculating ? 0.6 : 1,
-              fontFamily: "var(--font-sans)",
-            }}
-          >
-            {autoCalculating ? "Calculating…" : "⚡ Auto-calculate"}
-          </button>
-        </div>
+          {autoCalculating ? "Calculating…" : hasBankBalance ? "⚡ Auto-calculate from statements" : "⚡ Auto-calculate"}
+        </button>
       )}
 
       <form onSubmit={handleSave} className="flex flex-wrap gap-3 items-end">
