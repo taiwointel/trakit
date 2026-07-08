@@ -299,10 +299,6 @@ function AuthForm({ onBack }) {
   async function handleGoogle() {
     setErrMsg("");
     setLoading(true);
-    // Mark this device as a fresh sign-in so the app tour fires after onboarding.
-    // The layout only acts on this if trakit7:tourSeen is not already set,
-    // so returning users who've already seen the tour are unaffected.
-    localStorage.setItem("trakit7:newSignup", "1");
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: { redirectTo: `${window.location.origin}/auth/callback` },

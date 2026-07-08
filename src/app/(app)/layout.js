@@ -130,7 +130,7 @@ export default function AppLayout({ children }) {
   const [searchOpen,   setSearchOpen]   = useState(false);
   const [tourOpen,     setTourOpen]     = useState(false);
   const [theme, setTheme] = useState("dark");
-  const { name } = useUser();
+  const { user, name } = useUser();
   const { entries } = useEntries();
 
   useEffect(() => {
@@ -139,17 +139,20 @@ export default function AppLayout({ children }) {
     document.documentElement.setAttribute("data-theme", saved);
   }, []);
 
-  // New signups get the app tour automatically, once, shortly after landing —
-  // there's no onboarding step to wait on anymore since AI runs on a
-  // system-wide key with nothing for the user to configure.
+  // New signups get the app tour automatically, once, shortly after landing.
+  // Detected off Supabase's own created_at timestamp (account is a few
+  // minutes old at most) rather than a flag set client-side right before
+  // the OAuth redirect — that flag was a race: it never survived a cached
+  // page, an already-open session, or any path that didn't pass through
+  // that exact button click.
   useEffect(() => {
-    const seen      = localStorage.getItem("trakit7:tourSeen");
-    const newSignup = localStorage.getItem("trakit7:newSignup");
-    if (!seen && newSignup) {
-      localStorage.removeItem("trakit7:newSignup");
+    if (!user?.created_at) return;
+    const seen        = localStorage.getItem("trakit7:tourSeen");
+    const accountAgeMs = Date.now() - new Date(user.created_at).getTime();
+    if (!seen && accountAgeMs < 5 * 60 * 1000) {
       setTimeout(() => setTourOpen(true), 600);
     }
-  }, []);
+  }, [user]);
 
   function toggleTheme() {
     const next = theme === "dark" ? "light" : "dark";

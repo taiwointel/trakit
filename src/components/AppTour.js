@@ -23,64 +23,15 @@ const STEPS = [
     route:  "/entries",
     target: "import-card",
     label:  "Statement Import",
-    title:  "Step 2: Import a bank statement",
-    body:   "Drop a PDF or CSV bank statement and Trakit7 extracts every transaction and categorises them automatically. A labelling wizard walks you through any transactions that need extra context before importing.",
-  },
-  {
-    route:  "/entries",
-    target: "budgets-grid",
-    label:  "Budgets",
-    title:  "Step 3: Set spending caps",
-    body:   "Set an overall monthly cap and per-category limits. Each card shows a live progress bar that turns amber at 75% and red when you breach the cap. The Bill Tracker below lets you log recurring bills so you never miss a due date.",
-  },
-  {
-    route:  "/goals",
-    target: "salary-panel",
-    label:  "Goals",
-    title:  "Step 4: Set your salary and savings goals",
-    body:   "Enter your monthly take-home salary. This unlocks the 50/30/20 budget tracker, starts the payday countdown, and sets your emergency fund target from your actual essential spend. Add custom savings goals and Trakit7 calculates how much of your Wants budget to redirect each month to hit each target on time.",
-  },
-  {
-    route:  "/goals",
-    target: "emergency-fund",
-    label:  "Emergency Fund",
-    title:  "Step 5: Build your emergency fund",
-    body:   "The Emergency Fund panel tracks a dedicated pot completely separate from your main cash balance. Trakit7 sets the target at 6x your current month's essential spending and recalculates it fresh every month. Deposits and withdrawals are logged in their own dated ledger.",
-  },
-  {
-    route:  "/cash",
-    target: "cash-balance",
-    label:  "Cash Balance",
-    title:  "Step 6: Anchor your opening balance",
-    body:   "Tell Trakit7 how much was in your account on a specific date. From that point, your daily opening and closing balance is computed exactly from every transaction you log — no manual updates ever needed.",
-  },
-  {
-    route:  "/cash",
-    target: "investments-section",
-    label:  "Investments",
-    title:  "Step 7: Track your full portfolio",
-    body:   "Log every position you hold: Treasury bills, fixed-term notes, commercial papers, equities, savings, mutual funds, life assurance, and pension. Each shows accrued return, tenor progress, and live status. Your portfolio total feeds directly into net worth on the Summary tab.",
+    title:  "Step 2: Import a bank statement — the fastest way in",
+    body:   "This is the best feature in the app. Instead of logging transactions one at a time, drop a PDF or CSV bank statement here and Trakit7 extracts and categorises every transaction in seconds. Months of history, done in one upload — this is how most people should actually get started.",
   },
   {
     route:  "/summary",
     target: "summary-headline",
     label:  "Summary",
-    title:  "Step 8: Your complete financial dashboard",
-    body:   "After a few entries, Summary shows total spend, current cash balance, liquidity coverage, net worth, Coach RBC's analysis of your selected period, spend trend charts, and a full category breakdown. Most users make this their daily starting point.",
-  },
-  {
-    route:  "/chat",
-    target: "rbc-header",
-    label:  "Ask Coach RBC",
-    title:  "Step 9: Ask Coach RBC anything",
-    body:   "Coach RBC is your personal financial advisor. She already knows your salary, cash balance, portfolio breakdown, emergency fund status, and this month's spend by category. Ask about spending habits, investment options, or savings strategy — she'll give you a straight answer.",
-  },
-  {
-    route:  null,
-    target: null,
-    label:  "Privacy",
-    title:  "Your data stays yours",
-    body:   "Everything is stored in your private Supabase account, protected by Row Level Security so only you can access your records. AI runs on a shared server-side key, so there's nothing for you to configure. No ads, no tracking, no data shared with third parties.",
+    title:  "You're set — this is home",
+    body:   "Summary is your daily starting point: total spend, cash balance, liquidity, Coach RBC's take on your period, and a full category breakdown, all in one place. Come back here any time to see where you stand.",
   },
 ];
 
@@ -253,7 +204,7 @@ export default function AppTour({ open, onClose, name }) {
             }}>
               Trakit7 is your complete personal finance dashboard — expense tracking,
               AI coaching, investment portfolio, goals, and more, all in one place.
-              Let me show you around in about 2 minutes.
+              Let me show you how to log a transaction and the fastest way to get started.
             </p>
           </div>
 
