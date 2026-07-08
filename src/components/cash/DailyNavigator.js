@@ -20,8 +20,20 @@ export default function DailyNavigator({ entries, anchor }) {
   );
   const net = useMemo(() => netFlowForDate(entries, date), [entries, date]);
 
+  // Self-transfers are excluded from the day's totals above, so they read
+  // as noise mixed in with the real transactions — push them to the
+  // bottom. Everything else sorts by amount, highest to lowest regardless
+  // of direction, so the transactions that actually moved the needle are
+  // the first thing seen instead of buried in chronological order.
   const dayEntries = useMemo(
-    () => entries.filter((e) => e.date === date).sort((a, b) => (a.created_at || "").localeCompare(b.created_at || "")),
+    () => entries
+      .filter((e) => e.date === date)
+      .sort((a, b) => {
+        const aSelf = a.category === "Self";
+        const bSelf = b.category === "Self";
+        if (aSelf !== bSelf) return aSelf ? 1 : -1;
+        return Number(b.amount) - Number(a.amount);
+      }),
     [entries, date],
   );
 
