@@ -77,13 +77,6 @@ export default function SettingsDrawer({ open, onClose, onStartTour }) {
   const [savingPass,      setSavingPass]      = useState(false);
   const [passStatus,      setPassStatus]      = useState("");
 
-  // ── AI connection state ───────────────────────────────────
-  const [key,              setKey]              = useState("");
-  const [keyWarning,       setKeyWarning]       = useState("");
-  const [hasGroqKey,       setHasGroqKey]       = useState(false);
-  const [aiStatus,         setAiStatus]         = useState("");
-  const [testing,          setTesting]          = useState(false);
-
   // ── Data & Privacy state ──────────────────────────────────
   const [clearChatStatus,  setClearChatStatus]  = useState("");
   const [clearingChat,     setClearingChat]     = useState(false);
@@ -125,7 +118,7 @@ export default function SettingsDrawer({ open, onClose, onStartTour }) {
 
   useEffect(() => {
     if (!open) return;
-    setAiStatus(""); setKeyWarning(""); setNameStatus(""); setPassStatus("");
+    setNameStatus(""); setPassStatus("");
     setNewPassword(""); setConfirmPassword(""); setClearChatStatus(""); setExportStatus("");
     setBackupStatus(""); setBackupsLoaded(false); setDigestStatus(""); setDigestConfirm(false);
     setPrefsStatus("");
@@ -145,12 +138,6 @@ export default function SettingsDrawer({ open, onClose, onStartTour }) {
         // as a fallback for older sessions where app_metadata wasn't set.
         setAuthProvider(user.app_metadata?.provider || user.identities?.[0]?.provider || "email");
       }
-      fetch("/api/ai/settings")
-        .then((r) => r.json())
-        .then((d) => {
-          setHasGroqKey(!!d.hasGroqKey);
-        })
-        .catch(() => {});
 
       supabase.from("goals").select("salary, payday_day").eq("user_id", user.id).maybeSingle()
         .then(({ data: goals }) => {
@@ -185,44 +172,6 @@ export default function SettingsDrawer({ open, onClose, onStartTour }) {
     if (error) setPassStatus(error.message);
     else { setPassStatus("Password changed."); setNewPassword(""); setConfirmPassword(""); }
     setSavingPass(false);
-  }
-
-  // ── AI key handlers ────────────────────────────────────────
-  function handleKeyInput(value) {
-    const clean = value.replace(/[^\x20-\x7E]/g, "");
-    setKeyWarning(clean.length !== value.length ? "Non-ASCII characters removed. Check your key is correct." : "");
-    setKey(clean);
-  }
-
-  async function saveKey() {
-    const clean = key.replace(/[^\x20-\x7E]/g, "").trim();
-    if (!clean) { setAiStatus("Paste a Groq API key first."); return; }
-    setAiStatus("Saving...");
-    try {
-      const res  = await fetch("/api/ai/settings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider: "groq", key: clean }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setAiStatus("Saved.");
-        setHasGroqKey(true);
-        setKey("");
-      } else {
-        setAiStatus(data.error || "Save failed.");
-      }
-    } catch { setAiStatus("Network error."); }
-  }
-
-  async function testConnection() {
-    setTesting(true); setAiStatus("Testing...");
-    try {
-      const res  = await fetch("/api/ai/test-connection", { method: "POST" });
-      const data = await res.json();
-      setAiStatus(data.message || (res.ok ? "Connection OK" : "Failed."));
-    } catch { setAiStatus("Network error."); }
-    setTesting(false);
   }
 
   // ── Data & Privacy handlers ────────────────────────────────
@@ -565,76 +514,6 @@ export default function SettingsDrawer({ open, onClose, onStartTour }) {
               </div>
             )}
           </Section>
-
-          <Divider />
-
-          {/* ── AI Connection (collapsible) — Groq, the only provider this
-              UI lets a user set up. Claude still works as a provider on the
-              backend if it's already set on an account, but there's no UI
-              here to switch to it — this app runs on Groq. ── */}
-          <CollapsibleSection
-            title={`Groq Setup${hasGroqKey ? " · Connected" : " · Not set up"}`}
-            color="var(--blue-accent)"
-            defaultOpen={false}
-          >
-            <div className="px-3 py-3 rounded-xl flex flex-col gap-2" style={{ background: "rgba(91,143,168,0.08)", border: "1px solid rgba(91,143,168,0.2)" }}>
-              <p className="text-xs font-semibold" style={{ color: "var(--blue-accent)", fontFamily: "var(--font-sans)" }}>Get a free Groq key</p>
-              <ol className="text-xs leading-relaxed flex flex-col gap-1" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", paddingLeft: 14, margin: 0 }}>
-                <li>Go to <a href="https://console.groq.com" target="_blank" rel="noopener noreferrer" style={{ color: "var(--gold)", textDecoration: "underline" }}>console.groq.com</a> and sign up</li>
-                <li>Click <strong style={{ color: "var(--ink-text)" }}>API Keys</strong> in the left sidebar</li>
-                <li>Click <strong style={{ color: "var(--ink-text)" }}>Create API Key</strong> and copy it</li>
-              </ol>
-              <p className="text-xs" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-mono)" }}>Key starts with <span style={{ color: "var(--gold)" }}>gsk_</span></p>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <span className="text-xs" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)" }}>
-                Groq key
-              </span>
-              <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{
-                background: hasGroqKey ? "rgba(47,122,86,0.2)" : "rgba(184,57,43,0.15)",
-                color: hasGroqKey ? "var(--green)" : "var(--red)",
-                fontFamily: "var(--font-sans)",
-              }}>
-                {hasGroqKey ? "Connected" : "Not connected"}
-              </span>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <label style={labelStyle}>
-                {hasGroqKey ? "Update API key" : "Paste your Groq API key"}
-              </label>
-              <input
-                type="password"
-                value={key}
-                onChange={(e) => handleKeyInput(e.target.value)}
-                placeholder={hasGroqKey ? "Paste to replace..." : "gsk_..."}
-                className="w-full px-3 py-2.5 rounded-lg text-sm"
-                style={{ ...inputStyle, fontFamily: "var(--font-mono)" }}
-              />
-            </div>
-
-            {keyWarning && (
-              <p className="text-xs px-2 py-1.5 rounded-lg" style={{ color: "var(--amber)", background: "var(--amber-soft)", fontFamily: "var(--font-mono)" }}>
-                {keyWarning}
-              </p>
-            )}
-
-            <div className="flex gap-2">
-              <button onClick={saveKey} disabled={!key.trim()} className="flex-1 py-2.5 rounded-lg text-sm font-semibold" style={{ background: "linear-gradient(135deg, var(--gold-deep), var(--gold))", color: "#fff", fontFamily: "var(--font-sans)", opacity: !key.trim() ? 0.45 : 1 }}>
-                Save Key
-              </button>
-              <button onClick={testConnection} disabled={testing || !hasGroqKey} className="flex-1 py-2.5 rounded-lg text-sm font-medium" style={{ background: "var(--ink-3)", border: "1px solid var(--rule)", color: "var(--blue-accent)", fontFamily: "var(--font-sans)", opacity: (testing || !hasGroqKey) ? 0.45 : 1 }}>
-                {testing ? "Testing..." : "Test"}
-              </button>
-            </div>
-
-            {aiStatus && (
-              <p className="text-xs" style={{ color: aiStatus.includes("Saved") || aiStatus.includes("OK") || aiStatus.includes("ok") || aiStatus.includes("Groq:") ? "var(--green)" : "var(--ink-text-dim)", fontFamily: "var(--font-mono)" }}>
-                {aiStatus}
-              </p>
-            )}
-          </CollapsibleSection>
 
           <Divider />
 

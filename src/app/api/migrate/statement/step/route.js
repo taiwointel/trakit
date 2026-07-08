@@ -5,6 +5,7 @@ import {
   parseGroqRetrySeconds, parseGroqDuration,
   GROQ_CHUNK_SIZE, GROQ_MAX_TOKENS,
 } from "@/lib/statementExtract";
+import { getGroqKey } from "@/lib/groqKey";
 
 export const maxDuration = 30;
 
@@ -82,17 +83,11 @@ export async function POST(request) {
     return NextResponse.json({ status: "done", rows, chunkIndex: job.chunk_index, totalChunks: job.chunks.length });
   }
 
-  const { data: settings } = await supabase
-    .from("user_ai_settings")
-    .select("groq_key_encrypted")
-    .eq("user_id", user.id)
-    .maybeSingle();
-
   const chunk = job.chunks[job.chunk_index];
 
   try {
-    const key = settings?.groq_key_encrypted;
-    if (!key) throw new Error("No Groq key configured.");
+    const key = getGroqKey();
+    if (!key) throw new Error("No Groq key configured on the server.");
     const { text: rawText, waitMs } = await callGroqChunk(chunk, key);
 
     const newRows    = parseAIResponse(rawText);

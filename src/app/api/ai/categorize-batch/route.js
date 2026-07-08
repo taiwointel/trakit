@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { fallbackCategorize, looksLikeBankCharge } from "@/lib/categories";
 import { lookupMerchantRules, saveMerchantRule, normalizeMerchantKey } from "@/lib/merchantRules";
+import { getGroqKey } from "@/lib/groqKey";
 
 const SYSTEM_PROMPT = `You are an expense categorizer for a Nigerian personal finance app called Trakit7.
 Given a numbered list of transactions, classify each into exactly one of these 11 categories.
@@ -45,7 +46,7 @@ export async function POST(request) {
   if (user) {
     const { data } = await supabase
       .from("user_ai_settings")
-      .select("provider, groq_key_encrypted, claude_key_encrypted")
+      .select("provider, claude_key_encrypted")
       .eq("user_id", user.id)
       .maybeSingle();
     settings = data;
@@ -99,9 +100,9 @@ export async function POST(request) {
       rawText = data.content?.[0]?.text || "";
 
     } else {
-      // Groq (default)
-      const key = settings?.groq_key_encrypted;
-      if (!key) throw new Error("No AI key configured.");
+      // Groq (default, system-wide key)
+      const key = getGroqKey();
+      if (!key) throw new Error("No Groq key configured on the server.");
       const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },

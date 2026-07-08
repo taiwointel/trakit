@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { getGroqKey } from "@/lib/groqKey";
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 const M_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
@@ -90,11 +91,11 @@ Rules you MUST follow:
       const data = await res.json();
       if (res.ok) text = data.content?.[0]?.text || "";
 
-    } else if (settings?.groq_key_encrypted) {
-      // Groq (default)
+    } else if (getGroqKey()) {
+      // Groq (default, system-wide key)
       const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${settings.groq_key_encrypted}` },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${getGroqKey()}` },
         body: JSON.stringify({
           model: "llama-3.3-70b-versatile",
           messages: [{ role: "system", content: PERSONA }, { role: "user", content: PROMPT }],
@@ -658,7 +659,7 @@ export async function POST() {
     supabase.from("entries").select("amount, flow, essentiality, category").eq("user_id", user.id)
       .gte("date", monthStart).lte("date", toDate),
     supabase.from("budgets").select("overall, category_budgets").eq("user_id", user.id).maybeSingle(),
-    supabase.from("user_ai_settings").select("provider, groq_key_encrypted, claude_key_encrypted").eq("user_id", user.id).maybeSingle(),
+    supabase.from("user_ai_settings").select("provider, claude_key_encrypted").eq("user_id", user.id).maybeSingle(),
   ]);
 
   const allEntries = (entries || []).sort((a,b) => a.date.localeCompare(b.date) || (a.created_at||"").localeCompare(b.created_at||""));

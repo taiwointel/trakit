@@ -8,6 +8,7 @@ import { parseOpayStatementDebug } from "@/lib/parsers/opay";
 import { parsePalmpayStatementDebug } from "@/lib/parsers/palmpay";
 import { parseAccessStatementDebug } from "@/lib/parsers/access";
 import { extractAccountHolderName } from "@/lib/selfTransfer";
+import { getGroqKey } from "@/lib/groqKey";
 // pdf-parse is imported dynamically below to prevent module-level test-file
 // loading (a known pdf-parse v1 + Next.js incompatibility in serverless envs).
 
@@ -17,12 +18,6 @@ export async function POST(request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const { data: settings } = await supabase
-    .from("user_ai_settings")
-    .select("groq_key_encrypted")
-    .eq("user_id", user.id)
-    .maybeSingle();
 
   const formData = await request.formData();
   const file = formData.get("file");
@@ -42,8 +37,8 @@ export async function POST(request) {
   // an OpenAI-compatible image_url data URI, same endpoint as every other
   // Groq call in this app.
   if (isImage) {
-    const key = settings?.groq_key_encrypted;
-    if (!key) return NextResponse.json({ error: "Add a Groq key in Settings to read image statements." }, { status: 400 });
+    const key = getGroqKey();
+    if (!key) return NextResponse.json({ error: "No Groq key configured on the server." }, { status: 400 });
 
     try {
       const base64 = buffer.toString("base64");
@@ -135,8 +130,8 @@ export async function POST(request) {
     return NextResponse.json({ status: "done", rows: filterRows(accessDebug.rows), accountHolderName });
   }
 
-  if (!settings?.groq_key_encrypted) {
-    return NextResponse.json({ error: "No AI key configured. Add a Groq key in Settings." }, { status: 400 });
+  if (!getGroqKey()) {
+    return NextResponse.json({ error: "No Groq key configured on the server." }, { status: 400 });
   }
 
   const chunks = chunkText(text, GROQ_CHUNK_SIZE);

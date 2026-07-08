@@ -1,10 +1,9 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import SettingsDrawer from "@/components/SettingsDrawer";
-import OnboardingFlow from "@/components/OnboardingFlow";
 import SearchModal from "@/components/SearchModal";
 import AppTour     from "@/components/AppTour";
 import { useUser } from "@/hooks/useUser";
@@ -140,26 +139,17 @@ export default function AppLayout({ children }) {
     document.documentElement.setAttribute("data-theme", saved);
   }, []);
 
-  // pendingTour: true if this session is a new signup and the tour hasn't shown yet.
-  // We store it in a ref so the onDone callback (from OnboardingFlow) can read it
-  // without a stale closure. The tour fires only after onboarding dismisses.
-  const pendingTour = useRef(false);
-
+  // New signups get the app tour automatically, once, shortly after landing —
+  // there's no onboarding step to wait on anymore since AI runs on a
+  // system-wide key with nothing for the user to configure.
   useEffect(() => {
     const seen      = localStorage.getItem("trakit7:tourSeen");
     const newSignup = localStorage.getItem("trakit7:newSignup");
     if (!seen && newSignup) {
       localStorage.removeItem("trakit7:newSignup");
-      pendingTour.current = true;
-    }
-  }, []);
-
-  function triggerTourIfPending() {
-    if (pendingTour.current && !localStorage.getItem("trakit7:tourSeen")) {
-      pendingTour.current = false;
       setTimeout(() => setTourOpen(true), 600);
     }
-  }
+  }, []);
 
   function toggleTheme() {
     const next = theme === "dark" ? "light" : "dark";
@@ -320,9 +310,6 @@ export default function AppLayout({ children }) {
         onClose={() => setSettingsOpen(false)}
         onStartTour={() => { setSettingsOpen(false); setTourOpen(true); }}
       />
-
-      {/* Onboarding — shown when user has no Groq key */}
-      <OnboardingFlow userName={name} onDone={triggerTourIfPending} />
 
       <SearchModal open={searchOpen} onClose={() => setSearchOpen(false)} entries={entries} />
       <AppTour

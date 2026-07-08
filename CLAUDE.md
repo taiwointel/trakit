@@ -158,11 +158,14 @@ Single row per user:
 | saved_so_far | numeric default 0 | manually updated by the user |
 
 ### `user_ai_settings`
+Groq runs on a single system-wide key (`GROQ_API_KEY` env var) — there's
+nothing per-user to store for it. This table now only exists for the
+optional legacy Claude branch (no UI to set it up; can be set directly in
+the database on an account that wants it).
 | Column | Type | Notes |
 |---|---|---|
 | provider | text | `'groq'` \| `'claude'`, default `'groq'` |
-| groq_key_encrypted | text, nullable | encrypted at rest (Supabase Vault or pgcrypto) |
-| claude_key_encrypted | text, nullable | |
+| claude_key_encrypted | text, nullable | encrypted at rest (Supabase Vault or pgcrypto) |
 
 ### `coach_sessions`
 Cache of the last generated Coach RBC session, so reopening the Summary tab
@@ -191,19 +194,23 @@ per-device history later.
 ## 4. AI integration
 
 ### 4.1 Providers
-Two supported providers, user-selectable, each with their own stored key:
-- **Groq** (`llama-3.3-70b-versatile`, `qwen/qwen3.6-27b` for vision) — default, genuinely free tier, no card required at signup. `qwen/qwen3.6-27b` handles image-based statement extraction and chat file attachments — the same OpenAI-compatible chat completions endpoint, just with an `image_url` content part.
-- **Claude** (`claude-sonnet-4-6`) — paid, $5 minimum prepaid credit on console.anthropic.com.
+**Groq is zero-config**: every account uses the same server-side key, read
+from `process.env.GROQ_API_KEY` (`src/lib/groqKey.js`). There is no
+onboarding wizard and no Settings UI to paste a key — a new user can use
+every AI feature the moment they sign up.
+- **Groq** (`llama-3.3-70b-versatile`, `qwen/qwen3.6-27b` for vision) — the
+  only provider a user can reach through the UI. `qwen/qwen3.6-27b` handles
+  image-based statement extraction and chat file attachments — the same
+  OpenAI-compatible chat completions endpoint, just with an `image_url`
+  content part.
+- **Claude** (`claude-sonnet-4-6`) — a legacy per-account provider with no
+  UI to set it up; only reachable by setting `claude_key_encrypted` directly
+  in `user_ai_settings`. Left in as vestigial code, not a maintained path.
 
-Both calls are made from Next.js Route Handlers (e.g.
-`/api/ai/categorize`, `/api/ai/coach`, `/api/ai/chat`), which look up the
-user's chosen provider + decrypted key from `user_ai_settings`, call the
-provider, and return the result. The client never talks to Groq/Anthropic
-directly.
-
-A **"Test connection"** action sends a trivial prompt ("Reply with exactly
-one lowercase word: ok") and surfaces the literal success/failure message to
-the user — never a generic "something went wrong."
+All calls are made from Next.js Route Handlers (e.g. `/api/ai/categorize`,
+`/api/ai/coach`, `/api/ai/chat`), which read the system Groq key
+server-side, call the provider, and return the result. The client never
+talks to Groq/Anthropic directly, and the key is never sent to the browser.
 
 ### 4.2 Expense categorization
 On every new "money out" entry, send `{description, amount}` to the AI with
@@ -516,12 +523,9 @@ fills, donut legends): `#A9854F, #5B8FA8, #7C8C5B, #A8645B, #8A6FA8,
 - **Settings drawer:** triggered by the gear icon. Slides in from the right
   edge (`transform: translateX(100%)` → `0`, 220ms ease), 380px wide (max
   88vw on mobile), dark backdrop overlay behind it (50% black), dismissible
-  via close button, backdrop click, or Escape key. Contains the Connection
-  panel (Groq key setup — the app's default and only user-configurable
-  provider in this UI; Claude remains available on the backend for an
-  account that already has it set, but isn't exposed here), masked key
-  input, Save/Clear, "Test connection" button with a live status line that
-  prints the *actual* success/failure message, never generic).
+  via close button, backdrop click, or Escape key. There is no AI/Connection
+  panel — Groq is a system-wide server key with nothing per-user to
+  configure, so the drawer goes straight from Profile to Notifications.
 
 ### 6.4 Expense Entry tab
 - **Month navigator:** "‹ JUNE 2026 ›" centered, monospace month label.

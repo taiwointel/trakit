@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { getGroqKey } from "@/lib/groqKey";
 
 function buildPersona(name) {
   const n = name || "the user";
@@ -43,7 +44,7 @@ export async function POST(request) {
 
   const { data: settings } = await supabase
     .from("user_ai_settings")
-    .select("provider, groq_key_encrypted, claude_key_encrypted")
+    .select("provider, claude_key_encrypted")
     .eq("user_id", user.id)
     .maybeSingle();
 
@@ -77,9 +78,9 @@ export async function POST(request) {
       text = data.content?.[0]?.text || "";
 
     } else {
-      // Groq (default)
-      const key = settings?.groq_key_encrypted;
-      if (!key) throw new Error("No AI key configured. Add a Groq key in Settings.");
+      // Groq (default, system-wide key)
+      const key = getGroqKey();
+      if (!key) throw new Error("No Groq key configured on the server.");
       const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
