@@ -56,11 +56,17 @@ export function filterRows(transactions) {
       return !OPAY_INTERNAL.test(d) && !PALMPAY_INTERNAL.test(d);
     })
     .map((t) => ({
-      date:        String(t.date).trim(),
-      desc:        String(t.description || t.desc || "").trim(),
-      amount:      Number(t.amount || t.amt),
-      flow:        (t.flow || t.fl) === "in" ? "in" : "out",
-      beneficiary: t.beneficiary ? String(t.beneficiary).trim() : null,
+      date:          String(t.date).trim(),
+      desc:          String(t.description || t.desc || "").trim(),
+      amount:        Number(t.amount || t.amt),
+      flow:          (t.flow || t.fl) === "in" ? "in" : "out",
+      beneficiary:   t.beneficiary ? String(t.beneficiary).trim() : null,
+      // Only ever set by the deterministic OPay/Access parsers (never by
+      // the AI extraction path) — must survive this rebuild or every PDF
+      // import silently loses its bank-reported balance, which is exactly
+      // what was happening: this whitelist dropped them unconditionally.
+      balanceAfter:  t.balanceAfter ?? null,
+      accountRef:    t.accountRef ?? null,
     }));
 }
 
