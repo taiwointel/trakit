@@ -68,9 +68,9 @@ export default function CashPage() {
       </div>
       <p className="section-desc">
         {hasBankBalance
-          ? "Your OPay/Access Bank imports already carry the bank's own real running balance, so this is computed automatically — no manual figure required. You can still set or override an anchor below (e.g. for a PalmPay-only history, or a date the statement doesn't cover)."
-          : "Tell it what you actually had in your account on one date, and it does the arithmetic for every day after that automatically — using the entries you log, not a second number you'd have to keep updating by hand."}
-        {" "}That single fact is also what powers your balance across the app: the liquidity/runway gauge and net worth both need a real cash figure to work from. Get a fresh reading out of sync with reality (found cash, a missed bank fee)? Re-anchor with today's date and true balance — it moves the starting point forward without touching any past entries.
+          ? "Your OPay/Access Bank import already carries the bank's real balance, so this is filled in automatically. Set an anchor below only if you want to override it."
+          : "Set what you actually had on one date — every day after is computed automatically from your entries. OPay and Access Bank imports skip this step entirely; other banks need it set once."}
+        {" "}To refresh later, re-anchor with today's date and balance — past entries are untouched.
       </p>
 
       {!hasAnchor ? (

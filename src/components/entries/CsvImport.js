@@ -1010,6 +1010,105 @@ function NameConfirmModal({ nameStep, setNameStep, onContinue, onBack, onConfirm
   );
 }
 
+const CATEGORIZING_TIPS = [
+  "Trakit7 learns from every correction — retag one transaction from a beneficiary and every future one from them is tagged instantly, no AI needed.",
+  "Your cash balance is never manually updated. It's computed live from your anchor date plus every transaction since.",
+  "The Emergency Fund target recalculates every month: 6× your actual essential spend, not a rough guess.",
+  "On the Summary tab, switch 'Where it went' between a bar chart and a full pie chart with one click.",
+  "Ask Coach RBC anything in plain English — 'how much did I spend on fuel last month?' — and she computes the real answer from your ledger.",
+  "Set per-category budget caps on Expense Entry — each one shows a live bar that turns amber, then red, as you approach the limit.",
+  "Every naira a savings goal needs each month is automatically pulled out of your Wants budget and into Save & Invest.",
+  "Pension and life assurance balances accrue automatically the moment you open the app — no manual monthly logging required.",
+  "Turn on web research in Ask Coach RBC and she'll check current T-Bill and fixed deposit rates before advising you.",
+  "Life assurance tracking catches every unlogged gap month automatically — backfilling years of arrears takes one batch action, not one row at a time.",
+  "Every transaction's category is editable inline right in the ledger table — click the dropdown, no separate edit screen.",
+  "The Spend Concentration panel on Summary breaks down each category by exactly who the money went to.",
+];
+
+function CategorizingOverlay({ progress }) {
+  const [tipIndex, setTipIndex] = useState(0);
+
+  useEffect(() => {
+    const t = setInterval(() => {
+      setTipIndex((i) => (i + 1) % CATEGORIZING_TIPS.length);
+    }, 3200);
+    return () => clearInterval(t);
+  }, []);
+
+  const pct = progress.total > 0 ? Math.min(100, Math.round((progress.done / progress.total) * 100)) : 0;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: "rgba(11,14,18,0.97)", backdropFilter: "blur(12px)" }}
+    >
+      <div className="w-full flex flex-col items-center gap-7" style={{ maxWidth: 440 }}>
+        {/* Spinner + progress ring */}
+        <div className="relative flex items-center justify-center" style={{ width: 88, height: 88 }}>
+          <svg width="88" height="88" viewBox="0 0 88 88" style={{ transform: "rotate(-90deg)" }}>
+            <circle cx="44" cy="44" r="38" fill="none" stroke="var(--ink-3)" strokeWidth="6" />
+            <circle
+              cx="44" cy="44" r="38" fill="none"
+              stroke="url(#catGrad)" strokeWidth="6" strokeLinecap="round"
+              strokeDasharray={2 * Math.PI * 38}
+              strokeDashoffset={2 * Math.PI * 38 * (1 - pct / 100)}
+              style={{ transition: "stroke-dashoffset 0.3s ease" }}
+            />
+            <defs>
+              <linearGradient id="catGrad" x1="0" y1="0" x2="1" y2="1">
+                <stop stopColor="#C8862E" />
+                <stop offset="1" stopColor="#A9854F" />
+              </linearGradient>
+            </defs>
+          </svg>
+          <span
+            className="absolute font-bold"
+            style={{ color: "var(--ink-text)", fontFamily: "var(--font-mono)", fontSize: "1.1rem" }}
+          >
+            {pct}%
+          </span>
+        </div>
+
+        <div className="flex flex-col items-center gap-1.5 text-center">
+          <h3 style={{ color: "var(--ink-text)", fontFamily: "var(--font-serif)", fontSize: "1.15rem", fontWeight: 700 }}>
+            Categorizing your transactions
+          </h3>
+          <p style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-mono)", fontSize: "0.85rem" }}>
+            {progress.done.toLocaleString()} / {progress.total.toLocaleString()} done
+          </p>
+        </div>
+
+        {/* Progress bar */}
+        <div className="w-full" style={{ height: 6, borderRadius: 3, background: "var(--ink-3)", overflow: "hidden" }}>
+          <div style={{ height: "100%", width: `${pct}%`, background: "linear-gradient(90deg, #C8862E, #A9854F)", transition: "width 0.3s ease" }} />
+        </div>
+
+        {/* Rotating tip */}
+        <div
+          key={tipIndex}
+          className="w-full rounded-2xl px-5 py-4 text-center tip-fade"
+          style={{ background: "var(--ink-2)", border: "1px solid var(--rule)" }}
+        >
+          <p
+            className="text-xs font-semibold uppercase tracking-widest mb-2"
+            style={{ color: "var(--gold)", fontFamily: "var(--font-sans)" }}
+          >
+            Did you know
+          </p>
+          <p style={{ color: "var(--ink-text)", fontFamily: "var(--font-sans)", fontSize: "0.88rem", lineHeight: 1.6 }}>
+            {CATEGORIZING_TIPS[tipIndex]}
+          </p>
+        </div>
+      </div>
+
+      <style>{`
+        @keyframes tipFadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+        .tip-fade { animation: tipFadeIn 0.4s ease; }
+      `}</style>
+    </div>
+  );
+}
+
 export default function CsvImport({ onImported, onJumpToMonth }) {
   const [rows,         setRows]         = useState([]);
   const [wizardGroups, setWizardGroups] = useState(null);
@@ -1393,16 +1492,30 @@ export default function CsvImport({ onImported, onJumpToMonth }) {
       let catError = null;
       // Fewer, bigger chunks beats more, smaller ones: each chunk costs one
       // fixed round-trip (network + AI latency) regardless of size, so chunk
-      // count — not entry count — dominates total wall time.
-      const CHUNK_SIZE = 25;
+      // count — not entry count — dominates total wall time. Chunks also run
+      // with limited concurrency instead of strictly one-at-a-time — a
+      // single failed/rate-limited chunk just falls back to keyword
+      // categorization for those rows (the route always returns 200), so
+      // running several chunks in parallel trades a little AI coverage on
+      // rare rate-limit hits for a large reduction in wall-clock time on a
+      // 1000+ row statement.
+      const CHUNK_SIZE  = 40;
+      const CONCURRENCY = 4;
 
       if (outEntries.length > 0) {
         setImporting(false);
         setCatProgress({ done: 0, total: outEntries.length });
         const supabase = createClient();
 
+        const chunks = [];
         for (let start = 0; start < outEntries.length; start += CHUNK_SIZE) {
-          const chunk = outEntries.slice(start, start + CHUNK_SIZE);
+          chunks.push(outEntries.slice(start, start + CHUNK_SIZE));
+        }
+
+        let doneCount = 0;
+        let nextChunkIndex = 0;
+
+        async function runChunk(chunk) {
           try {
             const batchRes = await fetch("/api/ai/categorize-batch", {
               method:  "POST",
@@ -1432,8 +1545,18 @@ export default function CsvImport({ onImported, onJumpToMonth }) {
             catError = err?.message || "AI categorization request failed (network error or timeout).";
           }
 
-          setCatProgress({ done: Math.min(start + CHUNK_SIZE, outEntries.length), total: outEntries.length });
+          doneCount += chunk.length;
+          setCatProgress({ done: doneCount, total: outEntries.length });
         }
+
+        async function worker() {
+          while (nextChunkIndex < chunks.length) {
+            const chunk = chunks[nextChunkIndex++];
+            await runChunk(chunk);
+          }
+        }
+
+        await Promise.all(Array.from({ length: Math.min(CONCURRENCY, chunks.length) }, worker));
       }
 
       // Group by month so the confirmation can point the user straight at
@@ -1464,6 +1587,7 @@ export default function CsvImport({ onImported, onJumpToMonth }) {
 
   return (
     <div style={{ background: "var(--ink-2)" }}>
+      {catProgress && <CategorizingOverlay progress={catProgress} />}
       <div className="px-4 pb-4 pt-3 flex flex-col gap-3">
 
           {/* Drop zone */}
