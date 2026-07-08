@@ -632,7 +632,7 @@ export default function SettingsDrawer({ open, onClose, onStartTour }) {
                   <pre className="text-xs mt-2 p-2 rounded overflow-x-auto" style={{ background: "var(--ink-3)", color: "var(--ink-text)", fontFamily: "var(--font-mono)", whiteSpace: "pre-wrap", fontSize: 10 }}>
 {`CREATE TABLE IF NOT EXISTS entry_backups (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id uuid REFERENCES auth.users NOT NULL,
+  user_id uuid REFERENCES auth.users ON DELETE CASCADE NOT NULL,
   created_at timestamptz DEFAULT now(),
   label text NOT NULL DEFAULT 'Manual backup',
   entry_count integer NOT NULL DEFAULT 0,
