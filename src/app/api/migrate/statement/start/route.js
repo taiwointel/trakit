@@ -132,25 +132,20 @@ export async function POST(request) {
   }
   const gtbankDebug = parseGtbankStatementDebug(text);
   if (gtbankDebug.ok) {
-    // Same loud-not-silent principle as OPay above, plus: remarks/
-    // beneficiary text is a best-effort secondary extraction on this
-    // parser (see gtbank.js) — surface whether it actually found a clean
-    // pairing so this is visible in server logs on real uploads instead of
-    // silently shipping descriptions with no narration.
+    // Same loud-not-silent principle as OPay above.
     if (gtbankDebug.reconciliation && gtbankDebug.reconciliation.drift > 1) {
       console.warn("GTBank statement reconciliation drift:", gtbankDebug.reconciliation, "account:", gtbankDebug.accountRef);
     }
-    if (!gtbankDebug.remarksFound) {
-      console.warn("GTBank statement: remarks/narration text not found or count mismatch — descriptions are generic for this import.", "account:", gtbankDebug.accountRef, "trailingSamples:", gtbankDebug.trailingSamples);
+    if (gtbankDebug.remarksFound < gtbankDebug.remarksTotal) {
+      console.warn(
+        `GTBank statement: narration found for ${gtbankDebug.remarksFound}/${gtbankDebug.remarksTotal} rows — the rest kept a generic description.`,
+        "account:", gtbankDebug.accountRef,
+      );
     }
     return NextResponse.json({
       status: "done",
       rows: filterRows(gtbankDebug.rows),
       accountHolderName: gtbankDebug.holderName || accountHolderName,
-      // Temporary: lets the actual trailing-text shape be inspected via the
-      // browser's Network tab on a real upload, without needing server log
-      // access, while remarks extraction is still unconfirmed for this bank.
-      _gtbankDebug: !gtbankDebug.remarksFound ? { trailingSamples: gtbankDebug.trailingSamples } : undefined,
     });
   }
 

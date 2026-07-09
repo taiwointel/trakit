@@ -10,20 +10,15 @@
 // contributes no text), so flow is inferred from the balance delta against
 // the running balance, same principle as access.js.
 //
-// IMPORTANT CAVEAT: the "Remarks" column (full narration — "TRANSFER TO
-// OPAY - TAIWO OLAGOKE", "Commission on NIP TransferCHARGES", etc.) never
-// appears in the compact per-row text blocks in the statement this was
-// built against — only the 6 fields above ever showed up glued together on
-// one line. This strongly suggests GTBank's PDF renders remarks in a
-// separate text region/column that pdf-parse's linear extraction may place
-// elsewhere in the stream (or may not capture at all — unconfirmed without
-// a real upload). So: date/amount/balance/direction extraction is
-// confidently correct (verified via the statement's own declared closing
-// balance below); remarks/beneficiary extraction is a best-effort
-// secondary pass that only applies if a matching count of known-shape
-// narration lines is found elsewhere in the text — if it can't find a
-// clean 1:1 pairing, it leaves descriptions generic rather than risk
-// attaching the wrong narration to the wrong row.
+// The "Remarks" column (full narration — "TRANSFER TO OPAY - TAIWO
+// OLAGOKE", "Commission on NIP TransferCHARGES", etc.) is glued directly
+// onto the branch name with zero separator, same as every other label/
+// value pair in this statement's header — confirmed against a real
+// upload's actual extracted text. Each row's own trailing capture (branch
+// + remark together) is split per-row by locating where a known remark
+// opener starts (see splitBranchAndRemark below); a row whose trailing
+// text doesn't match any known opener just keeps a generic description
+// rather than guessing.
 
 const AMOUNT = "(?:\\d{1,3}(?:,\\d{3})*)?\\.\\d{2}";
 const DATE = "\\d{2}-[A-Za-z]{3}-\\d{4}";
@@ -61,38 +56,36 @@ function parseAmount(str) {
   return isNaN(n) ? null : n;
 }
 
-// Known GTBank narration line openers — used only for the best-effort
-// remarks pass, never for the core numeric parse.
-const REMARK_LINE_RE = /^(TRANSFER (BETWEEN|TO|FROM)\b|NIBSS Instant Payment Outward|Commission on NIP Transfer|VATCHARGES|VAT\b|Stamp Duties?|SMS ALERT|VALUE ADDED TAX|WITHHOLDING TAX|INTEREST CAPITALISED|Airtime Purchase)/i;
+// Confirmed against a real upload's actual trailing-row text (captured via
+// the temporary _gtbankDebug diagnostic): the remark is glued directly onto
+// the branch name with zero separator — e.g. "635 AKIN ADESOLA TRANSFER
+// BETWEEN CUSTOMERS...", "635 AKIN ADESOLA Commission on NIP
+// TransferCHARGES", "UNILAG SMS ALERT CHARGE FOR ...". So each row's own
+// trailing capture (branch + remark, glued) is split by finding where one
+// of these known remark openers starts, per row — no separate line search
+// or positional pairing across rows needed at all.
+const REMARK_OPENER_RE = /(TRANSFER BETWEEN CUSTOMERS|NIBSS Instant Payment Outward|Commission on NIP Transfer|VATCHARGES|VATRecover Partial Charges|VALUE ADDED TAX|WITHHOLDING TAX|INTEREST CAPITALISED|SMS ALERT CHARGE|Stamp Duties?|Airtime Purchase|\bVAT\b)/i;
 
-function extractRemarkBlocks(text) {
-  const lines = text.split(/\r?\n/);
-  const blocks = [];
-  let current = null;
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (REMARK_LINE_RE.test(trimmed)) {
-      if (current) blocks.push(current.trim());
-      current = trimmed;
-    } else if (current && trimmed && !RECORD_START.test(trimmed)) {
-      current += " " + trimmed;
-    } else if (RECORD_START.test(trimmed)) {
-      if (current) { blocks.push(current.trim()); current = null; }
-    }
-  }
-  if (current) blocks.push(current.trim());
-  return blocks;
+function splitBranchAndRemark(trailingRaw) {
+  const text = (trailingRaw || "").replace(/\s+/g, " ").trim();
+  const m = text.match(REMARK_OPENER_RE);
+  if (!m) return { branch: text, remark: null };
+  return { branch: text.slice(0, m.index).trim(), remark: text.slice(m.index).trim() };
 }
 
 function extractBeneficiary(remark) {
   if (!remark) return null;
-  // "TRANSFER TO OPAY - TAIWO OLAGOKE OGUNFILE", "NIP TRANSFER TO MONIEMFB
-  // - YAKOYO ABULA JOINT - ..." — the name consistently follows the last
-  // " - " before the line ends or another " - " section begins.
+  // "TRANSFER TO OPAY - TAIWO OLAGOKEOGUNFILE", "TRANSFER TO MONIEMFB -
+  // YAKOYO ABULAJOINT - YAKOYO ABULA JOINT VICTORIA ISLANDBRANCH 4",
+  // "TRANSFER BETWEEN CUSTOMERS...-MOBILE TRFTO GTB SAVINGS OGUNFILE TAIWO
+  // OLAGOKE-ACCESS-PA TIENCE USMAN SARKI" — the other party's name
+  // consistently follows the LAST " - " in the remark, whether it's an
+  // outward "TRANSFER TO" or the more free-form "TRANSFER BETWEEN
+  // CUSTOMERS" shape used for inbound transfers.
   const parts = remark.split(/\s*-\s*/).map((p) => p.trim()).filter(Boolean);
   if (parts.length >= 2) {
     const candidate = parts[parts.length - 1];
-    if (/^[A-Za-z][A-Za-z\s]*$/.test(candidate) && candidate.length >= 3) return candidate;
+    if (/^[A-Za-z][A-Za-z0-9\s]*$/.test(candidate) && candidate.length >= 3) return candidate;
   }
   const m = remark.match(/transfer\s+(?:to|from)\s+([A-Za-z][A-Za-z\s]*)/i);
   return m ? m[1].replace(/\s+/g, " ").trim() : null;
@@ -129,29 +122,13 @@ export function parseGtbankStatementDebug(text) {
     return { ok: false, reason: "no-record-start-lines-found", sample: text.slice(0, 1000) };
   }
 
-  // Best-effort remarks pairing — only trusted if the count exactly matches
-  // the number of transaction rows found; a mismatched count means at least
-  // one remark was missed or one row has no remark, and guessing which is
-  // which risks attaching a real narration (and a real person's name) to
-  // the wrong transaction, which is worse than no narration at all.
-  const remarkBlocks = extractRemarkBlocks(text);
-  const remarksTrustworthy = remarkBlocks.length === matches.length;
-
   let unmatched = 0;
   const unmatchedSamples = [];
   const rows = [];
   let runningBalance = openingBalance;
+  let remarksFoundCount = 0;
 
-  // Diagnostic only, for now: the text trailing each row's balance (branch
-  // name, and — if GTBank glues it on with no separator, matching every
-  // other label/value pair seen throughout this statement's header — quite
-  // possibly the remark too) is captured here purely so it can be inspected
-  // on a real upload without guessing blind. Not yet used for desc/
-  // beneficiary since there's no confirmed pattern to split "branch" from
-  // "remark" within it.
-  const trailingSamples = [];
-
-  matches.forEach((m, i) => {
+  matches.forEach((m) => {
     const [, transDate, , refRaw, amountStr, balanceStr, trailingRaw] = m;
     const amount  = parseAmount(amountStr);
     const balance = parseAmount(balanceStr);
@@ -168,11 +145,9 @@ export function parseGtbankStatementDebug(text) {
     const isOut = balance < runningBalance;
     runningBalance = balance;
 
-    if (trailingSamples.length < 12) {
-      trailingSamples.push((trailingRaw || "").replace(/\s+/g, " ").trim().slice(0, 200));
-    }
+    const { remark } = splitBranchAndRemark(trailingRaw);
+    if (remark) remarksFoundCount++;
 
-    const remark = remarksTrustworthy ? remarkBlocks[i] : null;
     rows.push({
       date: isoDate,
       desc: remark || `GTBank transaction (ref ${(refRaw || "").replace(/\s+/g, " ").trim() || "n/a"})`,
@@ -211,9 +186,9 @@ export function parseGtbankStatementDebug(text) {
     rows,
     accountRef: `gtbank:${accountNo}`,
     holderName,
-    remarksFound: remarksTrustworthy,
+    remarksFound: remarksFoundCount,
+    remarksTotal: rows.length,
     reconciliation,
-    trailingSamples,
   };
 }
 
