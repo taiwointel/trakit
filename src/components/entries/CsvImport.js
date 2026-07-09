@@ -298,7 +298,12 @@ function autoLabelFor(desc) {
 }
 
 // Words that suggest a clear merchant or category purpose — not a bare person name
-const NOT_A_PERSON = /\b(school|fee|fees|rent|fuel|petrol|food|market|grocery|groceries|loan|repayment|salary|transport|hospital|clinic|medical|drug|pharmacy|savings|invest|pension|insurance|premium|electricity|nepa|phcn|water|gas|internet|wifi|cable|dstv|airtime|data|recharge|clothes|shopping|gym|salon|barber|spa|betting|bet|purchase|subscription|maintenance|repair|service|charge|tax|tithe|offering|donation|church|mosque|toll|fare|ticket|levy|bill|fine|refund|bonus|dividend|konga|jumia|shoprite|spar|amazon|netflix|spotify|paypal|uber|bolt|flutterwave|paystack|opay|palmpay|kuda|mtn|airtel|glo|mobile)\b/i;
+const NOT_A_PERSON = /\b(school|fee|fees|rent|fuel|petrol|food|market|grocery|groceries|loan|repayment|salary|transport|hospital|clinic|medical|drug|pharmacy|savings|invest|pension|insurance|premium|electricity|nepa|phcn|water|gas|internet|wifi|cable|dstv|airtime|data|recharge|clothes|shopping|gym|salon|barber|spa|betting|bet|purchase|subscription|maintenance|repair|service|charge|commission|interest|capitalised|capitalized|tax|tithe|offering|donation|church|mosque|toll|fare|ticket|levy|bill|fine|refund|bonus|dividend|konga|jumia|shoprite|spar|amazon|netflix|spotify|paypal|uber|bolt|flutterwave|paystack|opay|palmpay|kuda|mtn|airtel|glo|mobile)\b/i;
+// Bank narrations glue words together with no separator often enough
+// ("TransferCHARGES", "TransferOutward") that the strict \b-bounded check
+// above alone misses them — "charge" never appears as its own token there,
+// it's stuck mid-word. Caught separately, case-insensitive, no boundary.
+const GLUED_CHARGE_RE = /charges?/i;
 
 // A bare 2–4-word all-alpha narration that looks like a person's name
 function looksLikePersonName(desc) {
@@ -308,6 +313,7 @@ function looksLikePersonName(desc) {
     words.length >= 2 &&
     words.length <= 4 &&
     !NOT_A_PERSON.test(d) &&
+    !GLUED_CHARGE_RE.test(d) &&
     !/\d/.test(d) &&
     words.every((w) => /^[A-Za-z'.-]{2,}$/.test(w))
   );
@@ -1731,7 +1737,7 @@ export default function CsvImport({ onImported, onJumpToMonth, anchor, onSaveAnc
                   <span style={{ color: "var(--gold)" }}>click to select</span>
                 </span>
                 <span className="text-xs" style={{ color: "var(--ink-text-dim)", fontFamily: "var(--font-sans)", opacity: 0.7 }}>
-                  CSV · PDF · JPG · PNG — GTBank, Access, Zenith, UBA, OPay (max 4 MB each) · multiple files/banks OK
+                  CSV · PDF · JPG · PNG — GTBank, OPay, PalmPay, Access Bank (max 4 MB each) · multiple files/banks OK
                 </span>
               </>
             )}
