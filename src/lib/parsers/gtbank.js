@@ -142,8 +142,17 @@ export function parseGtbankStatementDebug(text) {
   const rows = [];
   let runningBalance = openingBalance;
 
+  // Diagnostic only, for now: the text trailing each row's balance (branch
+  // name, and — if GTBank glues it on with no separator, matching every
+  // other label/value pair seen throughout this statement's header — quite
+  // possibly the remark too) is captured here purely so it can be inspected
+  // on a real upload without guessing blind. Not yet used for desc/
+  // beneficiary since there's no confirmed pattern to split "branch" from
+  // "remark" within it.
+  const trailingSamples = [];
+
   matches.forEach((m, i) => {
-    const [, transDate, , refRaw, amountStr, balanceStr] = m;
+    const [, transDate, , refRaw, amountStr, balanceStr, trailingRaw] = m;
     const amount  = parseAmount(amountStr);
     const balance = parseAmount(balanceStr);
     if (amount === null || balance === null || amount <= 0) {
@@ -158,6 +167,10 @@ export function parseGtbankStatementDebug(text) {
     }
     const isOut = balance < runningBalance;
     runningBalance = balance;
+
+    if (trailingSamples.length < 12) {
+      trailingSamples.push((trailingRaw || "").replace(/\s+/g, " ").trim().slice(0, 200));
+    }
 
     const remark = remarksTrustworthy ? remarkBlocks[i] : null;
     rows.push({
@@ -200,6 +213,7 @@ export function parseGtbankStatementDebug(text) {
     holderName,
     remarksFound: remarksTrustworthy,
     reconciliation,
+    trailingSamples,
   };
 }
 

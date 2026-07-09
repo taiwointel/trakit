@@ -141,12 +141,16 @@ export async function POST(request) {
       console.warn("GTBank statement reconciliation drift:", gtbankDebug.reconciliation, "account:", gtbankDebug.accountRef);
     }
     if (!gtbankDebug.remarksFound) {
-      console.warn("GTBank statement: remarks/narration text not found or count mismatch — descriptions are generic for this import.", "account:", gtbankDebug.accountRef);
+      console.warn("GTBank statement: remarks/narration text not found or count mismatch — descriptions are generic for this import.", "account:", gtbankDebug.accountRef, "trailingSamples:", gtbankDebug.trailingSamples);
     }
     return NextResponse.json({
       status: "done",
       rows: filterRows(gtbankDebug.rows),
       accountHolderName: gtbankDebug.holderName || accountHolderName,
+      // Temporary: lets the actual trailing-text shape be inspected via the
+      // browser's Network tab on a real upload, without needing server log
+      // access, while remarks extraction is still unconfirmed for this bank.
+      _gtbankDebug: !gtbankDebug.remarksFound ? { trailingSamples: gtbankDebug.trailingSamples } : undefined,
     });
   }
 
