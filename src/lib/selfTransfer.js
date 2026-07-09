@@ -77,6 +77,24 @@ export function extractAccountHolderName(text) {
   return null;
 }
 
+// Some banks' PDFs glue name words together with zero space in the raw
+// text layer (e.g. "TAIWO OLAGOKEOGUNFILE" instead of "TAIWO OLAGOKE
+// OGUNFILE") — pdf-parse only ever inserts a space where the source PDF's
+// own character stream literally has one, so a run like this can't be
+// split back into separate words after the fact, and the word-by-word
+// check above can't see "OLAGOKE" or "OGUNFILE" as their own tokens.
+// A plain substring check doesn't work as a fallback either: the glued
+// fragment's word order (as printed in a transaction narration) can differ
+// from the holder-name field's own order, so "OGUNFILE TAIWO OLAGOKE"
+// isn't a substring of "TAIWO OLAGOKEOGUNFILE" even though it's the same
+// name. Comparing the two names' letters sorted (order-independent) is
+// what actually catches this — same name, any spacing, any word order.
+// Requires an exact match on a name of meaningful length, so this only
+// ever fires for the true full-name case, not a partial/shortened one.
+function sortedLetters(name) {
+  return (name || "").toUpperCase().replace(/[^A-Z]/g, "").split("").sort().join("");
+}
+
 // True if two names likely belong to the same person, regardless of word
 // order. Requires at least 2 shared name words (so a single shared
 // surname/first name doesn't false-positive against an unrelated person),
@@ -88,10 +106,14 @@ export function extractAccountHolderName(text) {
 export function namesLikelySamePerson(a, b) {
   const wordsA = normalizeNameWords(a);
   const wordsB = normalizeNameWords(b);
-  if (wordsA.length < 2 || wordsB.length < 2) return false;
-  const setB   = new Set(wordsB);
-  const shared = wordsA.filter((w) => setB.has(w)).length;
-  return shared >= 2 && shared >= Math.min(wordsA.length, wordsB.length);
+  if (wordsA.length >= 2 && wordsB.length >= 2) {
+    const setB   = new Set(wordsB);
+    const shared = wordsA.filter((w) => setB.has(w)).length;
+    if (shared >= 2 && shared >= Math.min(wordsA.length, wordsB.length)) return true;
+  }
+  const sortedA = sortedLetters(a);
+  const sortedB = sortedLetters(b);
+  return sortedA.length >= 8 && sortedA === sortedB;
 }
 
 // True if `beneficiary` and `fullName` name the same person — kept as a
