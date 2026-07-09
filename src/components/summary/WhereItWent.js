@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { CATEGORY_COLORS } from "@/lib/categories";
 import { formatNaira } from "@/lib/format";
 
@@ -100,17 +100,25 @@ function BarChart({ slices }) {
 export default function WhereItWent({ entries }) {
   const [mode, setMode] = useState("pie");
 
-  const outEntries = entries.filter((e) => e.flow === "out" && e.category && e.category !== "Income" && e.category !== "Self");
-  const total      = outEntries.reduce((s, e) => s + Number(e.amount), 0);
+  // mode (pie/bar toggle) and any hover state below are local UI state with
+  // no bearing on the underlying numbers — without memoizing this, every
+  // toggle click and every slice/bar hover re-filtered and re-reduced the
+  // full entries array from scratch.
+  const slices = useMemo(() => {
+    const outEntries = entries.filter((e) => e.flow === "out" && e.category && e.category !== "Income" && e.category !== "Self");
+    const total       = outEntries.reduce((s, e) => s + Number(e.amount), 0);
 
-  const byCategory = {};
-  for (const e of outEntries) {
-    byCategory[e.category] = (byCategory[e.category] || 0) + Number(e.amount);
-  }
+    const byCategory = {};
+    for (const e of outEntries) {
+      byCategory[e.category] = (byCategory[e.category] || 0) + Number(e.amount);
+    }
 
-  const slices = Object.entries(byCategory)
-    .map(([category, amount]) => ({ category, amount, pct: total > 0 ? (amount / total) * 100 : 0 }))
-    .sort((a, b) => b.amount - a.amount);
+    return Object.entries(byCategory)
+      .map(([category, amount]) => ({ category, amount, pct: total > 0 ? (amount / total) * 100 : 0 }))
+      .sort((a, b) => b.amount - a.amount);
+  }, [entries]);
+
+  const total = slices.reduce((s, sl) => s + sl.amount, 0);
 
   if (slices.length === 0) {
     return (

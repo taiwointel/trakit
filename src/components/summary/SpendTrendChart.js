@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { formatNaira } from "@/lib/format";
 
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
@@ -62,7 +62,12 @@ export default function SpendTrendChart({ entries, from, to }) {
   const start = from || (() => { const d = new Date(); d.setDate(d.getDate() - 29); return d.toISOString().slice(0, 10); })();
   const end   = to || today;
 
-  const buckets = bucketEntries(entries, start, end);
+  // bucketEntries filters/groups the full entries array — expensive on a
+  // large ledger, so it must not re-run on every render. Without this memo
+  // it re-ran on every bar hover (setHovered is local state with no
+  // relation to the bucketing inputs), which is exactly the kind of
+  // interaction that reads as "laggy" on a ledger with 1000+ entries.
+  const buckets = useMemo(() => bucketEntries(entries, start, end), [entries, start, end]);
 
   if (buckets.length === 0) {
     return (

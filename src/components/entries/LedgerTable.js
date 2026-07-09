@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, memo } from "react";
 import { CATEGORY_NAMES } from "@/lib/categories";
 import { formatNaira, formatAmountInput, parseAmount } from "@/lib/format";
 import { categoryPatch, INTERNAL_TRANSFER_CATEGORY } from "@/lib/selfTransfer";
@@ -342,7 +342,14 @@ function MobileEditForm({ entry, onSave, onCancel }) {
 }
 
 // ── Mobile card view ──────────────────────────────────────────────────────────
-function MobileCard({ entry, onEdit, onDelete, onUpdate, allEntries, onBulkUpdateSameBeneficiary }) {
+// Wrapped in memo: with hundreds to thousands of rows, an unmemoized row
+// component re-renders every single row on any parent state change (typing
+// in the search box, opening the inline editor on one unrelated row,
+// sorting) — this is the dominant source of felt lag on a large ledger.
+// Props are stable (entry is the same object reference until it actually
+// changes; callbacks are useCallback'd in useEntries), so a plain shallow
+// comparison correctly skips every row that didn't change.
+const MobileCard = memo(function MobileCard({ entry, onEdit, onDelete, onUpdate, allEntries, onBulkUpdateSameBeneficiary }) {
   const { purpose, detail } = splitDesc(entry);
   const isIncome = entry.flow === "in";
 
@@ -428,10 +435,10 @@ function MobileCard({ entry, onEdit, onDelete, onUpdate, allEntries, onBulkUpdat
       </div>
     </div>
   );
-}
+});
 
 // ── Desktop table row ─────────────────────────────────────────────────────────
-function DesktopRow({ entry, index, total, onEdit, onDelete, onUpdate, allEntries, onBulkUpdateSameBeneficiary }) {
+const DesktopRow = memo(function DesktopRow({ entry, index, total, onEdit, onDelete, onUpdate, allEntries, onBulkUpdateSameBeneficiary }) {
   const { purpose, detail } = splitDesc(entry);
   const isIncome = entry.flow === "in";
   const isLast   = index === total - 1;
@@ -546,7 +553,7 @@ function DesktopRow({ entry, index, total, onEdit, onDelete, onUpdate, allEntrie
       </td>
     </tr>
   );
-}
+});
 
 // ── Main export ───────────────────────────────────────────────────────────────
 export default function LedgerTable({ entries, allEntries, onUpdate, onDelete, onClearAll, onBulkUpdate, onBulkUpdateSameBeneficiary }) {
