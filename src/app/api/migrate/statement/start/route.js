@@ -7,6 +7,7 @@ import {
 import { parseOpayStatementDebug } from "@/lib/parsers/opay";
 import { parsePalmpayStatementDebug } from "@/lib/parsers/palmpay";
 import { parseAccessStatementDebug } from "@/lib/parsers/access";
+import { parseGtbankStatementDebug } from "@/lib/parsers/gtbank";
 import { extractAccountHolderName } from "@/lib/selfTransfer";
 import { getGroqKey } from "@/lib/groqKey";
 // pdf-parse is imported dynamically below to prevent module-level test-file
@@ -128,6 +129,25 @@ export async function POST(request) {
   const accessDebug = parseAccessStatementDebug(text);
   if (accessDebug.ok) {
     return NextResponse.json({ status: "done", rows: filterRows(accessDebug.rows), accountHolderName });
+  }
+  const gtbankDebug = parseGtbankStatementDebug(text);
+  if (gtbankDebug.ok) {
+    // Same loud-not-silent principle as OPay above, plus: remarks/
+    // beneficiary text is a best-effort secondary extraction on this
+    // parser (see gtbank.js) — surface whether it actually found a clean
+    // pairing so this is visible in server logs on real uploads instead of
+    // silently shipping descriptions with no narration.
+    if (gtbankDebug.reconciliation && gtbankDebug.reconciliation.drift > 1) {
+      console.warn("GTBank statement reconciliation drift:", gtbankDebug.reconciliation, "account:", gtbankDebug.accountRef);
+    }
+    if (!gtbankDebug.remarksFound) {
+      console.warn("GTBank statement: remarks/narration text not found or count mismatch — descriptions are generic for this import.", "account:", gtbankDebug.accountRef);
+    }
+    return NextResponse.json({
+      status: "done",
+      rows: filterRows(gtbankDebug.rows),
+      accountHolderName: gtbankDebug.holderName || accountHolderName,
+    });
   }
 
   if (!getGroqKey()) {
